@@ -130,7 +130,7 @@ Recommended habit:
 
 ## Next Discussion
 
-The next useful discussion is now to define the minimal Python models for the toy workflow kernel.
+The next useful discussion is now to implement the first persistence and execution slice of the toy workflow kernel.
 
 The current toy scenario is:
 
@@ -139,4 +139,4 @@ The current toy scenario is:
 3. persistence: store run and task state as JSON under `data_dir`
 4. execution: copy files one by one into `output_dir`
 
-That is enough to introduce the target architecture without yet solving translation, paragraph fragmentation, or reassembly.
+The domain models for that slice are already implemented. The next coding step is to add repositories, handlers, and the sequential engine loop.

@@ -216,14 +216,37 @@ Once this slice works, the next evolutions become much easier:
 - producing translated fragments
 - reassembling full documents
 
+## Current Implementation Status
+
+The first domain models for the toy workflow kernel are now implemented.
+
+Implemented in the codebase:
+
+- `TaskStatus`
+- `DiscoverFilesTaskSpec`
+- `CopyFileTaskSpec`
+- `TaskOutcome`
+- `TaskRecord`
+- `RunRequest`
+
+What is intentionally not implemented yet:
+
+- task key generation
+- JSON repositories under `work/data`
+- task handlers
+- workflow engine loop
+- CLI entry point for the toy workflow
+
 ## Next Technical Step
 
-The next technical design task is to define the minimal Python models for:
+The next implementation step is to build the first persistence and execution slice around the models.
 
-1. `RunRequest`
-2. `TaskSpec`
-3. `TaskRecord`
-4. `TaskOutcome`
-5. `TaskStatus`
+Recommended order:
 
-After that, we can design the handlers and the engine loop around those models.
+1. add stable task key generation, especially for `copy_file`
+2. add JSON repositories for runs and tasks under `work/data`
+3. add the first two task handlers: `discover_files` and `copy_file`
+4. add a sequential `WorkflowEngine` loop
+5. expose the toy workflow through a small CLI command
+
+The first milestone is simple: asking to copy all files from `input_dir` should create persistent task records, execute the needed copy tasks, and reproduce the directory tree under `output_dir`.

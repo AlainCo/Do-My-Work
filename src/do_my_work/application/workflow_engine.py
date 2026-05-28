@@ -10,6 +10,8 @@ from do_my_work.domain.models import (
     RunRequest,
     TaskRecord,
     TaskStatus,
+    WorkflowRunResult,
+    WorkflowRunSummary,
     WorkspaceConfig,
 )
 from do_my_work.infrastructure.json_workflow_store import JsonRunRepository, JsonTaskRepository
@@ -19,9 +21,13 @@ class WorkflowEngine:
     def __init__(self) -> None:
         self._logger = logging.getLogger(__name__)
 
-    def run(self, config: WorkspaceConfig, root: Path = Path(".")) -> RunRequest:
+    def run(self, config: WorkspaceConfig, root: Path = Path(".")) -> WorkflowRunResult:
         task_repository = JsonTaskRepository(config.data_dir / "tasks")
         run_repository = JsonRunRepository(config.data_dir / "runs")
+        executed_task_keys: set[str] = set()
+        created_task_keys: set[str] = set()
+        replayed_task_keys: set[str] = set()
+        unchanged_task_keys: set[str] = set()
 
         root_task_key = make_discover_documents_task_key(root)
         root_record = task_repository.get(root_task_key)
@@ -31,6 +37,11 @@ class WorkflowEngine:
                 spec=DiscoverDocumentsTaskSpec(root=root),
             )
             task_repository.save(root_record)
+
+        initial_task_records = task_repository.list_all()
+        initially_succeeded_task_keys = {
+            task.task_key for task in initial_task_records if task.status == TaskStatus.SUCCEEDED
+        }
 
         run_request = RunRequest(
             run_id=_build_run_id(),
@@ -55,11 +66,15 @@ class WorkflowEngine:
                 config,
                 task_repository,
                 revalidator,
+                initially_succeeded_task_keys,
+                replayed_task_keys,
+                unchanged_task_keys,
             )
             next_task = self._select_next_task(task_records)
             if next_task is None:
                 break
 
+            executed_task_keys.add(next_task.task_key)
             self._logger.info(
                 "Executing task: key=%s kind=%s status=%s",
                 next_task.task_key,
@@ -81,6 +96,7 @@ class WorkflowEngine:
             )
             for new_record in result.new_records:
                 task_repository.save(new_record)
+                created_task_keys.add(new_record.task_key)
                 self._logger.info(
                     "Task created: key=%s kind=%s",
                     new_record.task_key,
@@ -91,12 +107,25 @@ class WorkflowEngine:
         run_status = self._resolve_run_status(task_repository.list_all(), root_record)
         completed_run = run_request.model_copy(update={"status": run_status})
         run_repository.save(completed_run)
+        summary = WorkflowRunSummary(
+            executed_task_count=len(executed_task_keys),
+            replayed_task_count=len(replayed_task_keys),
+            created_task_count=len(created_task_keys),
+            unchanged_task_count=len(unchanged_task_keys),
+        )
+        self._logger.info(
+            "Workflow run summary: executed=%s replayed=%s created=%s unchanged=%s",
+            summary.executed_task_count,
+            summary.replayed_task_count,
+            summary.created_task_count,
+            summary.unchanged_task_count,
+        )
         self._logger.info(
             "Workflow run finished: run_id=%s status=%s",
             completed_run.run_id,
             completed_run.status,
         )
-        return completed_run
+        return WorkflowRunResult(run_request=completed_run, summary=summary)
 
     def _revalidate_task_records(
         self,
@@ -104,12 +133,21 @@ class WorkflowEngine:
         config: WorkspaceConfig,
         task_repository: JsonTaskRepository,
         revalidator: TaskRevalidator,
+        initially_succeeded_task_keys: set[str],
+        replayed_task_keys: set[str],
+        unchanged_task_keys: set[str],
     ) -> list[TaskRecord]:
         refreshed_records = revalidator.revalidate_all(task_records, config)
 
         for original_record, refreshed_record in zip(task_records, refreshed_records, strict=False):
             if refreshed_record != original_record:
                 task_repository.save(refreshed_record)
+                if (
+                    original_record.task_key in initially_succeeded_task_keys
+                    and refreshed_record.status == TaskStatus.PENDING
+                ):
+                    replayed_task_keys.add(original_record.task_key)
+                    unchanged_task_keys.discard(original_record.task_key)
                 self._logger.info(
                     "Task revalidated: key=%s kind=%s old_status=%s new_status=%s",
                     original_record.task_key,
@@ -117,6 +155,8 @@ class WorkflowEngine:
                     original_record.status.value,
                     refreshed_record.status.value,
                 )
+            elif original_record.task_key in initially_succeeded_task_keys:
+                unchanged_task_keys.add(original_record.task_key)
 
         return refreshed_records
 

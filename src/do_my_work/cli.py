@@ -88,8 +88,12 @@ def copy_tree(
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
-    run_id = BatchRunner().run_copy_tree(workspace_config, root=root)
-    typer.echo(f"Workflow run completed: {run_id}")
+    run_result = BatchRunner().run_copy_tree(workspace_config, root=root)
+    typer.echo(f"Workflow run completed: {run_result.run_id}")
+    typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
+    typer.echo(f"Tasks replayed: {run_result.summary.replayed_task_count}")
+    typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
+    typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
 
 
 if __name__ == "__main__":

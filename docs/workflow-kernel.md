@@ -252,6 +252,7 @@ Implemented in the codebase:
 - a sequential `WorkflowEngine` loop
 - revalidation of succeeded tasks when their expected result is no longer present
 - business-oriented workflow logs for task execution, task creation, and task replay after revalidation
+- a run summary reporting how many tasks were executed, replayed, created, or left unchanged
 - a CLI entry point for the toy workflow
 
 What is intentionally not implemented yet:

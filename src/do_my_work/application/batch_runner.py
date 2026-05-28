@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from do_my_work.application.workflow_engine import WorkflowEngine
-from do_my_work.domain.models import BatchRunResult, WorkspaceConfig
+from do_my_work.domain.models import BatchRunResult, WorkflowRunResult, WorkspaceConfig
 
 
 class BatchRunner:
@@ -24,7 +24,7 @@ class BatchRunner:
         message = "Workspace configuration loaded."
         return BatchRunResult(message=message, workspace=config)
 
-    def run_copy_tree(self, config: WorkspaceConfig, root: Path = Path(".")) -> str:
+    def run_copy_tree(self, config: WorkspaceConfig, root: Path = Path(".")) -> WorkflowRunResult:
         self._logger.info(
             "Running Markdown document copy workflow with root=%s input=%s output=%s data=%s",
             root,
@@ -32,5 +32,4 @@ class BatchRunner:
             config.output_dir,
             config.data_dir,
         )
-        run_request = WorkflowEngine().run(config, root=root)
-        return run_request.run_id
+        return WorkflowEngine().run(config, root=root)

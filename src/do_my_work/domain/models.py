@@ -20,6 +20,15 @@ class BatchRunResult(BaseModel):
     workspace: WorkspaceConfig
 
 
+class WorkflowRunSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    executed_task_count: int = 0
+    replayed_task_count: int = 0
+    created_task_count: int = 0
+    unchanged_task_count: int = 0
+
+
 class TaskStatus(str, Enum):
     PENDING = "pending"
     WAITING = "waiting"
@@ -75,3 +84,18 @@ class RunRequest(BaseModel):
     root: Path = Field(default=Path("."))
     status: Literal["pending", "running", "succeeded", "failed"] = "pending"
     root_task_key: str
+
+
+class WorkflowRunResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_request: RunRequest
+    summary: WorkflowRunSummary
+
+    @property
+    def run_id(self) -> str:
+        return self.run_request.run_id
+
+    @property
+    def status(self) -> str:
+        return self.run_request.status

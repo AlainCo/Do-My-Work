@@ -39,6 +39,7 @@ The following practices are now part of the working agreement for this repositor
 - update the relevant document in `docs/` when a design decision or working rule becomes durable
 - note local environment quirks when they cost time more than once
 - treat glossary and terminology choices as important design decisions, because names shape the domain model, the CLI, and the documentation
+- keep business-oriented traces of the tasks that are executed, replayed, created, or left unchanged when that behavior matters for understanding the workflow
 
 ## Local Environment Notes
 

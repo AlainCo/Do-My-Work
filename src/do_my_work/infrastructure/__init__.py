@@ -1,0 +1,1 @@
+"""Technical adapters for files, YAML, JSON, and external APIs."""

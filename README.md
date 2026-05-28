@@ -9,6 +9,11 @@ Batch application scaffold in modern Python, with a simple CLI entry point, vali
 - separate orchestration, domain objects, and technical I/O
 - start with a trivial batch while keeping the right structure
 
+## Direction documents
+
+- `docs/foundations.md`: stable vocabulary and configuration rules
+- `docs/project-direction.md`: current product vision, working approach, and the workflow-kernel target
+
 ## Project layout
 
 ```text

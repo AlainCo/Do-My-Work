@@ -1,5 +1,7 @@
 import logging
+from pathlib import Path
 
+from do_my_work.application.workflow_engine import WorkflowEngine
 from do_my_work.domain.models import BatchRunResult, WorkspaceConfig
 
 
@@ -21,3 +23,8 @@ class BatchRunner:
         )
         message = "Workspace configuration loaded."
         return BatchRunResult(message=message, workspace=config)
+
+    def run_copy_tree(self, config: WorkspaceConfig, root: Path = Path(".")) -> str:
+        self._logger.info("Running copy-tree workflow with root=%s", root)
+        run_request = WorkflowEngine().run(config, root=root)
+        return run_request.run_id

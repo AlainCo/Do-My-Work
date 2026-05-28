@@ -2,17 +2,13 @@
 
 Batch application scaffold in modern Python, with a simple CLI entry point, validated YAML configuration, and room for future workflow orchestration.
 
-## Goals
+## Documentation Map
 
-- keep the project easy to read and publish on GitHub
-- stay close to Python standards
-- separate orchestration, domain objects, and technical I/O
-- start with a trivial batch while keeping the right structure
-
-## Direction documents
-
+- `README.md`: quick project overview and main entry points
 - `docs/foundations.md`: stable vocabulary and configuration rules
-- `docs/project-direction.md`: current product vision, working approach, and the workflow-kernel target
+- `docs/project-direction.md`: product vision and current direction
+- `docs/workflow-kernel.md`: design note for the toy workflow kernel
+- `docs/collaboration.md`: working method, documentation split, and local environment notes
 
 ## Project layout
 
@@ -26,29 +22,6 @@ src/do_my_work/
 tests/
 docs/
 ```
-
-## Why these files exist
-
-- `pyproject.toml`: the central project file for metadata, dependencies, test config, and tooling.
-- `.python-version`: documents the Python version used by the project.
-- `src/`: the recommended layout for import safety and packaging hygiene.
-- `cli.py`: your manual batch entry point.
-- `application/`: use cases and orchestration.
-- `domain/`: business models without file-system concerns.
-- `infrastructure/`: YAML/JSON/filesystem/API adapters.
-- `tests/`: executable documentation and regression safety.
-- `docs/`: living project notes for the team.
-
-## Foundational naming
-
-The first durable configuration concept is called `WorkspaceConfig`.
-
-- `workspace`: a clear English name for the set of working directories used by the batch.
-- `input_dir`: where source documents live.
-- `output_dir`: where generated files are written.
-- `data_dir`: where the application stores state, work items, and intermediate artifacts.
-
-This is deliberately broader and more reusable than `HelloJobConfig`. It can survive when the real workflow arrives.
 
 ## Local setup with `venv` and `pip`
 
@@ -73,7 +46,13 @@ python -m pip install -e ".[dev]"
 
 PowerShell note: the extra selector must be quoted. Without quotes, `[dev]` can be interpreted by the shell and `pip` may receive the wrong path.
 
-## Run the batch scaffold
+For the project commands below, using the virtual environment Python explicitly is the safest option on this workstation:
+
+```powershell
+.\.venv\Scripts\python.exe -m do_my_work.cli --help
+```
+
+## Main commands
 
 Without a config file:
 
@@ -93,6 +72,27 @@ Override one or more directories on the command line:
 do-my-work hello --input-dir custom/input --output-dir custom/output --data-dir custom/data
 ```
 
+## Run the toy workflow kernel
+
+Copy everything under `input_dir`, persist runs and tasks in `data_dir`, and reproduce the tree in `output_dir`:
+
+```powershell
+do-my-work copy-tree
+```
+
+Run the same workflow with explicit directories:
+
+```powershell
+do-my-work copy-tree --input-dir work/input --output-dir work/output --data-dir work/data
+```
+
+Inspect the current command surface:
+
+```powershell
+do-my-work --help
+do-my-work copy-tree --help
+```
+
 ## Run the tests
 
 ```powershell
@@ -106,6 +106,4 @@ ruff check .
 ruff format --check .
 ```
 
-## Next architectural step
-
-Once the workspace flow is stable, the natural next move is to add a repository for persisted JSON state and a workflow service that scans `work/input/` and writes to `work/output/`.
+For the current implementation direction and collaboration rules, use the documents under `docs/`.

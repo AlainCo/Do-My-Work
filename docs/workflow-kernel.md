@@ -4,6 +4,8 @@
 
 This document captures the first agreed design for a toy workflow kernel.
 
+For collaboration rules, validation habits, and local environment notes, see `docs/collaboration.md`.
+
 The immediate goal is not to build the final Markdown processing engine.
 The immediate goal is to introduce the right architecture with a very small scenario.
 
@@ -218,7 +220,7 @@ Once this slice works, the next evolutions become much easier:
 
 ## Current Implementation Status
 
-The first domain models for the toy workflow kernel are now implemented.
+The first persistence and execution slice of the toy workflow kernel is now implemented.
 
 Implemented in the codebase:
 
@@ -228,25 +230,29 @@ Implemented in the codebase:
 - `TaskOutcome`
 - `TaskRecord`
 - `RunRequest`
+- stable task key generation for `discover_files` and `copy_file`
+- JSON repositories for runs and tasks under `data_dir`
+- task handlers for `discover_files` and `copy_file`
+- a sequential `WorkflowEngine` loop
+- a CLI entry point for the toy workflow
 
 What is intentionally not implemented yet:
 
-- task key generation
-- JSON repositories under `work/data`
-- task handlers
-- workflow engine loop
-- CLI entry point for the toy workflow
+- richer run summaries and reporting
+- filtering or policy rules for discovery
+- explicit artifact and lineage inventories
+- incremental rebuild validation beyond stable task identity
 
 ## Next Technical Step
 
-The next implementation step is to build the first persistence and execution slice around the models.
+The next implementation step is to strengthen this slice without widening the architecture too quickly.
 
 Recommended order:
 
-1. add stable task key generation, especially for `copy_file`
-2. add JSON repositories for runs and tasks under `work/data`
-3. add the first two task handlers: `discover_files` and `copy_file`
-4. add a sequential `WorkflowEngine` loop
-5. expose the toy workflow through a small CLI command
+1. add focused tests for repositories and failure paths
+2. decide whether discovery should already be limited to Markdown files
+3. improve run summaries and CLI reporting
+4. clarify how reused succeeded tasks should be validated against missing outputs
+5. only then introduce richer artifact or lineage concepts if they are still needed
 
-The first milestone is simple: asking to copy all files from `input_dir` should create persistent task records, execute the needed copy tasks, and reproduce the directory tree under `output_dir`.
+The current milestone is now achieved: asking to copy all files from `input_dir` creates persistent task records, executes the needed copy tasks, and reproduces the directory tree under `output_dir`.

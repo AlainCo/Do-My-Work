@@ -16,21 +16,9 @@ The target is not a one-shot script. The target is a shareable GitHub project wi
 
 ## How We Work
 
-We advance in small steps.
+The working rules for collaboration, tests, CLI help maintenance, and local environment notes now live in `docs/collaboration.md`.
 
-- each step should stay understandable for a Python beginner
-- each step should remain aligned with normal professional practices
-- we discuss architecture and tradeoffs before implementing them
-- we keep the code easy to read, easy to test, and easy to publish
-- we record important decisions in documentation instead of keeping them only in chat
-
-This means the project should prefer:
-
-- simple domain vocabulary
-- small responsibilities per module
-- explicit data structures
-- executable tests for each new concept
-- incremental refactoring instead of early over-engineering
+At the direction level, the important point is that we keep advancing in small, teachable increments.
 
 ## Stable Vocabulary
 
@@ -120,7 +108,7 @@ In practice, that means the workflow kernel should first be modeled in the domai
 To keep discussions useful over time, we should maintain two levels of documentation:
 
 - `README.md` for project overview and entry points
-- documents in `docs/` for decisions, direction, and architecture notes
+- documents in `docs/` for decisions, direction, architecture notes, and working agreements
 
 Recommended habit:
 
@@ -128,9 +116,9 @@ Recommended habit:
 - when a decision changes how newcomers understand the project, reflect it in `README.md`
 - when a choice is temporary, mark it as the current step instead of presenting it as final architecture
 
-## Next Discussion
+## Current Kernel Slice
 
-The next useful discussion is now to implement the first persistence and execution slice of the toy workflow kernel.
+The first persistence and execution slice of the toy workflow kernel is now implemented.
 
 The current toy scenario is:
 
@@ -139,4 +127,21 @@ The current toy scenario is:
 3. persistence: store run and task state as JSON under `data_dir`
 4. execution: copy files one by one into `output_dir`
 
-The domain models for that slice are already implemented. The next coding step is to add repositories, handlers, and the sequential engine loop.
+This means the codebase now includes:
+
+- stable task key generation for `discover_files` and `copy_file`
+- JSON repositories for runs and tasks under `data_dir`
+- the first two task handlers
+- a sequential workflow engine loop
+- a small CLI command to launch the toy workflow
+
+## Next Discussion
+
+The next useful discussion is now about how to extend this first slice without breaking the step-by-step teaching approach.
+
+Good candidates are:
+
+- whether discovery should already filter only Markdown files
+- how much run summary data the CLI should print
+- what failure and retry behavior we want in the persisted task model
+- when to introduce artifact inventories versus keeping the task model central for a while

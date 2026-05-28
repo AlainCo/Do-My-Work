@@ -1,7 +1,6 @@
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Literal
-
-from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 

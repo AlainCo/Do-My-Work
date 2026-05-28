@@ -25,6 +25,12 @@ class BatchRunner:
         return BatchRunResult(message=message, workspace=config)
 
     def run_copy_tree(self, config: WorkspaceConfig, root: Path = Path(".")) -> str:
-        self._logger.info("Running Markdown document copy workflow with root=%s", root)
+        self._logger.info(
+            "Running Markdown document copy workflow with root=%s input=%s output=%s data=%s",
+            root,
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
         run_request = WorkflowEngine().run(config, root=root)
         return run_request.run_id

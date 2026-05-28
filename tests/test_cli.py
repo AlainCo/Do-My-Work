@@ -64,6 +64,10 @@ def test_copy_tree_command_copies_markdown_documents_and_persists_state(tmp_path
     )
 
     assert result.exit_code == 0
+    stdout_lines = result.stdout.splitlines()
+    assert stdout_lines[0] == f"Input directory: {input_dir}"
+    assert stdout_lines[1] == f"Output directory: {output_dir}"
+    assert stdout_lines[2] == f"Data directory: {data_dir}"
     assert "Workflow run completed:" in result.stdout
     assert (output_dir / "nested" / "note.md").read_text(encoding="utf-8") == "hello\n"
     assert not (output_dir / "nested" / "ignored.txt").exists()

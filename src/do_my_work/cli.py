@@ -85,11 +85,11 @@ def copy_tree(
         if value is not None
     }
     workspace_config = workspace_config.model_copy(update=overrides)
-    run_id = BatchRunner().run_copy_tree(workspace_config, root=root)
-    typer.echo(f"Workflow run completed: {run_id}")
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
+    run_id = BatchRunner().run_copy_tree(workspace_config, root=root)
+    typer.echo(f"Workflow run completed: {run_id}")
 
 
 if __name__ == "__main__":

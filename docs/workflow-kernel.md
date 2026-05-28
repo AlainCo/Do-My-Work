@@ -251,6 +251,7 @@ Implemented in the codebase:
 - task handlers for `discover_documents` and `copy_file`
 - a sequential `WorkflowEngine` loop
 - revalidation of succeeded tasks when their expected result is no longer present
+- business-oriented workflow logs for task execution, task creation, and task replay after revalidation
 - a CLI entry point for the toy workflow
 
 What is intentionally not implemented yet:

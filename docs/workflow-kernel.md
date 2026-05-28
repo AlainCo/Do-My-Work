@@ -76,7 +76,23 @@ This keeps the storage model simple while still preserving the conceptual distin
 - what its current status is
 - what happened when it ran
 
-### 5. Introduce Only The Concepts Needed Today
+### 5. Reuse Requires Result Validation
+
+A previously succeeded task is not always still satisfied.
+
+For some task kinds, success must be revalidated against the concrete result they are supposed to provide.
+
+For the current `copy_file` task, that means a succeeded record is only still valid if the destination file is still present.
+
+If a user deletes that file to force regeneration, the task should become pending again and the workflow should recreate the missing output.
+
+This principle should generalize later:
+
+- success is not only a stored status
+- success may also require checking that the expected result object still exists or is still valid
+- each task kind may eventually need its own revalidation rule
+
+### 6. Introduce Only The Concepts Needed Today
 
 The long-term architecture will probably include concepts such as artifacts, lineage graphs, fragment inventories, and incremental rebuild policies.
 
@@ -234,6 +250,7 @@ Implemented in the codebase:
 - JSON repositories for runs and tasks under `data_dir`
 - task handlers for `discover_documents` and `copy_file`
 - a sequential `WorkflowEngine` loop
+- revalidation of succeeded tasks when their expected result is no longer present
 - a CLI entry point for the toy workflow
 
 What is intentionally not implemented yet:
@@ -251,7 +268,7 @@ Recommended order:
 
 1. add focused tests for repositories and failure paths
 2. improve run summaries and CLI reporting
-3. clarify how reused succeeded tasks should be validated against missing outputs
+3. extend result revalidation rules carefully as new task kinds appear
 4. only then introduce richer artifact or lineage concepts if they are still needed
 
 The current milestone is now achieved: asking to copy Markdown documents from `input_dir` creates persistent task records, executes the needed copy tasks, and reproduces the matching directory tree under `output_dir`.

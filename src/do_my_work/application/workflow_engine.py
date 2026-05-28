@@ -3,6 +3,7 @@ from pathlib import Path
 
 from do_my_work.application.task_handlers import CopyFileTaskHandler, DiscoverDocumentsTaskHandler
 from do_my_work.application.task_keys import make_discover_documents_task_key
+from do_my_work.application.task_revalidation import TaskRevalidator
 from do_my_work.domain.models import (
     DiscoverDocumentsTaskSpec,
     RunRequest,
@@ -37,9 +38,16 @@ class WorkflowEngine:
 
         discover_handler = DiscoverDocumentsTaskHandler()
         copy_handler = CopyFileTaskHandler()
+        revalidator = TaskRevalidator()
 
         while True:
-            next_task = self._select_next_task(task_repository.list_all())
+            task_records = self._revalidate_task_records(
+                task_repository.list_all(),
+                config,
+                task_repository,
+                revalidator,
+            )
+            next_task = self._select_next_task(task_records)
             if next_task is None:
                 break
 
@@ -57,6 +65,21 @@ class WorkflowEngine:
         completed_run = run_request.model_copy(update={"status": run_status})
         run_repository.save(completed_run)
         return completed_run
+
+    def _revalidate_task_records(
+        self,
+        task_records: list[TaskRecord],
+        config: WorkspaceConfig,
+        task_repository: JsonTaskRepository,
+        revalidator: TaskRevalidator,
+    ) -> list[TaskRecord]:
+        refreshed_records = revalidator.revalidate_all(task_records, config)
+
+        for original_record, refreshed_record in zip(task_records, refreshed_records, strict=False):
+            if refreshed_record != original_record:
+                task_repository.save(refreshed_record)
+
+        return refreshed_records
 
     def _select_next_task(self, task_records: list[TaskRecord]) -> TaskRecord | None:
         ordered_records = sorted(task_records, key=lambda record: record.task_key)

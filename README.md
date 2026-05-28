@@ -74,7 +74,7 @@ do-my-work hello --input-dir custom/input --output-dir custom/output --data-dir 
 
 ## Run the toy workflow kernel
 
-Copy everything under `input_dir`, persist runs and tasks in `data_dir`, and reproduce the tree in `output_dir`:
+Copy Markdown documents under `input_dir`, persist runs and tasks in `data_dir`, and reproduce the matching tree in `output_dir`:
 
 ```powershell
 do-my-work copy-tree

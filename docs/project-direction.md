@@ -122,14 +122,14 @@ The first persistence and execution slice of the toy workflow kernel is now impl
 
 The current toy scenario is:
 
-1. request: copy everything under `input_dir`
-2. discovery: list files under the requested subtree
+1. request: copy Markdown documents under `input_dir`
+2. discovery: list Markdown documents under the requested subtree
 3. persistence: store run and task state as JSON under `data_dir`
 4. execution: copy files one by one into `output_dir`
 
 This means the codebase now includes:
 
-- stable task key generation for `discover_files` and `copy_file`
+- stable task key generation for `discover_documents` and `copy_file`
 - JSON repositories for runs and tasks under `data_dir`
 - the first two task handlers
 - a sequential workflow engine loop
@@ -141,7 +141,6 @@ The next useful discussion is now about how to extend this first slice without b
 
 Good candidates are:
 
-- whether discovery should already filter only Markdown files
 - how much run summary data the CLI should print
 - what failure and retry behavior we want in the persisted task model
 - when to introduce artifact inventories versus keeping the task model central for a while

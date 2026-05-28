@@ -13,8 +13,8 @@ The immediate goal is to introduce the right architecture with a very small scen
 
 The first scenario is intentionally simple:
 
-1. the user asks to copy everything under `work/input`
-2. the workflow engine discovers the files to process
+1. the user asks to copy Markdown documents under `work/input`
+2. the workflow engine discovers the documents to process
 3. the engine creates one unit task per file
 4. each file is copied to the matching relative path under `work/output`
 5. workflow state is persisted as JSON under `work/data`
@@ -108,12 +108,12 @@ These names are intentionally ordinary and close to common backend or workflow t
 
 The first toy kernel only needs two task kinds.
 
-### `discover_files`
+### `discover_documents`
 
 Purpose:
 
 - inspect a subtree under `input_dir`
-- identify files that must be copied
+- identify Markdown documents that must be copied
 - create child `copy_file` tasks
 
 Expected behavior:
@@ -146,7 +146,7 @@ The first engine can stay very simple and sequential.
 Suggested loop:
 
 1. create a `RunRequest`
-2. create the root `discover_files` task for the requested subtree
+2. create the root `discover_documents` task for the requested subtree
 3. load pending or waiting task records from `data_dir`
 4. select a task that can make progress
 5. dispatch it to its handler
@@ -225,14 +225,14 @@ The first persistence and execution slice of the toy workflow kernel is now impl
 Implemented in the codebase:
 
 - `TaskStatus`
-- `DiscoverFilesTaskSpec`
+- `DiscoverDocumentsTaskSpec`
 - `CopyFileTaskSpec`
 - `TaskOutcome`
 - `TaskRecord`
 - `RunRequest`
-- stable task key generation for `discover_files` and `copy_file`
+- stable task key generation for `discover_documents` and `copy_file`
 - JSON repositories for runs and tasks under `data_dir`
-- task handlers for `discover_files` and `copy_file`
+- task handlers for `discover_documents` and `copy_file`
 - a sequential `WorkflowEngine` loop
 - a CLI entry point for the toy workflow
 
@@ -250,9 +250,8 @@ The next implementation step is to strengthen this slice without widening the ar
 Recommended order:
 
 1. add focused tests for repositories and failure paths
-2. decide whether discovery should already be limited to Markdown files
-3. improve run summaries and CLI reporting
-4. clarify how reused succeeded tasks should be validated against missing outputs
-5. only then introduce richer artifact or lineage concepts if they are still needed
+2. improve run summaries and CLI reporting
+3. clarify how reused succeeded tasks should be validated against missing outputs
+4. only then introduce richer artifact or lineage concepts if they are still needed
 
-The current milestone is now achieved: asking to copy all files from `input_dir` creates persistent task records, executes the needed copy tasks, and reproduces the directory tree under `output_dir`.
+The current milestone is now achieved: asking to copy Markdown documents from `input_dir` creates persistent task records, executes the needed copy tasks, and reproduces the matching directory tree under `output_dir`.

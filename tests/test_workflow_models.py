@@ -2,7 +2,7 @@ from pathlib import Path
 
 from do_my_work.domain.models import (
     CopyFileTaskSpec,
-    DiscoverFilesTaskSpec,
+    DiscoverDocumentsTaskSpec,
     RunRequest,
     TaskOutcome,
     TaskRecord,
@@ -40,14 +40,14 @@ def test_task_record_validates_copy_file_spec_from_json_shape() -> None:
     assert task_record.outcome == TaskOutcome(message="File copied")
 
 
-def test_task_record_round_trips_discover_files_record_as_json_data() -> None:
+def test_task_record_round_trips_discover_documents_record_as_json_data() -> None:
     original_record = TaskRecord(
         task_key="task:discover:8f2d",
-        spec=DiscoverFilesTaskSpec(root=Path(".")),
+        spec=DiscoverDocumentsTaskSpec(root=Path(".")),
         status=TaskStatus.WAITING,
         child_task_keys=["task:copy:111a", "task:copy:222b"],
         outcome=TaskOutcome(
-            message="2 files discovered",
+            message="2 documents discovered",
             created_task_keys=["task:copy:111a", "task:copy:222b"],
         ),
     )
@@ -55,7 +55,7 @@ def test_task_record_round_trips_discover_files_record_as_json_data() -> None:
     persisted_payload = original_record.model_dump(mode="json")
     restored_record = TaskRecord.model_validate(persisted_payload)
 
-    assert isinstance(restored_record.spec, DiscoverFilesTaskSpec)
+    assert isinstance(restored_record.spec, DiscoverDocumentsTaskSpec)
     assert restored_record.spec.root == Path(".")
     assert restored_record.status == TaskStatus.WAITING
     assert restored_record.child_task_keys == ["task:copy:111a", "task:copy:222b"]

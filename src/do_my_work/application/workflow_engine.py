@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from do_my_work.application.task_handlers import CopyFileTaskHandler, DiscoverFilesTaskHandler
-from do_my_work.application.task_keys import make_discover_task_key
+from do_my_work.application.task_handlers import CopyFileTaskHandler, DiscoverDocumentsTaskHandler
+from do_my_work.application.task_keys import make_discover_documents_task_key
 from do_my_work.domain.models import (
-    DiscoverFilesTaskSpec,
+    DiscoverDocumentsTaskSpec,
     RunRequest,
     TaskRecord,
     TaskStatus,
@@ -18,12 +18,12 @@ class WorkflowEngine:
         task_repository = JsonTaskRepository(config.data_dir / "tasks")
         run_repository = JsonRunRepository(config.data_dir / "runs")
 
-        root_task_key = make_discover_task_key(root)
+        root_task_key = make_discover_documents_task_key(root)
         root_record = task_repository.get(root_task_key)
         if root_record is None:
             root_record = TaskRecord(
                 task_key=root_task_key,
-                spec=DiscoverFilesTaskSpec(root=root),
+                spec=DiscoverDocumentsTaskSpec(root=root),
             )
             task_repository.save(root_record)
 
@@ -35,7 +35,7 @@ class WorkflowEngine:
         )
         run_repository.save(run_request)
 
-        discover_handler = DiscoverFilesTaskHandler()
+        discover_handler = DiscoverDocumentsTaskHandler()
         copy_handler = CopyFileTaskHandler()
 
         while True:
@@ -43,7 +43,7 @@ class WorkflowEngine:
             if next_task is None:
                 break
 
-            if next_task.spec.kind == "discover_files":
+            if next_task.spec.kind == "discover_documents":
                 result = discover_handler.handle(next_task, config, task_repository)
             else:
                 result = copy_handler.handle(next_task, config)

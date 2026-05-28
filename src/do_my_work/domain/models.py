@@ -28,10 +28,10 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 
-class DiscoverFilesTaskSpec(BaseModel):
+class DiscoverDocumentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["discover_files"] = "discover_files"
+    kind: Literal["discover_documents"] = "discover_documents"
     root: Path = Field(default=Path("."))
 
 
@@ -44,7 +44,7 @@ class CopyFileTaskSpec(BaseModel):
 
 
 TaskSpec = Annotated[
-    DiscoverFilesTaskSpec | CopyFileTaskSpec,
+    DiscoverDocumentsTaskSpec | CopyFileTaskSpec,
     Field(discriminator="kind"),
 ]
 

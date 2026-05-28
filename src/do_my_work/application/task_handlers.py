@@ -6,7 +6,7 @@ from pathlib import Path
 from do_my_work.application.task_keys import make_copy_task_key
 from do_my_work.domain.models import (
     CopyFileTaskSpec,
-    DiscoverFilesTaskSpec,
+    DiscoverDocumentsTaskSpec,
     TaskOutcome,
     TaskRecord,
     TaskStatus,
@@ -21,7 +21,7 @@ class TaskHandlerResult:
     new_records: list[TaskRecord] = field(default_factory=list)
 
 
-class DiscoverFilesTaskHandler:
+class DiscoverDocumentsTaskHandler:
     def handle(
         self,
         record: TaskRecord,
@@ -29,8 +29,8 @@ class DiscoverFilesTaskHandler:
         task_repository: JsonTaskRepository,
     ) -> TaskHandlerResult:
         spec = record.spec
-        if not isinstance(spec, DiscoverFilesTaskSpec):
-            raise TypeError("discover handler requires a DiscoverFilesTaskSpec")
+        if not isinstance(spec, DiscoverDocumentsTaskSpec):
+            raise TypeError("discover handler requires a DiscoverDocumentsTaskSpec")
 
         root_path = config.input_dir / spec.root
         if not root_path.exists():
@@ -49,7 +49,7 @@ class DiscoverFilesTaskHandler:
         discovered_records: list[TaskRecord] = []
         child_task_keys: list[str] = []
 
-        for source_path in sorted(path for path in root_path.rglob("*") if path.is_file()):
+        for source_path in sorted(_iter_markdown_documents(root_path)):
             relative_path = source_path.relative_to(config.input_dir)
             source_digest = _build_source_digest(source_path)
             task_key = make_copy_task_key(relative_path, source_digest)
@@ -80,13 +80,13 @@ class DiscoverFilesTaskHandler:
 
         if failed_children:
             status = TaskStatus.FAILED
-            message = f"{len(child_task_keys)} files discovered, at least one copy task failed."
+            message = f"{len(child_task_keys)} documents discovered, at least one copy task failed."
         elif all_succeeded:
             status = TaskStatus.SUCCEEDED
-            message = f"{len(child_task_keys)} files discovered and copied."
+            message = f"{len(child_task_keys)} documents discovered and copied."
         else:
             status = TaskStatus.WAITING
-            message = f"{len(child_task_keys)} files discovered."
+            message = f"{len(child_task_keys)} documents discovered."
 
         updated_record = record.model_copy(
             update={
@@ -139,3 +139,11 @@ class CopyFileTaskHandler:
 def _build_source_digest(path: Path) -> str:
     digest = sha256(path.read_bytes()).hexdigest()
     return f"sha256:{digest}"
+
+
+def _iter_markdown_documents(root_path: Path) -> list[Path]:
+    return [
+        path
+        for path in root_path.rglob("*")
+        if path.is_file() and path.suffix.lower() == ".md"
+    ]

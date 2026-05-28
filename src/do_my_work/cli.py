@@ -72,7 +72,7 @@ def copy_tree(
         typer.Option(help="Relative subtree under the input directory to process."),
     ] = Path("."),
 ) -> None:
-    """Copy the requested input subtree while persisting workflow state."""
+    """Copy Markdown documents from the requested input subtree while persisting workflow state."""
     configure_logging()
     workspace_config = load_workspace_config(config) if config else WorkspaceConfig()
     overrides = {

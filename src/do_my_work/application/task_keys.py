@@ -2,7 +2,7 @@ from hashlib import sha256
 from pathlib import Path
 
 
-def make_discover_task_key(root: Path) -> str:
+def make_discover_documents_task_key(root: Path) -> str:
     return _make_task_key("discover", root.as_posix())
 
 

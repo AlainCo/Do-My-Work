@@ -41,13 +41,14 @@ def test_hello_command_with_yaml_config(tmp_path: Path) -> None:
     assert "Data directory: state" in result.stdout
 
 
-def test_copy_tree_command_copies_files_and_persists_state(tmp_path: Path) -> None:
+def test_copy_tree_command_copies_markdown_documents_and_persists_state(tmp_path: Path) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
     data_dir = tmp_path / "data"
 
     (input_dir / "nested").mkdir(parents=True)
     (input_dir / "nested" / "note.md").write_text("hello\n", encoding="utf-8")
+    (input_dir / "nested" / "ignored.txt").write_text("ignore\n", encoding="utf-8")
 
     result = runner.invoke(
         app,
@@ -65,5 +66,6 @@ def test_copy_tree_command_copies_files_and_persists_state(tmp_path: Path) -> No
     assert result.exit_code == 0
     assert "Workflow run completed:" in result.stdout
     assert (output_dir / "nested" / "note.md").read_text(encoding="utf-8") == "hello\n"
+    assert not (output_dir / "nested" / "ignored.txt").exists()
     assert len(list((data_dir / "runs").glob("*.json"))) == 1
     assert len(list((data_dir / "tasks").glob("*.json"))) == 2

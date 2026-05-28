@@ -4,6 +4,9 @@
 
 We use `WorkspaceConfig` as the first stable configuration object for the batch application.
 
+The choice of words is important in this project.
+Glossary terms should be chosen carefully because they influence the domain model, the command names, the documentation, and the way future features are discussed.
+
 - `input_dir`: source tree to read from.
 - `output_dir`: generated tree to write to.
 - `data_dir`: internal working area for state, queues, progress, and intermediate artifacts.

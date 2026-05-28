@@ -1,6 +1,6 @@
 import logging
 
-from do_my_work.domain.models import HelloJobConfig, HelloJobResult
+from do_my_work.domain.models import BatchRunResult, WorkspaceConfig
 
 
 class BatchRunner:
@@ -12,7 +12,12 @@ class BatchRunner:
     def __init__(self) -> None:
         self._logger = logging.getLogger(__name__)
 
-    def run(self, config: HelloJobConfig) -> HelloJobResult:
-        self._logger.info("Running hello batch for %s", config.target)
-        message = f"{config.greeting}, {config.target}!"
-        return HelloJobResult(app_name=config.app_name, message=message)
+    def run(self, config: WorkspaceConfig) -> BatchRunResult:
+        self._logger.info(
+            "Running batch with input=%s output=%s data=%s",
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
+        message = "Workspace configuration loaded."
+        return BatchRunResult(message=message, workspace=config)

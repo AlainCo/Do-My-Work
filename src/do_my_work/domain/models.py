@@ -1,16 +1,18 @@
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class HelloJobConfig(BaseModel):
+class WorkspaceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    app_name: str = Field(default="Do My Work")
-    greeting: str = Field(default="Hello")
-    target: str = Field(default="world")
+    input_dir: Path = Field(default=Path("work/input"))
+    output_dir: Path = Field(default=Path("work/output"))
+    data_dir: Path = Field(default=Path("work/data"))
 
 
-class HelloJobResult(BaseModel):
+class BatchRunResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    app_name: str
     message: str
+    workspace: WorkspaceConfig

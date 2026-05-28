@@ -11,14 +11,31 @@ def test_hello_command_without_config_uses_defaults() -> None:
     result = runner.invoke(app, ["hello"])
 
     assert result.exit_code == 0
-    assert "Hello, world!" in result.stdout
+    assert "Workspace configuration loaded." in result.stdout
+    assert "Input directory: work\\input" in result.stdout
+    assert "Output directory: work\\output" in result.stdout
+    assert "Data directory: work\\data" in result.stdout
 
 
 def test_hello_command_with_yaml_config(tmp_path: Path) -> None:
-    config_file = tmp_path / "hello.yaml"
-    config_file.write_text("greeting: Salut\ntarget: équipe\n", encoding="utf-8")
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        "input_dir: inbound\noutput_dir: outbound\ndata_dir: state\n",
+        encoding="utf-8",
+    )
 
-    result = runner.invoke(app, ["hello", "--config", str(config_file)])
+    result = runner.invoke(
+        app,
+        [
+            "hello",
+            "--config",
+            str(config_file),
+            "--output-dir",
+            "published",
+        ],
+    )
 
     assert result.exit_code == 0
-    assert "Salut, équipe!" in result.stdout
+    assert "Input directory: inbound" in result.stdout
+    assert "Output directory: published" in result.stdout
+    assert "Data directory: state" in result.stdout

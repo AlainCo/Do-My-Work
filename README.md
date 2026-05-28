@@ -7,7 +7,7 @@ Batch application scaffold in modern Python, with a simple CLI entry point, vali
 - keep the project easy to read and publish on GitHub
 - stay close to Python standards
 - separate orchestration, domain objects, and technical I/O
-- start with a trivial `Hello World` while keeping the right structure
+- start with a trivial batch while keeping the right structure
 
 ## Project layout
 
@@ -19,6 +19,7 @@ src/do_my_work/
   infrastructure/config_loader.py
   shared/logging_config.py
 tests/
+docs/
 ```
 
 ## Why these files exist
@@ -31,6 +32,18 @@ tests/
 - `domain/`: business models without file-system concerns.
 - `infrastructure/`: YAML/JSON/filesystem/API adapters.
 - `tests/`: executable documentation and regression safety.
+- `docs/`: living project notes for the team.
+
+## Foundational naming
+
+The first durable configuration concept is called `WorkspaceConfig`.
+
+- `workspace`: a clear English name for the set of working directories used by the batch.
+- `input_dir`: where source documents live.
+- `output_dir`: where generated files are written.
+- `data_dir`: where the application stores state, work items, and intermediate artifacts.
+
+This is deliberately broader and more reusable than `HelloJobConfig`. It can survive when the real workflow arrives.
 
 ## Local setup with `venv` and `pip`
 
@@ -55,7 +68,7 @@ python -m pip install -e ".[dev]"
 
 PowerShell note: the extra selector must be quoted. Without quotes, `[dev]` can be interpreted by the shell and `pip` may receive the wrong path.
 
-## Run the Hello World batch
+## Run the batch scaffold
 
 Without a config file:
 
@@ -66,7 +79,13 @@ do-my-work hello
 With the provided YAML example:
 
 ```powershell
-do-my-work hello --config config/hello.yaml
+do-my-work hello --config config/workspace.yaml
+```
+
+Override one or more directories on the command line:
+
+```powershell
+do-my-work hello --input-dir custom/input --output-dir custom/output --data-dir custom/data
 ```
 
 ## Run the tests
@@ -84,4 +103,4 @@ ruff format --check .
 
 ## Next architectural step
 
-Once the hello flow is stable, the natural next move is to add a real job configuration model, a repository for persisted JSON state, and a workflow service that scans `work/input/` and writes to `work/output/`.
+Once the workspace flow is stable, the natural next move is to add a repository for persisted JSON state and a workflow service that scans `work/input/` and writes to `work/output/`.

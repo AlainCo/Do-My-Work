@@ -139,8 +139,16 @@ This means the codebase now includes:
 
 The next useful discussion is now about how to extend this first slice without breaking the step-by-step teaching approach.
 
-Good candidates are:
+The current preferred next slice is now to move from file copying to Markdown parsing and fragment reporting.
 
-- how much run summary data the CLI should print
-- what failure and retry behavior we want in the persisted task model
-- when to introduce artifact inventories versus keeping the task model central for a while
+That next slice is captured in `docs/markdown-fragment-slice.md`.
+
+In short, the plan is:
+
+1. parse Markdown documents with `markdown-it-py`
+2. read YAML front matter with `python-frontmatter` when present
+3. extract the lowest-level blocks together with their parent heading context
+4. treat blockquotes, fenced code blocks, and Mermaid blocks as atomic objects
+5. synthesize a Markdown report describing fragment lengths
+
+This keeps the work aligned with the long-term target of fragment-based processing, without jumping to translation or reassembly yet.

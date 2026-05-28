@@ -8,6 +8,7 @@ Batch application scaffold in modern Python, with a simple CLI entry point, vali
 - `docs/foundations.md`: stable vocabulary and configuration rules
 - `docs/project-direction.md`: product vision and current direction
 - `docs/workflow-kernel.md`: design note for the toy workflow kernel
+- `docs/markdown-fragment-slice.md`: design note for the first Markdown parsing and fragment reporting slice
 - `docs/collaboration.md`: working method, documentation split, and local environment notes
 
 ## Project layout

@@ -77,3 +77,43 @@ def test_copy_tree_command_copies_markdown_documents_and_persists_state(tmp_path
     assert not (output_dir / "nested" / "ignored.txt").exists()
     assert len(list((data_dir / "runs").glob("*.json"))) == 1
     assert len(list((data_dir / "tasks").glob("*.json"))) == 2
+
+
+def test_summary_document_tree_command_generates_markdown_report(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n\n- Item one\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "summary-document-tree",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Workflow run completed:" in result.stdout
+    assert "Tasks executed: 2" in result.stdout
+
+    report_path = output_dir / "note.summary.md"
+    assert report_path.read_text(encoding="utf-8") == (
+        "# Fragment Length Report\n\n"
+        "Source: note.md\n\n"
+        "- heading [Intro] -> 5\n"
+        "- paragraph [Intro] -> 11\n"
+        "- list_item [Intro] -> 8\n"
+    )
+    assert len(list((data_dir / "runs").glob("*.json"))) == 1
+    assert len(list((data_dir / "tasks").glob("*.json"))) == 2

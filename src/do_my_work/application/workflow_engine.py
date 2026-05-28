@@ -1,12 +1,22 @@
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
-from do_my_work.application.task_handlers import CopyFileTaskHandler, DiscoverDocumentsTaskHandler
-from do_my_work.application.task_keys import make_discover_documents_task_key
+from do_my_work.application.task_handlers import (
+    CopyFileTaskHandler,
+    DiscoverDocumentsTaskHandler,
+    DiscoverSummaryDocumentsTaskHandler,
+    SummarizeMarkdownDocumentTaskHandler,
+)
+from do_my_work.application.task_keys import (
+    make_discover_documents_task_key,
+    make_discover_summary_documents_task_key,
+)
 from do_my_work.application.task_revalidation import TaskRevalidator
 from do_my_work.domain.models import (
     DiscoverDocumentsTaskSpec,
+    DiscoverSummaryDocumentsTaskSpec,
     RunRequest,
     TaskRecord,
     TaskStatus,
@@ -21,7 +31,12 @@ class WorkflowEngine:
     def __init__(self) -> None:
         self._logger = logging.getLogger(__name__)
 
-    def run(self, config: WorkspaceConfig, root: Path = Path(".")) -> WorkflowRunResult:
+    def run(
+        self,
+        config: WorkspaceConfig,
+        root: Path = Path("."),
+        request_kind: Literal["copy_tree", "summary_document_tree"] = "copy_tree",
+    ) -> WorkflowRunResult:
         task_repository = JsonTaskRepository(config.data_dir / "tasks")
         run_repository = JsonRunRepository(config.data_dir / "runs")
         executed_task_keys: set[str] = set()
@@ -29,13 +44,10 @@ class WorkflowEngine:
         replayed_task_keys: set[str] = set()
         unchanged_task_keys: set[str] = set()
 
-        root_task_key = make_discover_documents_task_key(root)
+        root_task_key = self._make_root_task_key(root, request_kind)
         root_record = task_repository.get(root_task_key)
         if root_record is None:
-            root_record = TaskRecord(
-                task_key=root_task_key,
-                spec=DiscoverDocumentsTaskSpec(root=root),
-            )
+            root_record = self._build_root_task_record(root_task_key, root, request_kind)
             task_repository.save(root_record)
 
         initial_task_records = task_repository.list_all()
@@ -45,6 +57,7 @@ class WorkflowEngine:
 
         run_request = RunRequest(
             run_id=_build_run_id(),
+            request_kind=request_kind,
             root=root,
             status="running",
             root_task_key=root_task_key,
@@ -57,7 +70,9 @@ class WorkflowEngine:
         )
 
         discover_handler = DiscoverDocumentsTaskHandler()
+        discover_summary_handler = DiscoverSummaryDocumentsTaskHandler()
         copy_handler = CopyFileTaskHandler()
+        summarize_handler = SummarizeMarkdownDocumentTaskHandler()
         revalidator = TaskRevalidator()
 
         while True:
@@ -84,8 +99,12 @@ class WorkflowEngine:
 
             if next_task.spec.kind == "discover_documents":
                 result = discover_handler.handle(next_task, config, task_repository)
-            else:
+            elif next_task.spec.kind == "copy_file":
                 result = copy_handler.handle(next_task, config)
+            elif next_task.spec.kind == "discover_summary_documents":
+                result = discover_summary_handler.handle(next_task, config, task_repository)
+            else:
+                result = summarize_handler.handle(next_task, config)
 
             task_repository.save(result.updated_record)
             self._logger.info(
@@ -126,6 +145,32 @@ class WorkflowEngine:
             completed_run.status,
         )
         return WorkflowRunResult(run_request=completed_run, summary=summary)
+
+    def _build_root_task_record(
+        self,
+        root_task_key: str,
+        root: Path,
+        request_kind: Literal["copy_tree", "summary_document_tree"],
+    ) -> TaskRecord:
+        if request_kind == "copy_tree":
+            return TaskRecord(
+                task_key=root_task_key,
+                spec=DiscoverDocumentsTaskSpec(root=root),
+            )
+
+        return TaskRecord(
+            task_key=root_task_key,
+            spec=DiscoverSummaryDocumentsTaskSpec(root=root),
+        )
+
+    def _make_root_task_key(
+        self,
+        root: Path,
+        request_kind: Literal["copy_tree", "summary_document_tree"],
+    ) -> str:
+        if request_kind == "copy_tree":
+            return make_discover_documents_task_key(root)
+        return make_discover_summary_documents_task_key(root)
 
     def _revalidate_task_records(
         self,

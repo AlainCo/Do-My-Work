@@ -32,4 +32,18 @@ class BatchRunner:
             config.output_dir,
             config.data_dir,
         )
-        return WorkflowEngine().run(config, root=root)
+        return WorkflowEngine().run(config, root=root, request_kind="copy_tree")
+
+    def run_summary_document_tree(
+        self,
+        config: WorkspaceConfig,
+        root: Path = Path("."),
+    ) -> WorkflowRunResult:
+        self._logger.info(
+            "Running Markdown fragment summary workflow with root=%s input=%s output=%s data=%s",
+            root,
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
+        return WorkflowEngine().run(config, root=root, request_kind="summary_document_tree")

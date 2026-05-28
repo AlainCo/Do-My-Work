@@ -10,6 +10,23 @@ The goal is to prove that we can parse Markdown documents, extract structured fr
 This is intentionally a teaching slice.
 It should stay small, testable, and close to the future translation workflow.
 
+## Current Status
+
+The first executable version of this slice is now implemented.
+
+Available command:
+
+- `summary-document-tree`
+
+Current behavior:
+
+- discover Markdown documents under the requested subtree
+- parse the document body with `markdown-it-py`
+- ignore YAML front matter as document metadata using `python-frontmatter`
+- extract headings and leaf blocks with parent heading context
+- keep blockquotes, fenced code blocks, and Mermaid blocks as atomic fragments
+- generate one Markdown fragment length report per source document in `output_dir`
+
 ## Chosen Libraries
 
 For this slice, the current preferred libraries are:

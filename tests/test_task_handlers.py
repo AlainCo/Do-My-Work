@@ -186,6 +186,49 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
     )
 
 
+def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("mock timeout while translating fragment", request=request)
+
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator from french to english.",
+                    user_prompt="${inputfragment}",
+                )
+            }
+        ),
+    )
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    llm_client = OllamaChatClient(http_client=http_client)
+    record = TaskRecord(
+        task_key="task:translate_fragment:timeout",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("note.md"),
+            fragment_kind="paragraph",
+            heading_path=["Intro"],
+            text="Bonjour monde.",
+            fragment_digest="sha256:frag-timeout",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = TranslateFragmentTaskHandler(llm_client=llm_client).handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.FAILED
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.message == "LLM translation timed out."
+    assert result.updated_record.outcome.error == "mock timeout while translating fragment"
+
+
 def test_merge_translated_fragments_handler_writes_translated_document(tmp_path: Path) -> None:
     config = WorkspaceConfig(
         input_dir=tmp_path / "input",

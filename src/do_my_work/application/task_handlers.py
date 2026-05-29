@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 
+import httpx
+
 from do_my_work.application.task_keys import (
     make_discover_translate_document_fragments_task_key,
     make_index_markdown_references_task_key,
@@ -525,6 +527,18 @@ class TranslateFragmentTaskHandler:
                 config=config,
                 profile_name=spec.profile_name,
                 parameters={"inputfragment": fragment_markdown},
+            )
+        except httpx.TimeoutException as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="LLM translation timed out.",
+                            error=str(exc),
+                        ),
+                    }
+                )
             )
         finally:
             if self._llm_client is None:

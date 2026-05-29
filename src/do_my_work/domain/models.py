@@ -74,20 +74,6 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 
-class DiscoverDocumentsTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["discover_documents"] = "discover_documents"
-    root: Path = Field(default=Path("."))
-
-
-class DiscoverSummaryDocumentsTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["discover_summary_documents"] = "discover_summary_documents"
-    root: Path = Field(default=Path("."))
-
-
 class DiscoverReferenceDocumentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -102,22 +88,6 @@ class DiscoverTranslateDocumentsTaskSpec(BaseModel):
     root: Path = Field(default=Path("."))
     profile_name: str
     profile_digest: str
-
-
-class CopyFileTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["copy_file"] = "copy_file"
-    relative_path: Path
-    source_digest: str
-
-
-class SummarizeMarkdownDocumentTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["summarize_markdown_document"] = "summarize_markdown_document"
-    relative_path: Path
-    source_digest: str
 
 
 class IndexMarkdownReferencesTaskSpec(BaseModel):
@@ -137,14 +107,6 @@ class MergeReferenceIndexesTaskSpec(BaseModel):
     reference_task_keys: list[str] = Field(default_factory=list)
 
 
-class DiscoverDocumentFragmentsTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["discover_document_fragments"] = "discover_document_fragments"
-    relative_path: Path
-    source_digest: str
-
-
 class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -155,17 +117,6 @@ class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     source_digest: str
     profile_name: str
     profile_digest: str
-
-
-class ProcessFragmentTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["process_fragment"] = "process_fragment"
-    document_relative_path: Path
-    fragment_kind: FragmentKind
-    heading_path: list[str] = Field(default_factory=list)
-    text: str
-    fragment_digest: str
 
 
 class TranslateFragmentTaskSpec(BaseModel):
@@ -181,17 +132,6 @@ class TranslateFragmentTaskSpec(BaseModel):
     profile_digest: str
 
 
-class MergeFragmentResultsTaskSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    kind: Literal["merge_fragment_results"] = "merge_fragment_results"
-    document_relative_path: Path
-    source_digest: str
-    fragment_task_keys: list[str] = Field(default_factory=list)
-    header_text: str = "# Fragment Length Report"
-    footer_text: str | None = None
-
-
 class MergeTranslatedFragmentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -204,19 +144,12 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
 
 
 TaskSpec = Annotated[
-    DiscoverDocumentsTaskSpec
-    | DiscoverSummaryDocumentsTaskSpec
-    | DiscoverReferenceDocumentsTaskSpec
+    DiscoverReferenceDocumentsTaskSpec
     | DiscoverTranslateDocumentsTaskSpec
-    | CopyFileTaskSpec
-    | SummarizeMarkdownDocumentTaskSpec
     | IndexMarkdownReferencesTaskSpec
     | MergeReferenceIndexesTaskSpec
-    | DiscoverDocumentFragmentsTaskSpec
     | DiscoverTranslateDocumentFragmentsTaskSpec
-    | ProcessFragmentTaskSpec
     | TranslateFragmentTaskSpec
-    | MergeFragmentResultsTaskSpec
     | MergeTranslatedFragmentsTaskSpec,
     Field(discriminator="kind"),
 ]
@@ -254,11 +187,9 @@ class RunRequest(BaseModel):
 
     run_id: str
     request_kind: Literal[
-        "copy_tree",
-        "summary_document_tree",
         "reference_index_tree",
         "translate_document_tree",
-    ] = "copy_tree"
+    ] = "reference_index_tree"
     root: Path = Field(default=Path("."))
     status: Literal["pending", "running", "succeeded", "failed"] = "pending"
     root_task_key: str

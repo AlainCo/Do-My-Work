@@ -4,33 +4,22 @@ from pathlib import Path
 from typing import Literal
 
 from do_my_work.application.task_handlers import (
-    CopyFileTaskHandler,
-    DiscoverDocumentFragmentsTaskHandler,
-    DiscoverDocumentsTaskHandler,
     DiscoverReferenceDocumentsTaskHandler,
-    DiscoverSummaryDocumentsTaskHandler,
     DiscoverTranslateDocumentFragmentsTaskHandler,
     DiscoverTranslateDocumentsTaskHandler,
     IndexMarkdownReferencesTaskHandler,
-    MergeFragmentResultsTaskHandler,
     MergeReferenceIndexesTaskHandler,
     MergeTranslatedFragmentsTaskHandler,
-    ProcessFragmentTaskHandler,
-    SummarizeMarkdownDocumentTaskHandler,
     TranslateFragmentTaskHandler,
 )
 from do_my_work.application.task_keys import (
-    make_discover_documents_task_key,
     make_discover_reference_documents_task_key,
-    make_discover_summary_documents_task_key,
     make_discover_translate_documents_task_key,
     make_translator_profile_digest,
 )
 from do_my_work.application.task_revalidation import TaskRevalidator
 from do_my_work.domain.models import (
-    DiscoverDocumentsTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
-    DiscoverSummaryDocumentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
     RunRequest,
     TaskRecord,
@@ -51,11 +40,9 @@ class WorkflowEngine:
         config: WorkspaceConfig,
         root: Path = Path("."),
         request_kind: Literal[
-            "copy_tree",
-            "summary_document_tree",
             "reference_index_tree",
             "translate_document_tree",
-        ] = "copy_tree",
+        ] = "reference_index_tree",
         translator_profile: str = "technical",
     ) -> WorkflowRunResult:
         task_repository = JsonTaskRepository(config.data_dir / "tasks")
@@ -96,20 +83,13 @@ class WorkflowEngine:
             root_task_key,
         )
 
-        discover_handler = DiscoverDocumentsTaskHandler()
         discover_reference_handler = DiscoverReferenceDocumentsTaskHandler()
-        discover_summary_handler = DiscoverSummaryDocumentsTaskHandler()
         discover_translate_handler = DiscoverTranslateDocumentsTaskHandler()
         index_references_handler = IndexMarkdownReferencesTaskHandler()
         merge_reference_indexes_handler = MergeReferenceIndexesTaskHandler()
-        discover_fragments_handler = DiscoverDocumentFragmentsTaskHandler()
         discover_translate_fragments_handler = DiscoverTranslateDocumentFragmentsTaskHandler()
-        copy_handler = CopyFileTaskHandler()
-        process_fragment_handler = ProcessFragmentTaskHandler()
         translate_fragment_handler = TranslateFragmentTaskHandler()
-        merge_fragment_results_handler = MergeFragmentResultsTaskHandler()
         merge_translated_fragments_handler = MergeTranslatedFragmentsTaskHandler()
-        summarize_handler = SummarizeMarkdownDocumentTaskHandler()
         revalidator = TaskRevalidator()
 
         while True:
@@ -134,14 +114,8 @@ class WorkflowEngine:
                 next_task.status.value,
             )
 
-            if next_task.spec.kind == "discover_documents":
-                result = discover_handler.handle(next_task, config, task_repository)
-            elif next_task.spec.kind == "discover_reference_documents":
+            if next_task.spec.kind == "discover_reference_documents":
                 result = discover_reference_handler.handle(next_task, config, task_repository)
-            elif next_task.spec.kind == "copy_file":
-                result = copy_handler.handle(next_task, config)
-            elif next_task.spec.kind == "discover_summary_documents":
-                result = discover_summary_handler.handle(next_task, config, task_repository)
             elif next_task.spec.kind == "discover_translate_documents":
                 result = discover_translate_handler.handle(next_task, config, task_repository)
             elif next_task.spec.kind == "index_markdown_references":
@@ -152,29 +126,22 @@ class WorkflowEngine:
                     config,
                     task_repository,
                 )
-            elif next_task.spec.kind == "discover_document_fragments":
-                result = discover_fragments_handler.handle(next_task, config, task_repository)
             elif next_task.spec.kind == "discover_translate_document_fragments":
                 result = discover_translate_fragments_handler.handle(
                     next_task,
                     config,
                     task_repository,
                 )
-            elif next_task.spec.kind == "process_fragment":
-                result = process_fragment_handler.handle(next_task, config)
             elif next_task.spec.kind == "translate_fragment":
                 result = translate_fragment_handler.handle(next_task, config)
-            elif next_task.spec.kind == "merge_fragment_results":
-                result = merge_fragment_results_handler.handle(next_task, config, task_repository)
+            elif next_task.spec.kind == "merge_translated_fragments":
+                result = merge_translated_fragments_handler.handle(
+                    next_task,
+                    config,
+                    task_repository,
+                )
             else:
-                if next_task.spec.kind == "merge_translated_fragments":
-                    result = merge_translated_fragments_handler.handle(
-                        next_task,
-                        config,
-                        task_repository,
-                    )
-                else:
-                    result = summarize_handler.handle(next_task, config)
+                raise ValueError(f"Unsupported task kind: {next_task.spec.kind}")
 
             task_repository.save(result.updated_record)
             self._logger.info(
@@ -222,19 +189,11 @@ class WorkflowEngine:
         root_task_key: str,
         root: Path,
         request_kind: Literal[
-            "copy_tree",
-            "summary_document_tree",
             "reference_index_tree",
             "translate_document_tree",
         ],
         translator_profile: str,
     ) -> TaskRecord:
-        if request_kind == "copy_tree":
-            return TaskRecord(
-                task_key=root_task_key,
-                spec=DiscoverDocumentsTaskSpec(root=root),
-            )
-
         if request_kind == "reference_index_tree":
             return TaskRecord(
                 task_key=root_task_key,
@@ -254,25 +213,18 @@ class WorkflowEngine:
                 ),
             )
 
-        return TaskRecord(
-            task_key=root_task_key,
-            spec=DiscoverSummaryDocumentsTaskSpec(root=root),
-        )
+        raise ValueError(f"Unsupported request kind: {request_kind}")
 
     def _make_root_task_key(
         self,
         config: WorkspaceConfig,
         root: Path,
         request_kind: Literal[
-            "copy_tree",
-            "summary_document_tree",
             "reference_index_tree",
             "translate_document_tree",
         ],
         translator_profile: str,
     ) -> str:
-        if request_kind == "copy_tree":
-            return make_discover_documents_task_key(root)
         if request_kind == "reference_index_tree":
             return make_discover_reference_documents_task_key(root)
         if request_kind == "translate_document_tree":
@@ -284,7 +236,7 @@ class WorkflowEngine:
                 translator_profile,
                 make_translator_profile_digest(profile),
             )
-        return make_discover_summary_documents_task_key(root)
+        raise ValueError(f"Unsupported request kind: {request_kind}")
 
     def _revalidate_task_records(
         self,

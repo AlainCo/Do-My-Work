@@ -20,6 +20,24 @@ class WorkspaceConfig(BaseModel):
     input_dir: Path = Field(default=Path("work/input"))
     output_dir: Path = Field(default=Path("work/output"))
     data_dir: Path = Field(default=Path("work/data"))
+    llm: "LlmConfig" = Field(default_factory=lambda: LlmConfig())
+
+
+class TranslatorProfileConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    model: str
+    credential: str | None = None
+    temperature: float = 0.0
+    system_prompt: str
+    user_prompt: str
+
+
+class LlmConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    translator: dict[str, TranslatorProfileConfig] = Field(default_factory=dict)
 
 
 class BatchRunResult(BaseModel):

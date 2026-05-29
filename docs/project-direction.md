@@ -160,3 +160,7 @@ That design direction is captured in `docs/fragment-task-dataflow.md`.
 For future external LLM integration, the repository now also distinguishes between the real infrastructure client and a repository-local Ollama mock server used only for development and integration testing.
 
 That tooling direction is captured in `docs/ollama-mock-tooling.md`.
+
+The next foundation slice for fragment translation is to add typed translator profile configuration and an Ollama-compatible HTTP client before introducing translation task kinds.
+
+That design direction is captured in `docs/translation-llm-slice.md`.

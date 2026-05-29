@@ -9,6 +9,7 @@ description = "A small batch workflow application scaffold for Markdown-driven j
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "httpx>=0.28,<1",
     "markdown-it-py>=3.0,<4",
     "pydantic>=2.11,<3",
     "python-frontmatter>=1.1,<2",

@@ -3,6 +3,7 @@ from pathlib import Path
 from do_my_work.domain.models import (
     CopyFileTaskSpec,
     DiscoverDocumentsTaskSpec,
+    DiscoverTranslateDocumentsTaskSpec,
     ProcessedFragmentResult,
     ProcessFragmentTaskSpec,
     RunRequest,
@@ -94,3 +95,26 @@ def test_task_record_round_trips_processed_fragment_result() -> None:
         rendered_text="- paragraph [Intro] -> 11",
         length=11,
     )
+
+
+def test_task_record_round_trips_translate_root_task_as_json_data() -> None:
+    original_record = TaskRecord(
+        task_key="task:discover_translate_documents:111a",
+        spec=DiscoverTranslateDocumentsTaskSpec(
+            root=Path("."),
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+        status=TaskStatus.WAITING,
+        child_task_keys=["task:discover_translate_document_fragments:222b"],
+        outcome=TaskOutcome(
+            message="1 documents discovered.",
+            created_task_keys=["task:discover_translate_document_fragments:222b"],
+        ),
+    )
+
+    restored_record = TaskRecord.model_validate(original_record.model_dump(mode="json"))
+
+    assert isinstance(restored_record.spec, DiscoverTranslateDocumentsTaskSpec)
+    assert restored_record.spec.profile_name == "technical"
+    assert restored_record.spec.profile_digest == "sha256:profile"

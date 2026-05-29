@@ -47,3 +47,25 @@ class BatchRunner:
             config.data_dir,
         )
         return WorkflowEngine().run(config, root=root, request_kind="summary_document_tree")
+
+    def run_translate_document_tree(
+        self,
+        config: WorkspaceConfig,
+        root: Path = Path("."),
+        translator_profile: str = "technical",
+    ) -> WorkflowRunResult:
+        self._logger.info(
+            "Running Markdown fragment translation workflow with root=%s "
+            "profile=%s input=%s output=%s data=%s",
+            root,
+            translator_profile,
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
+        return WorkflowEngine().run(
+            config,
+            root=root,
+            request_kind="translate_document_tree",
+            translator_profile=translator_profile,
+        )

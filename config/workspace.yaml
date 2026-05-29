@@ -1,3 +1,15 @@
 input_dir: work/input
 output_dir: work/output
 data_dir: work/data
+llm:
+  translator:
+    technical:
+      url: http://127.0.0.1:11434
+      model: ollama-mock
+      temperature: 0.0
+      system_prompt: |
+        You are a professional translator from french to english.
+      user_prompt: |
+        ===BEGIN SOURCE TEXT===
+        ${inputfragment}===END SOURCE TEXT===
+        

@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from do_my_work.application.workflow_engine import WorkflowEngine
 from do_my_work.domain.models import RunRequest, TaskRecord, WorkspaceConfig
 
@@ -200,4 +202,77 @@ def test_workflow_engine_runs_summary_flow_via_fragment_tasks(tmp_path: Path) ->
         "process_fragment",
         "process_fragment",
         "process_fragment",
+    ]
+
+
+def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n\n- Item one\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: str(parameters["inputfragment"]).upper(),
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translatoir from french to english.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${inputfragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        ),
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert run_request.status == "succeeded"
+    assert run_request.summary.executed_task_count == 6
+    assert run_request.summary.created_task_count == 5
+    assert (output_dir / "note.md").read_text(encoding="utf-8") == (
+        "# INTRO\n\nALPHA BETA.\n\n- ITEM ONE\n"
+    )
+
+    persisted_tasks = [
+        TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in sorted((data_dir / "tasks").glob("*.json"))
+    ]
+    assert len(persisted_tasks) == 6
+    assert sorted(task.spec.kind for task in persisted_tasks) == [
+        "discover_translate_document_fragments",
+        "discover_translate_documents",
+        "merge_translated_fragments",
+        "translate_fragment",
+        "translate_fragment",
+        "translate_fragment",
     ]

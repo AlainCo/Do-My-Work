@@ -106,6 +106,32 @@ def render_fragment_length_report(source_file: Path, source_root: Path) -> str:
     return render_fragment_length_report_from_lines(relative_source, processed_lines)
 
 
+def render_markdown_fragment(fragment: MarkdownFragment) -> str:
+    if fragment.fragment_kind == "heading":
+        heading_level = max(len(fragment.heading_path), 1)
+        return f"{'#' * heading_level} {fragment.text}"
+
+    if fragment.fragment_kind == "paragraph":
+        return fragment.text
+
+    if fragment.fragment_kind == "list_item":
+        return f"- {fragment.text}"
+
+    if fragment.fragment_kind == "blockquote":
+        return "\n".join(f"> {line}" for line in fragment.text.splitlines())
+
+    if fragment.fragment_kind == "code_block":
+        return f"```\n{fragment.text}\n```"
+
+    return f"```mermaid\n{fragment.text}\n```"
+
+
+def render_translated_document(processed_fragments: list[str]) -> str:
+    if not processed_fragments:
+        return ""
+    return "\n\n".join(processed_fragments) + "\n"
+
+
 def render_fragment_length_line(fragment: MarkdownFragment) -> str:
     return (
         f"- {fragment.fragment_kind} "

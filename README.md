@@ -93,12 +93,19 @@ Generate a Markdown fragment length report for each source document:
 do-my-work summary-document-tree --input-dir work/input --output-dir work/output --data-dir work/data
 ```
 
+Translate Markdown documents through fragment tasks with the `technical` translator profile from the YAML config:
+
+```powershell
+do-my-work translate-document-tree --config config/workspace.yaml
+```
+
 Inspect the current command surface:
 
 ```powershell
 do-my-work --help
 do-my-work copy-tree --help
 do-my-work summary-document-tree --help
+do-my-work translate-document-tree --help
 ```
 
 ## Run the tests

@@ -111,11 +111,21 @@ This preserves the same dataflow approach already used by the summary workflow.
 
 ## Current Implementation Scope
 
-The current scope for this slice is deliberately limited to:
+The current scope for this slice is now implemented for a first teaching path:
 
 - typed translator profile configuration under `WorkspaceConfig`
 - an Ollama-compatible HTTP client adapter
 - prompt rendering with named placeholders
-- focused tests for configuration loading and request construction
+- a first fragment translation workflow command using the `technical` profile
+- focused tests for configuration loading, request construction, and translation workflow behavior
 
-The workflow task chain itself should come in the next iteration.
+The current translation workflow mirrors the summary pipeline at a simple level:
+
+1. discover Markdown documents to translate
+2. extract fragments
+3. create one `translate_fragment` task per fragment
+4. translate each reconstructed Markdown snippet through the configured profile
+5. merge translated fragments in order with no header or footer
+
+This is intentionally still modest.
+The mock server output is simplistic, but the workflow mechanics are now in place.

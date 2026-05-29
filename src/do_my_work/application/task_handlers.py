@@ -777,7 +777,11 @@ def _build_neighbor_context(
         raise ValueError(f"Unsupported direction: {direction}")
 
     for neighbor_index in indices:
-        rendered_neighbor = render_markdown_fragment(fragments[neighbor_index])
+        neighbor_fragment = fragments[neighbor_index]
+        if not _include_fragment_in_neighbor_context(neighbor_fragment):
+            continue
+
+        rendered_neighbor = render_markdown_fragment(neighbor_fragment)
         neighbor_size = len(rendered_neighbor.encode("utf-8"))
         additional_size = neighbor_size
         if selected_fragments:
@@ -793,6 +797,10 @@ def _build_neighbor_context(
         current_size += additional_size
 
     return "\n\n".join(selected_fragments)
+
+
+def _include_fragment_in_neighbor_context(fragment: MarkdownFragment) -> bool:
+    return fragment.fragment_kind not in {"code_block", "mermaid"}
 
 
 def _iter_markdown_documents(root_path: Path) -> list[Path]:

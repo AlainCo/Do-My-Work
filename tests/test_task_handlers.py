@@ -248,6 +248,69 @@ def test_discover_translate_fragments_builds_bounded_neighbor_context(tmp_path: 
     assert target_record.spec.post_context == "After two.\n\nTail."
 
 
+def test_discover_translate_fragments_excludes_fenced_blocks_from_neighbor_context(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    max_pre_context_bytes=4096,
+                    max_post_context_bytes=4096,
+                    temperature=0.0,
+                    system_prompt="You are a translator.",
+                    user_prompt="${pre_context}\n${inputfragment}\n${post_context}",
+                )
+            }
+        ),
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "note.md").write_text(
+        "# Intro\n\n"
+        "Useful before.\n\n"
+        "```yaml\n"
+        "schema: value\n"
+        "```\n\n"
+        "Target frag.\n\n"
+        "```mermaid\n"
+        "graph TD\n"
+        "```\n\n"
+        "Useful after.\n",
+        encoding="utf-8",
+    )
+
+    record = TaskRecord(
+        task_key="task:discover_translate_document_fragments:abc",
+        spec=DiscoverTranslateDocumentFragmentsTaskSpec(
+            relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = DiscoverTranslateDocumentFragmentsTaskHandler().handle(
+        record,
+        config,
+        JsonTaskRepository(config.data_dir / "tasks"),
+    )
+
+    target_record = next(
+        created_record
+        for created_record in result.new_records
+        if created_record.spec.kind == "translate_fragment"
+        and created_record.spec.text == "Target frag."
+    )
+
+    assert target_record.spec.pre_context == "# Intro\n\nUseful before."
+    assert target_record.spec.post_context == "Useful after."
+
+
 def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("mock timeout while translating fragment", request=request)

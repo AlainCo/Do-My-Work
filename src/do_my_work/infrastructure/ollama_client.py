@@ -36,7 +36,8 @@ class RenderedTranslatorRequest:
 
 class OllamaChatClient:
     def __init__(self, http_client: httpx.Client | None = None) -> None:
-        self._http_client = http_client or httpx.Client(timeout=30.0)
+        # TODO mettre le timeout dans la config
+        self._http_client = http_client or httpx.Client(timeout=180.0)
         self._owns_http_client = http_client is None
 
     def close(self) -> None:

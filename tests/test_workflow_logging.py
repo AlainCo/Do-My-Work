@@ -36,6 +36,7 @@ def test_workflow_engine_logs_revalidation_and_execution(
     assert "Workflow run summary:" in caplog.text
     assert "executed=3" in caplog.text
     assert "replayed=1" in caplog.text
+    assert "retried_failed=0" in caplog.text
 
 
 def test_workflow_engine_logs_summary_for_unchanged_run(tmp_path: Path, caplog) -> None:
@@ -60,6 +61,7 @@ def test_workflow_engine_logs_summary_for_unchanged_run(tmp_path: Path, caplog) 
     assert "Workflow run summary:" in caplog.text
     assert "executed=0" in caplog.text
     assert "replayed=0" in caplog.text
+    assert "retried_failed=0" in caplog.text
     assert "unchanged=3" in caplog.text
 
 
@@ -131,3 +133,5 @@ def test_workflow_engine_logs_when_failed_translation_is_retried(
     assert "Task retry scheduled:" in caplog.text
     assert "kind=translate_fragment" in caplog.text
     assert "reason=previous_run_failed" in caplog.text
+    assert "error_category=timeout" in caplog.text
+    assert "retried_failed=1" in caplog.text

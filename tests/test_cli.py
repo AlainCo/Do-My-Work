@@ -51,6 +51,7 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
     assert result.exit_code == 0
     assert "Workflow run completed:" in result.stdout
     assert "Tasks executed: 4" in result.stdout
+    assert "Failed tasks retried: 0" in result.stdout
     assert "Tasks created: 3" in result.stdout
     assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
         "# Markdown Reference Index\n\n"
@@ -121,6 +122,7 @@ def test_translate_document_tree_command_translates_markdown_fragments(
     assert result.exit_code == 0
     assert "Workflow run completed:" in result.stdout
     assert "Tasks executed: 5" in result.stdout
+    assert "Failed tasks retried: 0" in result.stdout
     assert (output_dir / "note.md").read_text(encoding="utf-8") == (
         "# INTRO\n\nALPHA BETA.\n"
     )

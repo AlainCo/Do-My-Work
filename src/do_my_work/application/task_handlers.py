@@ -536,6 +536,7 @@ class TranslateFragmentTaskHandler:
                         "outcome": TaskOutcome(
                             message="LLM translation timed out.",
                             error=str(exc),
+                            error_category="timeout",
                         ),
                     }
                 )
@@ -550,6 +551,7 @@ class TranslateFragmentTaskHandler:
                                 "LLM translation failed with an HTTP status error."
                             ),
                             error=str(exc),
+                            error_category="http_status",
                         ),
                     }
                 )
@@ -562,6 +564,7 @@ class TranslateFragmentTaskHandler:
                         "outcome": TaskOutcome(
                             message="LLM translation request failed.",
                             error=str(exc),
+                            error_category="request_error",
                         ),
                     }
                 )

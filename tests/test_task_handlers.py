@@ -227,6 +227,7 @@ def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> N
     assert result.updated_record.outcome is not None
     assert result.updated_record.outcome.message == "LLM translation timed out."
     assert result.updated_record.outcome.error == "mock timeout while translating fragment"
+    assert result.updated_record.outcome.error_category == "timeout"
 
 
 def test_translate_fragment_handler_marks_http_status_error_as_failed(
@@ -275,6 +276,7 @@ def test_translate_fragment_handler_marks_http_status_error_as_failed(
         == "LLM translation failed with an HTTP status error."
     )
     assert "503 Service Unavailable" in result.updated_record.outcome.error
+    assert result.updated_record.outcome.error_category == "http_status"
 
 
 def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path) -> None:
@@ -318,6 +320,7 @@ def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path
     assert result.updated_record.outcome is not None
     assert result.updated_record.outcome.message == "LLM translation request failed."
     assert result.updated_record.outcome.error == "mock connection failed"
+    assert result.updated_record.outcome.error_category == "request_error"
 
 
 def test_merge_translated_fragments_handler_writes_translated_document(tmp_path: Path) -> None:

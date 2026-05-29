@@ -38,6 +38,7 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
 
     assert run_request.status == "succeeded"
     assert run_request.summary.executed_task_count == 4
+    assert run_request.summary.retried_failed_task_count == 0
     assert run_request.summary.created_task_count == 3
     assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
         "# Markdown Reference Index\n\n"
@@ -123,6 +124,7 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
 
     assert run_request.status == "succeeded"
     assert run_request.summary.executed_task_count == 6
+    assert run_request.summary.retried_failed_task_count == 0
     assert run_request.summary.created_task_count == 5
     assert (output_dir / "note.md").read_text(encoding="utf-8") == (
         "# INTRO\n\nALPHA BETA.\n\n- ITEM ONE\n"
@@ -204,6 +206,7 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
     )
 
     assert first_run.status == "failed"
+    assert first_run.summary.retried_failed_task_count == 0
 
     second_run = WorkflowEngine().run(
         config,
@@ -213,4 +216,5 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
     )
 
     assert second_run.status == "succeeded"
+    assert second_run.summary.retried_failed_task_count == 1
     assert (output_dir / "note.md").read_text(encoding="utf-8") == "# INTRO\n\nALPHA BETA.\n"

@@ -68,6 +68,24 @@ python -m pip install -e ".[mock-ollama]"
 
 ## Launching The Mock Server
 
+Convenience scripts are available in `scripts/` for testers who do not want to remember the Python module command.
+
+Windows `cmd.exe` or Explorer launch:
+
+```bat
+scripts\start-ollama-mock.bat
+```
+
+Git Bash or Linux shell launch:
+
+```bash
+./scripts/start-ollama-mock.sh
+```
+
+Both scripts also accept `--check` to print the repository root and chosen Python executable without starting the server.
+
+Raw module launch remains available too.
+
 Direct module launch:
 
 ```powershell

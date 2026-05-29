@@ -32,6 +32,61 @@ class OllamaMockBehavior(Protocol):
     ) -> dict[str, object]: ...
 
 
+class OllamaMockChatBehavior(Protocol):
+    def matches(self, messages: list[MockChatMessage]) -> bool: ...
+
+    def render(self, messages: list[MockChatMessage]) -> str: ...
+
+
+@dataclass(frozen=True, slots=True)
+class TranslatorChatBehavior:
+    system_keyword: str = "translator"
+    marker_start: str = "===BEGIN SOURCE TEXT===\n"
+    marker_end: str = "===END SOURCE TEXT===\n"
+
+    def matches(self, messages: list[MockChatMessage]) -> bool:
+        for message in messages:
+            if message.role == "system" and self.system_keyword in message.content.lower():
+                return True
+        return False
+
+    def render(self, messages: list[MockChatMessage]) -> str:
+        return self._extract_source_text(messages).upper()
+
+    def _extract_source_text(self, messages: list[MockChatMessage]) -> str:
+        for message in reversed(messages):
+            start_index = message.content.find(self.marker_start)
+            if start_index == -1:
+                continue
+
+            source_start = start_index + len(self.marker_start)
+            end_index = message.content.find(self.marker_end, source_start)
+            if end_index == -1:
+                continue
+
+            return message.content[source_start:end_index]
+
+        return ""
+
+
+@dataclass(frozen=True, slots=True)
+class KeywordChatBehavior:
+    keyword_responses: dict[str, str]
+    fallback_prefix: str
+
+    def matches(self, messages: list[MockChatMessage]) -> bool:
+        del messages
+        return True
+
+    def render(self, messages: list[MockChatMessage]) -> str:
+        prompt = _extract_last_user_message(messages)
+        lowered_prompt = prompt.lower()
+        for keyword, response in self.keyword_responses.items():
+            if keyword in lowered_prompt:
+                return response
+        return f"{self.fallback_prefix}{prompt}"
+
+
 @dataclass(slots=True)
 class RuleBasedOllamaMockBehavior:
     advertised_model: str = "mock-llama"
@@ -45,6 +100,21 @@ class RuleBasedOllamaMockBehavior:
     )
     fallback_prefix: str = "[mock] reponse generee pour : "
     model_size: int = 123_456_789
+    chat_behaviors: list[OllamaMockChatBehavior] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.chat_behaviors:
+            return
+
+        self.chat_behaviors.extend(
+            [
+                TranslatorChatBehavior(),
+                KeywordChatBehavior(
+                    keyword_responses=self.keyword_responses,
+                    fallback_prefix=self.fallback_prefix,
+                ),
+            ]
+        )
 
     def version(self) -> dict[str, str]:
         return {"version": self.version_value}
@@ -85,13 +155,14 @@ class RuleBasedOllamaMockBehavior:
         self._sleep_if_needed()
         del stream
 
-        prompt = _extract_last_user_message(messages)
+        content = self._render_chat_response(messages)
+
         return {
             "model": model,
             "created_at": _utc_timestamp(),
             "message": {
                 "role": "assistant",
-                "content": self._render_response(prompt),
+                "content": content,
             },
             "done": True,
         }
@@ -102,6 +173,13 @@ class RuleBasedOllamaMockBehavior:
             if keyword in lowered_prompt:
                 return response
         return f"{self.fallback_prefix}{prompt}"
+
+    def _render_chat_response(self, messages: list[MockChatMessage]) -> str:
+        for behavior in self.chat_behaviors:
+            if behavior.matches(messages):
+                return behavior.render(messages)
+
+        return ""
 
     def _sleep_if_needed(self) -> None:
         if self.latency_seconds > 0:

@@ -25,8 +25,8 @@ from do_my_work.domain.models import (
     DiscoverTranslateDocumentsTaskSpec,
     IndexMarkdownReferencesTaskSpec,
     MarkdownFragment,
-    MergeReferenceIndexesTaskSpec,
     MergeFragmentResultsTaskSpec,
+    MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     ProcessedFragmentResult,
     ProcessFragmentTaskSpec,
@@ -48,8 +48,8 @@ from do_my_work.infrastructure.markdown_fragment_report import (
     render_translated_document,
 )
 from do_my_work.infrastructure.markdown_reference_report import (
-    build_root_reference_index_path,
     build_reference_report_relative_path,
+    build_root_reference_index_path,
     render_markdown_reference_report,
     render_tree_markdown_reference_report,
 )

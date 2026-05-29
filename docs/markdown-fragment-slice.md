@@ -14,9 +14,8 @@ It should stay small, testable, and close to the future translation workflow.
 
 The first executable version of this slice is now implemented.
 
-Available command:
-
-- `summary-document-tree`
+This note is now kept as historical design context.
+The dedicated CLI command that exposed this slice has been removed as the public surface narrows to reference indexing and translation.
 
 Current behavior:
 

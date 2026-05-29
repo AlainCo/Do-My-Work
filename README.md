@@ -54,27 +54,7 @@ For the project commands below, using the virtual environment Python explicitly 
 .\.venv\Scripts\python.exe -m do_my_work.cli --help
 ```
 
-## Main commands
-
-Without a config file:
-
-```powershell
-do-my-work hello
-```
-
-With the provided YAML example:
-
-```powershell
-do-my-work hello --config config/workspace.yaml
-```
-
-Override one or more directories on the command line:
-
-```powershell
-do-my-work hello --input-dir custom/input --output-dir custom/output --data-dir custom/data
-```
-
-## Run the current workflows
+## Current commands
 
 Generate Markdown reference indexes with one `.references.md` file per input file and one root-level `references.index.md` synthesis:
 
@@ -88,33 +68,11 @@ Translate Markdown documents through fragment tasks with the `technical` transla
 do-my-work translate-document-tree --config config/workspace.yaml
 ```
 
-## Earlier teaching workflows
-
-Copy Markdown documents under `input_dir`, persist runs and tasks in `data_dir`, and reproduce the matching tree in `output_dir`:
-
-```powershell
-do-my-work copy-tree
-```
-
-Run the same workflow with explicit directories:
-
-```powershell
-do-my-work copy-tree --input-dir work/input --output-dir work/output --data-dir work/data
-```
-
-Generate a Markdown fragment length report for each source document:
-
-```powershell
-do-my-work summary-document-tree --input-dir work/input --output-dir work/output --data-dir work/data
-```
-
 Inspect the current command surface:
 
 ```powershell
 do-my-work --help
 do-my-work reference-index-tree --help
-do-my-work copy-tree --help
-do-my-work summary-document-tree --help
 do-my-work translate-document-tree --help
 ```
 

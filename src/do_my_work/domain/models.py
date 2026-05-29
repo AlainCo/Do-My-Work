@@ -40,13 +40,6 @@ class LlmConfig(BaseModel):
     translator: dict[str, TranslatorProfileConfig] = Field(default_factory=dict)
 
 
-class BatchRunResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    message: str
-    workspace: WorkspaceConfig
-
-
 class WorkflowRunSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

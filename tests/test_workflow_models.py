@@ -7,11 +7,11 @@ from do_my_work.domain.models import (
     DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
     MergeReferenceIndexesTaskSpec,
-    ProcessedFragmentResult,
     RunRequest,
     TaskOutcome,
     TaskRecord,
     TaskStatus,
+    TranslatedFragmentResult,
     TranslateFragmentTaskSpec,
 )
 
@@ -24,7 +24,7 @@ def test_run_request_uses_reference_index_defaults() -> None:
     assert run_request.status == "pending"
 
 
-def test_task_record_round_trips_processed_fragment_result() -> None:
+def test_task_record_round_trips_translated_fragment_result() -> None:
     original_record = TaskRecord(
         task_key="task:translate_fragment:111a",
         spec=TranslateFragmentTaskSpec(
@@ -39,8 +39,8 @@ def test_task_record_round_trips_processed_fragment_result() -> None:
         status=TaskStatus.SUCCEEDED,
         outcome=TaskOutcome(
             message="Fragment translated.",
-            result=ProcessedFragmentResult(
-                rendered_text="ALPHA BETA.",
+            result=TranslatedFragmentResult(
+                translated_text="ALPHA BETA.",
                 length=11,
             ),
         ),
@@ -51,8 +51,8 @@ def test_task_record_round_trips_processed_fragment_result() -> None:
 
     assert isinstance(restored_record.spec, TranslateFragmentTaskSpec)
     assert restored_record.outcome is not None
-    assert restored_record.outcome.result == ProcessedFragmentResult(
-        rendered_text="ALPHA BETA.",
+    assert restored_record.outcome.result == TranslatedFragmentResult(
+        translated_text="ALPHA BETA.",
         length=11,
     )
 

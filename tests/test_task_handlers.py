@@ -18,10 +18,10 @@ from do_my_work.domain.models import (
     LlmConfig,
     MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
-    ProcessedFragmentResult,
     TaskOutcome,
     TaskRecord,
     TaskStatus,
+    TranslatedFragmentResult,
     TranslateFragmentTaskSpec,
     TranslatorProfileConfig,
     WorkspaceConfig,
@@ -177,8 +177,8 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
 
     assert result.updated_record.status == TaskStatus.SUCCEEDED
     assert result.updated_record.outcome is not None
-    assert result.updated_record.outcome.result == ProcessedFragmentResult(
-        rendered_text="# INTRO",
+    assert result.updated_record.outcome.result == TranslatedFragmentResult(
+        translated_text="# INTRO",
         length=7,
     )
     assert '"content":"===BEGIN SOURCE TEXT===\\n# Intro\\n===END SOURCE TEXT===\\n"' in str(
@@ -209,7 +209,7 @@ def test_merge_translated_fragments_handler_writes_translated_document(tmp_path:
             status=TaskStatus.SUCCEEDED,
             outcome=TaskOutcome(
                 message="Fragment translated.",
-                result=ProcessedFragmentResult(rendered_text="# INTRO", length=7),
+                result=TranslatedFragmentResult(translated_text="# INTRO", length=7),
             ),
         )
     )
@@ -228,7 +228,7 @@ def test_merge_translated_fragments_handler_writes_translated_document(tmp_path:
             status=TaskStatus.SUCCEEDED,
             outcome=TaskOutcome(
                 message="Fragment translated.",
-                result=ProcessedFragmentResult(rendered_text="ALPHA BETA.", length=11),
+                result=TranslatedFragmentResult(translated_text="ALPHA BETA.", length=11),
             ),
         )
     )

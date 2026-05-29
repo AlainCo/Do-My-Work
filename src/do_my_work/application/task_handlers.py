@@ -18,10 +18,10 @@ from do_my_work.domain.models import (
     MarkdownFragment,
     MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
-    ProcessedFragmentResult,
     TaskOutcome,
     TaskRecord,
     TaskStatus,
+    TranslatedFragmentResult,
     TranslateFragmentTaskSpec,
     WorkspaceConfig,
 )
@@ -536,8 +536,8 @@ class TranslateFragmentTaskHandler:
                     "status": TaskStatus.SUCCEEDED,
                     "outcome": TaskOutcome(
                         message="Fragment translated.",
-                        result=ProcessedFragmentResult(
-                            rendered_text=translated_fragment,
+                        result=TranslatedFragmentResult(
+                            translated_text=translated_fragment,
                             length=len(translated_fragment),
                         ),
                     ),
@@ -631,7 +631,7 @@ class MergeTranslatedFragmentsTaskHandler:
                     )
                 )
 
-            translated_fragments.append(fragment_record.outcome.result.rendered_text)
+            translated_fragments.append(fragment_record.outcome.result.translated_text)
 
         destination_path = config.output_dir / spec.document_relative_path
         destination_path.parent.mkdir(parents=True, exist_ok=True)

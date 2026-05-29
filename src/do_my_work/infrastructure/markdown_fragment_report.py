@@ -99,13 +99,6 @@ def extract_markdown_fragments(source_file: Path) -> list[MarkdownFragment]:
     return fragments
 
 
-def render_fragment_length_report(source_file: Path, source_root: Path) -> str:
-    relative_source = source_file.relative_to(source_root).as_posix()
-    fragments = extract_markdown_fragments(source_file)
-    processed_lines = [render_fragment_length_line(fragment) for fragment in fragments]
-    return render_fragment_length_report_from_lines(relative_source, processed_lines)
-
-
 def render_markdown_fragment(fragment: MarkdownFragment) -> str:
     if fragment.fragment_kind == "heading":
         heading_level = max(len(fragment.heading_path), 1)
@@ -126,37 +119,10 @@ def render_markdown_fragment(fragment: MarkdownFragment) -> str:
     return f"```mermaid\n{fragment.text}\n```"
 
 
-def render_translated_document(processed_fragments: list[str]) -> str:
-    if not processed_fragments:
+def render_translated_document(translated_fragments: list[str]) -> str:
+    if not translated_fragments:
         return ""
-    return "\n\n".join(processed_fragments) + "\n"
-
-
-def render_fragment_length_line(fragment: MarkdownFragment) -> str:
-    return (
-        f"- {fragment.fragment_kind} "
-        f"[{_format_heading_path(fragment.heading_path)}] -> {fragment.length}"
-    )
-
-
-def render_fragment_length_report_from_lines(
-    relative_source: str,
-    processed_lines: list[str],
-    header_text: str = "# Fragment Length Report",
-    footer_text: str | None = None,
-) -> str:
-    report_lines = [header_text, "", f"Source: {relative_source}", ""]
-    report_lines.extend(processed_lines)
-
-    if footer_text:
-        report_lines.extend(["", footer_text])
-
-    report_lines.append("")
-    return "\n".join(report_lines)
-
-
-def build_summary_report_relative_path(relative_path: Path) -> Path:
-    return relative_path.with_name(f"{relative_path.stem}.summary.md")
+    return "\n\n".join(translated_fragments) + "\n"
 
 
 def _collect_inline_content(tokens: list[Token]) -> str:
@@ -182,9 +148,3 @@ def _find_matching_close(tokens: list[Token], start_index: int) -> int:
                 return index
 
     raise ValueError(f"Could not find closing token for {open_type}")
-
-
-def _format_heading_path(heading_path: list[str]) -> str:
-    if not heading_path:
-        return "root"
-    return " / ".join(heading_path)

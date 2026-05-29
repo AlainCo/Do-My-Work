@@ -155,11 +155,11 @@ TaskSpec = Annotated[
 ]
 
 
-class ProcessedFragmentResult(BaseModel):
+class TranslatedFragmentResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["processed_fragment"] = "processed_fragment"
-    rendered_text: str
+    kind: Literal["translated_fragment"] = "translated_fragment"
+    translated_text: str
     length: int
 
 
@@ -169,7 +169,7 @@ class TaskOutcome(BaseModel):
     message: str
     created_task_keys: list[str] = Field(default_factory=list)
     error: str | None = None
-    result: ProcessedFragmentResult | None = None
+    result: TranslatedFragmentResult | None = None
 
 
 class TaskRecord(BaseModel):

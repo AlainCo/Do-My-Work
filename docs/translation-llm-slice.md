@@ -98,7 +98,7 @@ That is enough to support the next workflow slice.
 
 ## Relationship To The Future Workflow
 
-Once this slice is in place, the next translation workflow can mirror the current summary pipeline more closely:
+Once this slice is in place, the next translation workflow can reuse the same fragment-oriented dataflow introduced by the earlier fragment-reporting work:
 
 1. discover Markdown documents to translate
 2. extract ordered fragments
@@ -107,7 +107,7 @@ Once this slice is in place, the next translation workflow can mirror the curren
 5. persist the translated fragment result in task outcome data
 6. merge translated fragment results back into a document-level output
 
-This preserves the same dataflow approach already used by the summary workflow.
+This preserves the same task-expansion and merge pattern, without keeping the old summary workflow as a supported product command.
 
 ## Current Implementation Scope
 
@@ -119,7 +119,7 @@ The current scope for this slice is now implemented for a first teaching path:
 - a first fragment translation workflow command using the `technical` profile
 - focused tests for configuration loading, request construction, and translation workflow behavior
 
-The current translation workflow mirrors the summary pipeline at a simple level:
+The current translation workflow uses that earlier fragment pipeline shape at a simple level:
 
 1. discover Markdown documents to translate
 2. extract fragments

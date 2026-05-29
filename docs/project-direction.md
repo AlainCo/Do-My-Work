@@ -118,53 +118,43 @@ Recommended habit:
 
 ## Current Kernel Slice
 
-The first persistence and execution slice of the toy workflow kernel is now implemented.
+The workflow kernel is now implemented far enough to support the two retained public commands.
 
-The current toy scenario is:
+The currently supported user-facing workflows are:
 
-1. request: copy Markdown documents under `input_dir`
-2. discovery: list Markdown documents under the requested subtree
-3. persistence: store run and task state as JSON under `data_dir`
-4. execution: copy files one by one into `output_dir`
+1. `reference-index-tree`: discover Markdown documents, extract inline links, write one `.references.md` report per source file, and synthesize one root `references.index.md`
+2. `translate-document-tree`: discover Markdown documents, extract ordered fragments, translate them through a named LLM profile, and merge them back into translated Markdown documents
 
 This means the codebase now includes:
 
-- stable task key generation for `discover_documents` and `copy_file`
+- stable task key generation for the retained reference and translation task kinds
 - JSON repositories for runs and tasks under `data_dir`
-- the first two task handlers
+- task handlers for reference indexing and fragment translation
 - a sequential workflow engine loop
-- a small CLI command to launch the toy workflow
+- the two retained CLI commands
+
+Earlier copy-tree and fragment-length-report slices remain documented in `docs/` as historical design and teaching context, but they are no longer part of the supported command surface.
 
 ## Next Discussion
 
-The next useful discussion is now about how to extend this first slice without breaking the step-by-step teaching approach.
+The next useful discussion is now about how to keep extending the retained workflows without carrying historical teaching slices as if they were still active product behavior.
 
-The current preferred next slice is now to move from file copying to Markdown parsing and fragment reporting.
+The current preferred directions are now:
 
-That next slice is captured in `docs/markdown-fragment-slice.md`.
+- strengthening the retained translation workflow
+- deciding the next useful automation around the reference index workflow
+- simplifying the internal kernel now that older copy and fragment-length flows have been removed
 
-In short, the plan is:
+Historical intermediate slices are still captured for context in:
 
-1. parse Markdown documents with `markdown-it-py`
-2. read YAML front matter with `python-frontmatter` when present
-3. extract the lowest-level blocks together with their parent heading context
-4. treat blockquotes, fenced code blocks, and Mermaid blocks as atomic objects
-5. synthesize a Markdown report describing fragment lengths
+- `docs/markdown-fragment-slice.md`
+- `docs/fragment-task-dataflow.md`
 
-This keeps the work aligned with the long-term target of fragment-based processing, without jumping to translation or reassembly yet.
+The active workflow notes for the current product surface are:
 
-The next proposed evolution after that document-level report is to move to fragment-level task execution with a final merge step.
-
-That design direction is captured in `docs/fragment-task-dataflow.md`.
+- `docs/reference-index-slice.md`
+- `docs/translation-llm-slice.md`
 
 For future external LLM integration, the repository now also distinguishes between the real infrastructure client and a repository-local Ollama mock server used only for development and integration testing.
 
 That tooling direction is captured in `docs/ollama-mock-tooling.md`.
-
-The next foundation slice for fragment translation is to add typed translator profile configuration and an Ollama-compatible HTTP client before introducing translation task kinds.
-
-That design direction is captured in `docs/translation-llm-slice.md`.
-
-The next useful report slice is now to extract inline Markdown links together with their heading context and publish manual-checkable `.references.md` reports.
-
-That design direction is captured in `docs/reference-index-slice.md`.

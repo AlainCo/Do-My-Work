@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note defines the next small slice after the current copy-based workflow kernel.
+This note defines the slice that originally came after the early copy-based workflow kernel.
 
 The goal is not translation yet.
 The goal is to prove that we can parse Markdown documents, extract structured fragments with their heading context, and synthesize a derived Markdown report.
@@ -17,7 +17,7 @@ The first executable version of this slice is now implemented.
 This note is now kept as historical design context.
 The dedicated CLI command that exposed this slice has been removed as the public surface narrows to reference indexing and translation.
 
-Current behavior:
+Historical implemented behavior:
 
 - discover Markdown documents under the requested subtree
 - parse the document body with `markdown-it-py`

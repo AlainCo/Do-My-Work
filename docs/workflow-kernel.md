@@ -4,12 +4,15 @@
 
 This document captures the first agreed design for a toy workflow kernel.
 
+It is now primarily a historical architecture note.
+The current product surface has moved beyond this first copy-based example and retains only the reference indexing and translation workflows.
+
 For collaboration rules, validation habits, and local environment notes, see `docs/collaboration.md`.
 
 The immediate goal is not to build the final Markdown processing engine.
 The immediate goal is to introduce the right architecture with a very small scenario.
 
-## First Toy Scenario
+## Historical First Toy Scenario
 
 The first scenario is intentionally simple:
 
@@ -60,7 +63,7 @@ Task identity should be derived from the inputs that actually matter for the com
 
 Examples:
 
-- for a file copy task: relative path plus source content digest
+- for the original file copy task: relative path plus source content digest
 - for a future translation task: source fragment identity plus model or translation settings if they affect the output
 
 This lets the workflow detect whether an already completed task result is still valid.
@@ -82,7 +85,7 @@ A previously succeeded task is not always still satisfied.
 
 For some task kinds, success must be revalidated against the concrete result they are supposed to provide.
 
-For the current `copy_file` task, that means a succeeded record is only still valid if the destination file is still present.
+For the original `copy_file` task, that meant a succeeded record was only still valid if the destination file was still present.
 
 If a user deletes that file to force regeneration, the task should become pending again and the workflow should recreate the missing output.
 
@@ -120,7 +123,7 @@ The following names are the current preferred vocabulary.
 
 These names are intentionally ordinary and close to common backend or workflow terminology.
 
-## First Task Kinds
+## Historical First Task Kinds
 
 The first toy kernel only needs two task kinds.
 
@@ -155,11 +158,11 @@ Expected behavior:
 - copy the file contents
 - mark the task as succeeded if the operation completes
 
-## Orchestration Model
+## First Orchestration Model
 
-The first engine can stay very simple and sequential.
+The first engine could stay very simple and sequential.
 
-Suggested loop:
+Historical suggested loop:
 
 1. create a `RunRequest`
 2. create the root `discover_documents` task for the requested subtree
@@ -183,6 +186,8 @@ Suggested layout:
 This is easier to understand than one large state file, and easier to evolve than a more abstract persistence layer too early.
 
 ## Suggested Shape Of The First Records
+
+The following JSON snippets are historical examples from the first copy-based kernel slice.
 
 ### Run request
 
@@ -236,24 +241,28 @@ Once this slice works, the next evolutions become much easier:
 
 ## Current Implementation Status
 
-The first persistence and execution slice of the toy workflow kernel is now implemented.
+The first persistence and execution slice of the toy workflow kernel was implemented and used as the teaching path that introduced the current architecture.
+
+That original slice is no longer part of the supported command surface.
+It survives here as a design note because it explains why the repository has persistent task records, handler-based execution, and task revalidation.
 
 Implemented in the codebase:
 
 - `TaskStatus`
-- `DiscoverDocumentsTaskSpec`
-- `CopyFileTaskSpec`
 - `TaskOutcome`
 - `TaskRecord`
 - `RunRequest`
-- stable task key generation for `discover_documents` and `copy_file`
 - JSON repositories for runs and tasks under `data_dir`
-- task handlers for `discover_documents` and `copy_file`
 - a sequential `WorkflowEngine` loop
 - revalidation of succeeded tasks when their expected result is no longer present
 - business-oriented workflow logs for task execution, task creation, and task replay after revalidation
 - a run summary reporting how many tasks were executed, replayed, created, or left unchanged
-- a CLI entry point for the toy workflow
+- CLI entry points for the retained workflows
+
+The active workflows are now documented elsewhere:
+
+- `docs/reference-index-slice.md` for reference extraction and root index synthesis
+- `docs/translation-llm-slice.md` for fragment-based translation
 
 What is intentionally not implemented yet:
 
@@ -264,13 +273,14 @@ What is intentionally not implemented yet:
 
 ## Next Technical Step
 
-The next implementation step is to strengthen this slice without widening the architecture too quickly.
+At this point, the most useful next technical step is not to extend the old copy-based slice further.
+The more useful work is to simplify the kernel around the workflows that remain supported.
 
 Recommended order:
 
-1. add focused tests for repositories and failure paths
-2. improve run summaries and CLI reporting
-3. extend result revalidation rules carefully as new task kinds appear
+1. keep the retained reference and translation workflows well tested
+2. simplify internal abstractions that still reflect removed teaching slices
+3. extend result revalidation rules carefully as new retained task kinds appear
 4. only then introduce richer artifact or lineage concepts if they are still needed
 
-The current milestone is now achieved: asking to copy Markdown documents from `input_dir` creates persistent task records, executes the needed copy tasks, and reproduces the matching directory tree under `output_dir`.
+The historical milestone captured by this note was achieved: asking to copy Markdown documents from `input_dir` created persistent task records, executed the needed copy tasks, and reproduced the matching directory tree under `output_dir`.

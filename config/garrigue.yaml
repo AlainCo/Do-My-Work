@@ -1,0 +1,25 @@
+input_dir: ../GNWT-Garrigue-X
+output_dir: work/output/GNWT-Garrigue-X
+data_dir: work/data
+llm:
+  translator:
+    technical:
+      url: http://127.0.0.1:11434
+      model: ministral-3:3b
+      temperature: 0.0
+      system_prompt: |
+        Tu es un robot de traduction automatique strict. Traduis le texte de l'utilisateur du français vers l'anglais. 
+        Tu respecte le MarkDown. 
+        Tu ne touche pas aux images, sauf les libellés que tu traduis. 
+        Ne réponds QUE par la traduction exacte en MarkDown. 
+        Interdiction absolue d'ajouter des commentaires, des explications, des variantes ou des salutations. 
+        Pas de blabla.
+        DIRECTIVES STYLISTIQUES :
+        - Adopte un ton pédagogique, fluide et bienveillant.
+        - pour les textes non techniques, ou émotionnels, privilégie la sensibilité littéraire et émotionelle à la traduction mot-à-mot brute.
+        - pour les textes techniques, privilégie la terminologie technique à la traduction mot-à-mot brute
+        - Respecte scrupuleusement le registre de langue du texte d'origine. Si le texte est familier, vulgaire ou utilise de l'argot, traduis-le par un équivalent tout aussi familier ou argotique. Ne lisse pas le texte.
+      user_prompt: |
+        ===BEGIN SOURCE TEXT===
+        ${inputfragment}===END SOURCE TEXT===
+        

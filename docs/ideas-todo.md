@@ -12,6 +12,7 @@ Here I put ideas that emerge.
 ## task scheduling
 
 - it seems the fragment translation is done in random order... maybe it should be better if the fragments that will be merged in a given file are treated first, before treating the fragments of another file...
+- why not showing the count of various task by state before scheduling a task. it can simply be don by increasing or decreasing totals (don't count), when task are created of state changed.
 
 ## translation improvement
 

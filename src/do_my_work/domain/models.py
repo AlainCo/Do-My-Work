@@ -30,6 +30,7 @@ class TranslatorProfileConfig(BaseModel):
     model: str
     credential: str | None = None
     timeout_seconds: float = Field(default=180.0, gt=0)
+    max_retries: int = Field(default=0, ge=0)
     temperature: float = 0.0
     system_prompt: str
     user_prompt: str

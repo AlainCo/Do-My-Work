@@ -85,6 +85,113 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
     }
 
 
+def test_ollama_chat_client_retries_timeout_and_eventually_succeeds() -> None:
+    captured_attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_attempts.append(len(captured_attempts) + 1)
+        if len(captured_attempts) < 3:
+            raise httpx.ReadTimeout("temporary timeout", request=request)
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "RECOVERED"}},
+        )
+
+    config = WorkspaceConfig(
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="mock-llama",
+                    timeout_seconds=5.0,
+                    max_retries=2,
+                    system_prompt="You are a translator.",
+                    user_prompt="${inputfragment}",
+                )
+            }
+        )
+    )
+    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    result = client.translate_fragment(
+        config=config,
+        profile_name="technical",
+        parameters={"inputfragment": "Bonjour monde"},
+    )
+
+    assert result == "RECOVERED"
+    assert captured_attempts == [1, 2, 3]
+
+
+def test_ollama_chat_client_retries_server_error_and_eventually_succeeds() -> None:
+    captured_attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_attempts.append(len(captured_attempts) + 1)
+        if len(captured_attempts) < 2:
+            return httpx.Response(503, request=request, json={"error": "temporary outage"})
+        return httpx.Response(
+            200,
+            json={"message": {"role": "assistant", "content": "RECOVERED"}},
+        )
+
+    config = WorkspaceConfig(
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="mock-llama",
+                    max_retries=1,
+                    system_prompt="You are a translator.",
+                    user_prompt="${inputfragment}",
+                )
+            }
+        )
+    )
+    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    result = client.translate_fragment(
+        config=config,
+        profile_name="technical",
+        parameters={"inputfragment": "Bonjour monde"},
+    )
+
+    assert result == "RECOVERED"
+    assert captured_attempts == [1, 2]
+
+
+def test_ollama_chat_client_does_not_retry_client_error() -> None:
+    captured_attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_attempts.append(len(captured_attempts) + 1)
+        return httpx.Response(400, request=request, json={"error": "bad request"})
+
+    config = WorkspaceConfig(
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="mock-llama",
+                    max_retries=3,
+                    system_prompt="You are a translator.",
+                    user_prompt="${inputfragment}",
+                )
+            }
+        )
+    )
+    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    with pytest.raises(httpx.HTTPStatusError, match="400 Bad Request"):
+        client.translate_fragment(
+            config=config,
+            profile_name="technical",
+            parameters={"inputfragment": "Bonjour monde"},
+        )
+
+    assert captured_attempts == [1]
+
+
 def test_ollama_chat_client_raises_when_translator_profile_is_missing() -> None:
     client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
 

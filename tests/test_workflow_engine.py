@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
 from do_my_work.application.workflow_engine import WorkflowEngine
@@ -140,3 +141,76 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
         "translate_fragment",
         "translate_fragment",
     ]
+
+
+def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    call_count = {"value": 0}
+
+    def flaky_translate_fragment(self, config, profile_name, parameters):
+        del self, config, profile_name
+        call_count["value"] += 1
+        if call_count["value"] == 1:
+            raise httpx.ReadTimeout("temporary timeout")
+        return str(parameters["inputfragment"]).upper()
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        flaky_translate_fragment,
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translatoir from french to english.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${inputfragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "failed"
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert second_run.status == "succeeded"
+    assert (output_dir / "note.md").read_text(encoding="utf-8") == "# INTRO\n\nALPHA BETA.\n"

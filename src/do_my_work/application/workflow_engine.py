@@ -68,6 +68,9 @@ class WorkflowEngine:
         initially_succeeded_task_keys = {
             task.task_key for task in initial_task_records if task.status == TaskStatus.SUCCEEDED
         }
+        initially_failed_task_keys = {
+            task.task_key for task in initial_task_records if task.status == TaskStatus.FAILED
+        }
 
         run_request = RunRequest(
             run_id=_build_run_id(),
@@ -98,6 +101,7 @@ class WorkflowEngine:
                 config,
                 task_repository,
                 revalidator,
+                initially_failed_task_keys,
                 initially_succeeded_task_keys,
                 replayed_task_keys,
                 unchanged_task_keys,
@@ -244,13 +248,24 @@ class WorkflowEngine:
         config: WorkspaceConfig,
         task_repository: JsonTaskRepository,
         revalidator: TaskRevalidator,
+        initially_failed_task_keys: set[str],
         initially_succeeded_task_keys: set[str],
         replayed_task_keys: set[str],
         unchanged_task_keys: set[str],
     ) -> list[TaskRecord]:
         refreshed_records = revalidator.revalidate_all(task_records, config)
+        effective_records: list[TaskRecord] = []
 
         for original_record, refreshed_record in zip(task_records, refreshed_records, strict=False):
+            if (
+                original_record.status == TaskStatus.FAILED
+                and refreshed_record.status != TaskStatus.FAILED
+                and original_record.task_key not in initially_failed_task_keys
+            ):
+                refreshed_record = original_record
+
+            effective_records.append(refreshed_record)
+
             if refreshed_record != original_record:
                 task_repository.save(refreshed_record)
                 if (
@@ -266,10 +281,20 @@ class WorkflowEngine:
                     original_record.status.value,
                     refreshed_record.status.value,
                 )
+                if (
+                    original_record.task_key in initially_failed_task_keys
+                    and original_record.status == TaskStatus.FAILED
+                    and refreshed_record.status == TaskStatus.PENDING
+                ):
+                    self._logger.info(
+                        "Task retry scheduled: key=%s kind=%s reason=previous_run_failed",
+                        original_record.task_key,
+                        original_record.spec.kind,
+                    )
             elif original_record.task_key in initially_succeeded_task_keys:
                 unchanged_task_keys.add(original_record.task_key)
 
-        return refreshed_records
+        return effective_records
 
     def _select_next_task(self, task_records: list[TaskRecord]) -> TaskRecord | None:
         ordered_records = sorted(task_records, key=lambda record: record.task_key)

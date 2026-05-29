@@ -540,6 +540,32 @@ class TranslateFragmentTaskHandler:
                     }
                 )
             )
+        except httpx.HTTPStatusError as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message=(
+                                "LLM translation failed with an HTTP status error."
+                            ),
+                            error=str(exc),
+                        ),
+                    }
+                )
+            )
+        except httpx.RequestError as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="LLM translation request failed.",
+                            error=str(exc),
+                        ),
+                    }
+                )
+            )
         finally:
             if self._llm_client is None:
                 llm_client.close()

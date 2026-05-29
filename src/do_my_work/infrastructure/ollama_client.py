@@ -80,27 +80,48 @@ class OllamaChatClient:
             profile_name=profile_name,
             parameters=parameters,
         )
-        response = self._http_client.post(
-            _build_chat_url(rendered_request.profile.url),
-            headers=_build_headers(rendered_request.profile),
-            json={
-                "model": rendered_request.profile.model,
-                "messages": [
-                    {"role": message.role, "content": message.content}
-                    for message in rendered_request.messages
-                ],
-                "stream": False,
-                "options": {"temperature": rendered_request.profile.temperature},
-            },
-            timeout=rendered_request.profile.timeout_seconds,
-        )
-        response.raise_for_status()
+        response = self._post_with_retries(rendered_request)
         payload = response.json()
 
         try:
             return payload["message"]["content"]
         except KeyError as exc:
             raise OllamaResponseError("Missing Ollama chat response content.") from exc
+
+    def _post_with_retries(self, rendered_request: RenderedTranslatorRequest) -> httpx.Response:
+        max_attempt_count = rendered_request.profile.max_retries + 1
+        for attempt_index in range(max_attempt_count):
+            try:
+                response = self._http_client.post(
+                    _build_chat_url(rendered_request.profile.url),
+                    headers=_build_headers(rendered_request.profile),
+                    json={
+                        "model": rendered_request.profile.model,
+                        "messages": [
+                            {"role": message.role, "content": message.content}
+                            for message in rendered_request.messages
+                        ],
+                        "stream": False,
+                        "options": {"temperature": rendered_request.profile.temperature},
+                    },
+                    timeout=rendered_request.profile.timeout_seconds,
+                )
+                response.raise_for_status()
+                return response
+            except httpx.TimeoutException:
+                if attempt_index >= rendered_request.profile.max_retries:
+                    raise
+            except httpx.HTTPStatusError as exc:
+                if (
+                    attempt_index >= rendered_request.profile.max_retries
+                    or exc.response.status_code < 500
+                ):
+                    raise
+            except httpx.RequestError:
+                if attempt_index >= rendered_request.profile.max_retries:
+                    raise
+
+        raise AssertionError("Retry loop exited without response or exception.")
 
 
 def _build_headers(profile: TranslatorProfileConfig) -> dict[str, str]:

@@ -229,6 +229,97 @@ def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> N
     assert result.updated_record.outcome.error == "mock timeout while translating fragment"
 
 
+def test_translate_fragment_handler_marks_http_status_error_as_failed(
+    tmp_path: Path,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, request=request, json={"error": "service unavailable"})
+
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator from french to english.",
+                    user_prompt="${inputfragment}",
+                )
+            }
+        ),
+    )
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    llm_client = OllamaChatClient(http_client=http_client)
+    record = TaskRecord(
+        task_key="task:translate_fragment:http-status",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("note.md"),
+            fragment_kind="paragraph",
+            heading_path=["Intro"],
+            text="Bonjour monde.",
+            fragment_digest="sha256:frag-http-status",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = TranslateFragmentTaskHandler(llm_client=llm_client).handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.FAILED
+    assert result.updated_record.outcome is not None
+    assert (
+        result.updated_record.outcome.message
+        == "LLM translation failed with an HTTP status error."
+    )
+    assert "503 Service Unavailable" in result.updated_record.outcome.error
+
+
+def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("mock connection failed", request=request)
+
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator from french to english.",
+                    user_prompt="${inputfragment}",
+                )
+            }
+        ),
+    )
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    llm_client = OllamaChatClient(http_client=http_client)
+    record = TaskRecord(
+        task_key="task:translate_fragment:request-error",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("note.md"),
+            fragment_kind="paragraph",
+            heading_path=["Intro"],
+            text="Bonjour monde.",
+            fragment_digest="sha256:frag-request-error",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = TranslateFragmentTaskHandler(llm_client=llm_client).handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.FAILED
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.message == "LLM translation request failed."
+    assert result.updated_record.outcome.error == "mock connection failed"
+
+
 def test_merge_translated_fragments_handler_writes_translated_document(tmp_path: Path) -> None:
     config = WorkspaceConfig(
         input_dir=tmp_path / "input",

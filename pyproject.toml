@@ -21,6 +21,10 @@ dev = [
     "pytest>=8.4,<9",
     "ruff>=0.11,<1",
 ]
+mock-ollama = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.35,<1",
+]
 
 [project.scripts]
 do-my-work = "do_my_work.cli:app"

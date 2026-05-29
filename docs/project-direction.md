@@ -156,3 +156,7 @@ This keeps the work aligned with the long-term target of fragment-based processi
 The next proposed evolution after that document-level report is to move to fragment-level task execution with a final merge step.
 
 That design direction is captured in `docs/fragment-task-dataflow.md`.
+
+For future external LLM integration, the repository now also distinguishes between the real infrastructure client and a repository-local Ollama mock server used only for development and integration testing.
+
+That tooling direction is captured in `docs/ollama-mock-tooling.md`.

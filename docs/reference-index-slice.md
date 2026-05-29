@@ -10,7 +10,7 @@ The immediate goal is to extract links such as `[Label](https://example.org)` to
 
 ## Why This Slice Matters
 
-Compared to the earlier copy-tree and fragment-length examples, this report produces an output that is closer to a real editorial workflow.
+Compared to the earlier historical copy-tree and fragment-length examples, this report produces an output that is closer to a real editorial workflow.
 
 It helps answer questions such as:
 

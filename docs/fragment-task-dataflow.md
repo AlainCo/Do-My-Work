@@ -2,20 +2,23 @@
 
 ## Purpose
 
-This note captures the next proposed workflow evolution after document-level fragment length reports.
+This note captures a historical workflow evolution that was proposed after the document-level fragment length report slice.
 
-The goal is to keep the same high-level Markdown summary scenario, but change the execution model:
+It is kept as design context only.
+It does not describe the current supported command surface.
+
+The original goal was to keep the same high-level Markdown summary scenario, but change the execution model:
 
 1. extract fragments from one Markdown document
 2. create one independent task per fragment
 3. create one final merge task per document
 4. assemble the final document-level output from the ordered fragment results
 
-This is the first slice where the workflow becomes a real dataflow pipeline instead of a pure file-by-file transformation.
+This was the first slice where the workflow would become a real dataflow pipeline instead of a pure file-by-file transformation.
 
 ## Why This Direction Fits The Existing Kernel
 
-The current kernel already has most of the infrastructure needed:
+At the time of this proposal, the kernel already had most of the infrastructure needed:
 
 - stable task identities
 - persisted task records in JSON
@@ -23,8 +26,8 @@ The current kernel already has most of the infrastructure needed:
 - task revalidation
 - sequential orchestration until the root task is resolved
 
-The main missing capability is not scheduling.
-The main missing capability is typed data exchange between tasks.
+The main missing capability was not scheduling.
+The main missing capability was typed data exchange between tasks.
 
 That is still a modest extension if we keep it explicit.
 
@@ -44,7 +47,7 @@ Instead, each task record should expose two different concerns:
 
 ## Recommended Result Model
 
-The current `TaskOutcome` is useful for status reporting, but too small for dataflow.
+At the time of this note, `TaskOutcome` was useful for status reporting, but too small for dataflow.
 
 Today it contains:
 
@@ -52,7 +55,7 @@ Today it contains:
 - `created_task_keys`
 - `error`
 
-For the next slice, the clean direction is to extend the outcome with a typed result payload.
+For that next slice, the clean direction was to extend the outcome with a typed result payload.
 
 Example direction:
 
@@ -75,7 +78,7 @@ That keeps the JSON records readable while also making them usable as workflow d
 
 ## Why `result` In The Outcome Is Better Than A Separate Generic Store For Now
 
-At this stage, keeping task output data inside the task record is a good fit.
+At that stage, keeping task output data inside the task record was a good fit.
 
 Reasons:
 
@@ -90,6 +93,8 @@ So yes: adding fields in the task JSON is the right direction.
 But it should be done through explicit domain models, not by sprinkling arbitrary keys into free-form dictionaries.
 
 ## Proposed Task Shapes
+
+These task shapes are historical. They describe a removed intermediate slice and are no longer implemented.
 
 ### 1. `discover_document_fragments`
 
@@ -191,11 +196,11 @@ Practical direction:
 - it validates that every required child task succeeded and published the expected result payload
 - it builds the final output from those persisted results
 
-That is enough to support a first dataflow slice.
+That was enough to support a first dataflow slice.
 
 ## Revalidation Expectations
 
-This slice makes revalidation more important.
+This slice would make revalidation more important.
 
 The minimum expected rules are:
 
@@ -208,7 +213,7 @@ This stays aligned with the existing principle that success is not only a stored
 
 ## Why This Is Good Taste
 
-Yes, this direction is of good taste if we keep the scope disciplined.
+Yes, this direction was of good taste if the scope stayed disciplined.
 
 It fits the current architecture because:
 
@@ -222,13 +227,13 @@ It would become poor taste only if we introduced a vague "tasks can read arbitra
 
 ## Recommended Implementation Bias
 
-The first implementation should stay narrower than the long-term translation case.
+The first implementation was intended to stay narrower than the long-term translation case.
 
 Recommended discipline:
 
 - keep the current fragment extraction logic
 - make `process_fragment` produce a very simple derived string first
-- let `merge_fragment_results` assemble a Markdown report similar to the current summary output
+- let `merge_fragment_results` assemble a Markdown report similar to the historical summary output of that slice
 - add header and footer support only if it stays small and deterministic in this slice
 
 This keeps the architectural step clear:
@@ -238,4 +243,4 @@ This keeps the architectural step clear:
 - persisted task results
 - ordered merge from child task outputs
 
-That is already a substantial and valuable evolution.
+That would already have been a substantial and valuable evolution.

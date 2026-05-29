@@ -37,7 +37,7 @@ The front matter is treated as document metadata, not as part of the Markdown bo
 
 ## What We Want To Exercise
 
-The next slice should demonstrate these abilities:
+That slice was meant to demonstrate these abilities:
 
 1. load a Markdown document
 2. parse its block structure

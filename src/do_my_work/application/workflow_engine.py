@@ -13,6 +13,7 @@ from do_my_work.application.task_handlers import (
     DiscoverTranslateDocumentsTaskHandler,
     IndexMarkdownReferencesTaskHandler,
     MergeFragmentResultsTaskHandler,
+    MergeReferenceIndexesTaskHandler,
     MergeTranslatedFragmentsTaskHandler,
     ProcessFragmentTaskHandler,
     SummarizeMarkdownDocumentTaskHandler,
@@ -100,6 +101,7 @@ class WorkflowEngine:
         discover_summary_handler = DiscoverSummaryDocumentsTaskHandler()
         discover_translate_handler = DiscoverTranslateDocumentsTaskHandler()
         index_references_handler = IndexMarkdownReferencesTaskHandler()
+        merge_reference_indexes_handler = MergeReferenceIndexesTaskHandler()
         discover_fragments_handler = DiscoverDocumentFragmentsTaskHandler()
         discover_translate_fragments_handler = DiscoverTranslateDocumentFragmentsTaskHandler()
         copy_handler = CopyFileTaskHandler()
@@ -144,6 +146,12 @@ class WorkflowEngine:
                 result = discover_translate_handler.handle(next_task, config, task_repository)
             elif next_task.spec.kind == "index_markdown_references":
                 result = index_references_handler.handle(next_task, config)
+            elif next_task.spec.kind == "merge_reference_indexes":
+                result = merge_reference_indexes_handler.handle(
+                    next_task,
+                    config,
+                    task_repository,
+                )
             elif next_task.spec.kind == "discover_document_fragments":
                 result = discover_fragments_handler.handle(next_task, config, task_repository)
             elif next_task.spec.kind == "discover_translate_document_fragments":

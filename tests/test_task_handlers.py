@@ -8,6 +8,7 @@ from do_my_work.application.task_handlers import (
     DiscoverDocumentsTaskHandler,
     IndexMarkdownReferencesTaskHandler,
     MergeFragmentResultsTaskHandler,
+    MergeReferenceIndexesTaskHandler,
     MergeTranslatedFragmentsTaskHandler,
     TranslateFragmentTaskHandler,
 )
@@ -16,6 +17,7 @@ from do_my_work.application.task_keys import (
     make_discover_documents_task_key,
     make_index_markdown_references_task_key,
     make_merge_fragment_results_task_key,
+    make_merge_reference_indexes_task_key,
     make_merge_translated_fragments_task_key,
 )
 from do_my_work.domain.models import (
@@ -25,6 +27,7 @@ from do_my_work.domain.models import (
     IndexMarkdownReferencesTaskSpec,
     LlmConfig,
     MergeFragmentResultsTaskSpec,
+    MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     ProcessedFragmentResult,
     ProcessFragmentTaskSpec,
@@ -150,6 +153,74 @@ def test_index_markdown_references_handler_writes_reference_report(tmp_path: Pat
         "# Markdown Reference Index\n\n"
         "Source: note.md\n\n"
         "- [Bob](https://example.org/bob) [Sources]\n"
+    )
+
+
+def test_merge_reference_indexes_handler_writes_root_reference_index(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (config.input_dir / "nested").mkdir(parents=True)
+    (config.input_dir / "nested" / "beta.md").write_text(
+        "# Further Reading\n\nSee [Alice](https://example.org/alice).\n",
+        encoding="utf-8",
+    )
+
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    alpha_task_key = make_index_markdown_references_task_key(Path("alpha.md"), "sha256:alpha")
+    beta_task_key = make_index_markdown_references_task_key(Path("nested/beta.md"), "sha256:beta")
+    task_repository.save(
+        TaskRecord(
+            task_key=alpha_task_key,
+            spec=IndexMarkdownReferencesTaskSpec(
+                relative_path=Path("alpha.md"),
+                source_digest="sha256:alpha",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(message="Markdown reference report written."),
+        )
+    )
+    task_repository.save(
+        TaskRecord(
+            task_key=beta_task_key,
+            spec=IndexMarkdownReferencesTaskSpec(
+                relative_path=Path("nested/beta.md"),
+                source_digest="sha256:beta",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(message="Markdown reference report written."),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_reference_indexes_task_key(
+            Path("."),
+            [Path("alpha.md"), Path("nested/beta.md")],
+        ),
+        spec=MergeReferenceIndexesTaskSpec(
+            root=Path("."),
+            document_relative_paths=[Path("alpha.md"), Path("nested/beta.md")],
+            reference_task_keys=[alpha_task_key, beta_task_key],
+        ),
+        child_task_keys=[alpha_task_key, beta_task_key],
+    )
+
+    result = MergeReferenceIndexesTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## nested/beta.md\n\n"
+        "- [Alice](https://example.org/alice) [Further Reading]\n"
     )
 
 

@@ -131,6 +131,11 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
         "# Sources\n\nSee [Bob](https://example.org/bob).\n",
         encoding="utf-8",
     )
+    (input_dir / "nested").mkdir(parents=True)
+    (input_dir / "nested" / "other.md").write_text(
+        "# Further Reading\n\nSee [Alice](https://example.org/alice).\n",
+        encoding="utf-8",
+    )
 
     result = runner.invoke(
         app,
@@ -147,11 +152,18 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
 
     assert result.exit_code == 0
     assert "Workflow run completed:" in result.stdout
-    assert "Tasks executed: 2" in result.stdout
-    assert "Tasks created: 1" in result.stdout
+    assert "Tasks executed: 4" in result.stdout
+    assert "Tasks created: 3" in result.stdout
     assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
         "# Markdown Reference Index\n\n"
         "Source: note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+    )
+    assert (output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## nested/other.md\n\n"
+        "- [Alice](https://example.org/alice) [Further Reading]\n\n"
+        "## note.md\n\n"
         "- [Bob](https://example.org/bob) [Sources]\n"
     )
 

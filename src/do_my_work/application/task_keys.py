@@ -117,6 +117,14 @@ def make_index_markdown_references_task_key(relative_path: Path, source_digest: 
     return _make_task_key("index_markdown_references", relative_path.as_posix(), source_digest)
 
 
+def make_merge_reference_indexes_task_key(root: Path, relative_paths: list[Path]) -> str:
+    return _make_task_key(
+        "merge_reference_indexes",
+        root.as_posix(),
+        *(relative_path.as_posix() for relative_path in relative_paths),
+    )
+
+
 def make_translator_profile_digest(profile: TranslatorProfileConfig) -> str:
     payload = "|".join(
         [

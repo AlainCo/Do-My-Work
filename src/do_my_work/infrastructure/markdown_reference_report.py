@@ -40,14 +40,33 @@ def render_markdown_reference_report(source_file: Path, source_root: Path) -> st
     references = extract_markdown_references(source_file)
     report_lines = ["# Markdown Reference Index", "", f"Source: {relative_source}", ""]
 
-    for reference in references:
-        heading_label = _format_heading_path(reference.heading_path)
-        report_lines.append(
-            f"- [{reference.label}]({reference.url}) [{heading_label}]"
-        )
-
+    report_lines.extend(_render_reference_lines(references))
     report_lines.append("")
     return "\n".join(report_lines)
+
+
+def render_tree_markdown_reference_report(source_root: Path, relative_paths: list[Path]) -> str:
+    report_lines = ["# Markdown Reference Tree Index", ""]
+
+    for relative_path in relative_paths:
+        source_file = source_root / relative_path
+        report_lines.append(f"## {relative_path.as_posix()}")
+        report_lines.append("")
+        report_lines.extend(_render_reference_lines(extract_markdown_references(source_file)))
+        report_lines.append("")
+
+    return "\n".join(report_lines)
+
+
+def build_root_reference_index_path() -> Path:
+    return Path("references.index.md")
+
+
+def _render_reference_lines(references: list[MarkdownReference]) -> list[str]:
+    return [
+        f"- [{reference.label}]({reference.url}) [{_format_heading_path(reference.heading_path)}]"
+        for reference in references
+    ]
 
 
 def build_reference_report_relative_path(relative_path: Path) -> Path:

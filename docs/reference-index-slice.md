@@ -26,8 +26,20 @@ The workflow currently:
 2. parses inline Markdown links from each document
 3. keeps the parent heading path for each extracted link
 4. writes one `.references.md` report per source document
+5. writes one root-level `references.index.md` report that groups citations by source file
 
 Example output shape:
+
+```markdown
+# Markdown Reference Tree Index
+
+## notes/example.md
+
+- [Bob](https://example.org/bob) [Sources]
+- [Alice](https://example.org/alice) [Sources / Further Reading]
+```
+
+Per-document reports are still written alongside that root synthesis:
 
 ```markdown
 # Markdown Reference Index
@@ -42,7 +54,6 @@ Source: notes/example.md
 
 For this first slice, the workflow does not yet:
 
-- aggregate references across several documents into a global index
 - validate URLs over HTTP
 - deduplicate repeated links
 - parse non-inline reference-style definitions

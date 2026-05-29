@@ -5,6 +5,7 @@ from do_my_work.domain.models import (
     DiscoverDocumentsTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
+    MergeReferenceIndexesTaskSpec,
     ProcessedFragmentResult,
     ProcessFragmentTaskSpec,
     RunRequest,
@@ -137,3 +138,31 @@ def test_task_record_round_trips_reference_root_task_as_json_data() -> None:
 
     assert isinstance(restored_record.spec, DiscoverReferenceDocumentsTaskSpec)
     assert restored_record.child_task_keys == ["task:index_markdown_references:222b"]
+
+
+def test_task_record_round_trips_reference_merge_task_as_json_data() -> None:
+    original_record = TaskRecord(
+        task_key="task:merge_reference_indexes:111a",
+        spec=MergeReferenceIndexesTaskSpec(
+            root=Path("."),
+            document_relative_paths=[Path("alpha.md"), Path("nested/beta.md")],
+            reference_task_keys=[
+                "task:index_markdown_references:222b",
+                "task:index_markdown_references:333c",
+            ],
+        ),
+        status=TaskStatus.WAITING,
+        child_task_keys=[
+            "task:index_markdown_references:222b",
+            "task:index_markdown_references:333c",
+        ],
+        outcome=TaskOutcome(message="Waiting for reference index results."),
+    )
+
+    restored_record = TaskRecord.model_validate(original_record.model_dump(mode="json"))
+
+    assert isinstance(restored_record.spec, MergeReferenceIndexesTaskSpec)
+    assert restored_record.spec.document_relative_paths == [
+        Path("alpha.md"),
+        Path("nested/beta.md"),
+    ]

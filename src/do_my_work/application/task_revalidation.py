@@ -8,6 +8,7 @@ from do_my_work.domain.models import (
     DiscoverTranslateDocumentsTaskSpec,
     IndexMarkdownReferencesTaskSpec,
     MergeFragmentResultsTaskSpec,
+    MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     ProcessFragmentTaskSpec,
     SummarizeMarkdownDocumentTaskSpec,
@@ -18,7 +19,10 @@ from do_my_work.domain.models import (
     WorkspaceConfig,
 )
 from do_my_work.infrastructure.markdown_fragment_report import build_summary_report_relative_path
-from do_my_work.infrastructure.markdown_reference_report import build_reference_report_relative_path
+from do_my_work.infrastructure.markdown_reference_report import (
+    build_reference_report_relative_path,
+    build_root_reference_index_path,
+)
 
 
 class TaskRevalidator:
@@ -60,6 +64,9 @@ class TaskRevalidator:
 
         if isinstance(spec, MergeFragmentResultsTaskSpec):
             return self._revalidate_merge_fragment_results(record, config, task_index)
+
+        if isinstance(spec, MergeReferenceIndexesTaskSpec):
+            return self._revalidate_merge_reference_indexes(record, config, task_index)
 
         if isinstance(spec, MergeTranslatedFragmentsTaskSpec):
             return self._revalidate_merge_translated_fragments(record, config, task_index)
@@ -180,8 +187,46 @@ class TaskRevalidator:
             update={
                 "status": TaskStatus.WAITING,
                 "outcome": TaskOutcome(
-                    message=f"{len(record.child_task_keys)} documents discovered.",
+                    message=(
+                        f"{max(len(record.child_task_keys) - 1, 0)} documents discovered."
+                    ),
                     created_task_keys=created_task_keys,
+                ),
+            }
+        )
+
+    def _revalidate_merge_reference_indexes(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+        task_index: dict[str, TaskRecord],
+    ) -> TaskRecord:
+        if record.status != TaskStatus.SUCCEEDED:
+            return record
+
+        child_records = [task_index.get(task_key) for task_key in record.spec.reference_task_keys]
+        if not all(
+            child is not None and child.status == TaskStatus.SUCCEEDED
+            for child in child_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.WAITING,
+                    "outcome": TaskOutcome(
+                        message="Waiting for reference index results.",
+                    ),
+                }
+            )
+
+        destination_path = config.output_dir / build_root_reference_index_path()
+        if destination_path.exists():
+            return record
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.PENDING,
+                "outcome": TaskOutcome(
+                    message="Output file is missing; task must run again.",
                 ),
             }
         )
@@ -407,6 +452,7 @@ def _revalidation_priority(record: TaskRecord) -> tuple[int, str]:
     if record.spec.kind in {
         "copy_file",
         "index_markdown_references",
+        "merge_reference_indexes",
         "summarize_markdown_document",
         "merge_fragment_results",
         "merge_translated_fragments",

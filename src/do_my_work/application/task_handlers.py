@@ -9,6 +9,7 @@ from do_my_work.application.task_keys import (
     make_discover_translate_document_fragments_task_key,
     make_index_markdown_references_task_key,
     make_merge_fragment_results_task_key,
+    make_merge_reference_indexes_task_key,
     make_merge_translated_fragments_task_key,
     make_process_fragment_task_key,
     make_translate_fragment_task_key,
@@ -24,6 +25,7 @@ from do_my_work.domain.models import (
     DiscoverTranslateDocumentsTaskSpec,
     IndexMarkdownReferencesTaskSpec,
     MarkdownFragment,
+    MergeReferenceIndexesTaskSpec,
     MergeFragmentResultsTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     ProcessedFragmentResult,
@@ -46,8 +48,10 @@ from do_my_work.infrastructure.markdown_fragment_report import (
     render_translated_document,
 )
 from do_my_work.infrastructure.markdown_reference_report import (
+    build_root_reference_index_path,
     build_reference_report_relative_path,
     render_markdown_reference_report,
+    render_tree_markdown_reference_report,
 )
 from do_my_work.infrastructure.ollama_client import OllamaChatClient
 
@@ -281,10 +285,12 @@ class DiscoverReferenceDocumentsTaskHandler:
             )
 
         discovered_records: list[TaskRecord] = []
+        document_relative_paths: list[Path] = []
         child_task_keys: list[str] = []
 
         for source_path in sorted(_iter_markdown_documents(root_path)):
             relative_path = source_path.relative_to(config.input_dir)
+            document_relative_paths.append(relative_path)
             source_digest = _build_source_digest(source_path)
             task_key = make_index_markdown_references_task_key(relative_path, source_digest)
             child_task_keys.append(task_key)
@@ -299,6 +305,33 @@ class DiscoverReferenceDocumentsTaskHandler:
                         ),
                     )
                 )
+
+        merge_task_key = make_merge_reference_indexes_task_key(spec.root, document_relative_paths)
+        child_task_keys.append(merge_task_key)
+        if task_repository.get(merge_task_key) is None:
+            discovered_records.append(
+                TaskRecord(
+                    task_key=merge_task_key,
+                    spec=MergeReferenceIndexesTaskSpec(
+                        root=spec.root,
+                        document_relative_paths=document_relative_paths,
+                        reference_task_keys=[
+                            make_index_markdown_references_task_key(
+                                relative_path,
+                                _build_source_digest(config.input_dir / relative_path),
+                            )
+                            for relative_path in document_relative_paths
+                        ],
+                    ),
+                    child_task_keys=[
+                        make_index_markdown_references_task_key(
+                            relative_path,
+                            _build_source_digest(config.input_dir / relative_path),
+                        )
+                        for relative_path in document_relative_paths
+                    ],
+                )
+            )
 
         child_records = [task_repository.get(task_key) for task_key in child_task_keys]
         child_records.extend(discovered_records)
@@ -315,15 +348,15 @@ class DiscoverReferenceDocumentsTaskHandler:
         if failed_children:
             status = TaskStatus.FAILED
             message = (
-                f"{len(child_task_keys)} documents discovered, "
+                f"{len(document_relative_paths)} documents discovered, "
                 "at least one reference task failed."
             )
         elif all_succeeded:
             status = TaskStatus.SUCCEEDED
-            message = f"{len(child_task_keys)} documents discovered and indexed."
+            message = f"{len(document_relative_paths)} documents discovered and indexed."
         else:
             status = TaskStatus.WAITING
-            message = f"{len(child_task_keys)} documents discovered."
+            message = f"{len(document_relative_paths)} documents discovered."
 
         updated_record = record.model_copy(
             update={
@@ -475,6 +508,90 @@ class IndexMarkdownReferencesTaskHandler:
                 update={
                     "status": TaskStatus.SUCCEEDED,
                     "outcome": TaskOutcome(message="Markdown reference report written."),
+                }
+            )
+        )
+
+
+class MergeReferenceIndexesTaskHandler:
+    def handle(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+        task_repository: JsonTaskRepository,
+    ) -> TaskHandlerResult:
+        spec = record.spec
+        if not isinstance(spec, MergeReferenceIndexesTaskSpec):
+            raise TypeError("reference merge handler requires a MergeReferenceIndexesTaskSpec")
+
+        reference_records = [task_repository.get(task_key) for task_key in spec.reference_task_keys]
+        if any(reference_record is None for reference_record in reference_records):
+            missing_task_keys = [
+                task_key
+                for task_key, reference_record in zip(
+                    spec.reference_task_keys,
+                    reference_records,
+                    strict=False,
+                )
+                if reference_record is None
+            ]
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="Reference task record is missing.",
+                            error=", ".join(missing_task_keys),
+                        ),
+                    }
+                )
+            )
+
+        if any(
+            reference_record is not None and reference_record.status == TaskStatus.FAILED
+            for reference_record in reference_records
+        ):
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="At least one reference task failed.",
+                        ),
+                    }
+                )
+            )
+
+        if not all(
+            reference_record is not None and reference_record.status == TaskStatus.SUCCEEDED
+            for reference_record in reference_records
+        ):
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.WAITING,
+                        "outcome": TaskOutcome(
+                            message="Waiting for reference index results.",
+                        ),
+                    }
+                )
+            )
+
+        destination_path = config.output_dir / build_root_reference_index_path()
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        destination_path.write_text(
+            render_tree_markdown_reference_report(
+                config.input_dir,
+                spec.document_relative_paths,
+            ),
+            encoding="utf-8",
+        )
+
+        return TaskHandlerResult(
+            updated_record=record.model_copy(
+                update={
+                    "status": TaskStatus.SUCCEEDED,
+                    "outcome": TaskOutcome(message="Root reference index written."),
                 }
             )
         )

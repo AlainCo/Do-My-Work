@@ -135,6 +135,15 @@ class IndexMarkdownReferencesTaskSpec(BaseModel):
     source_digest: str
 
 
+class MergeReferenceIndexesTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["merge_reference_indexes"] = "merge_reference_indexes"
+    root: Path = Field(default=Path("."))
+    document_relative_paths: list[Path] = Field(default_factory=list)
+    reference_task_keys: list[str] = Field(default_factory=list)
+
+
 class DiscoverDocumentFragmentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -209,6 +218,7 @@ TaskSpec = Annotated[
     | CopyFileTaskSpec
     | SummarizeMarkdownDocumentTaskSpec
     | IndexMarkdownReferencesTaskSpec
+    | MergeReferenceIndexesTaskSpec
     | DiscoverDocumentFragmentsTaskSpec
     | DiscoverTranslateDocumentFragmentsTaskSpec
     | ProcessFragmentTaskSpec

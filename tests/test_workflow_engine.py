@@ -215,6 +215,11 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
         "# Sources\n\nSee [Bob](https://example.org/bob).\n",
         encoding="utf-8",
     )
+    (input_dir / "nested").mkdir(parents=True)
+    (input_dir / "nested" / "other.md").write_text(
+        "# Further Reading\n\nSee [Alice](https://example.org/alice).\n",
+        encoding="utf-8",
+    )
 
     config = WorkspaceConfig(
         input_dir=input_dir,
@@ -229,11 +234,23 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
     )
 
     assert run_request.status == "succeeded"
-    assert run_request.summary.executed_task_count == 2
-    assert run_request.summary.created_task_count == 1
+    assert run_request.summary.executed_task_count == 4
+    assert run_request.summary.created_task_count == 3
     assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
         "# Markdown Reference Index\n\n"
         "Source: note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+    )
+    assert (output_dir / "nested" / "other.references.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Index\n\n"
+        "Source: nested/other.md\n\n"
+        "- [Alice](https://example.org/alice) [Further Reading]\n"
+    )
+    assert (output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## nested/other.md\n\n"
+        "- [Alice](https://example.org/alice) [Further Reading]\n\n"
+        "## note.md\n\n"
         "- [Bob](https://example.org/bob) [Sources]\n"
     )
 
@@ -241,10 +258,12 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
         TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
         for path in sorted((data_dir / "tasks").glob("*.json"))
     ]
-    assert len(persisted_tasks) == 2
+    assert len(persisted_tasks) == 4
     assert sorted(task.spec.kind for task in persisted_tasks) == [
         "discover_reference_documents",
         "index_markdown_references",
+        "index_markdown_references",
+        "merge_reference_indexes",
     ]
 
 

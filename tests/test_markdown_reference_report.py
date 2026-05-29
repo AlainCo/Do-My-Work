@@ -1,8 +1,10 @@
 from pathlib import Path
 
 from do_my_work.infrastructure.markdown_reference_report import (
+    build_root_reference_index_path,
     extract_markdown_references,
     render_markdown_reference_report,
+    render_tree_markdown_reference_report,
 )
 
 
@@ -54,3 +56,29 @@ def test_render_markdown_reference_report_outputs_markdown_index(tmp_path: Path)
         "Source: nested/sample.md\n\n"
         "- [Bob](https://example.org/bob) [Sources]\n"
     )
+
+
+def test_render_tree_markdown_reference_report_outputs_root_index(tmp_path: Path) -> None:
+    (tmp_path / "nested").mkdir(parents=True)
+    (tmp_path / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "nested" / "beta.md").write_text(
+        "# Further Reading\n\nSee [Alice](https://example.org/alice).\n",
+        encoding="utf-8",
+    )
+
+    report = render_tree_markdown_reference_report(
+        source_root=tmp_path,
+        relative_paths=[Path("alpha.md"), Path("nested/beta.md")],
+    )
+
+    assert report == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## nested/beta.md\n\n"
+        "- [Alice](https://example.org/alice) [Further Reading]\n"
+    )
+    assert build_root_reference_index_path() == Path("references.index.md")

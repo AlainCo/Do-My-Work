@@ -76,7 +76,7 @@ do-my-work hello --input-dir custom/input --output-dir custom/output --data-dir 
 
 ## Run the current workflows
 
-Generate a Markdown reference index for each source document, with one `.references.md` file per input file:
+Generate Markdown reference indexes with one `.references.md` file per input file and one root-level `references.index.md` synthesis:
 
 ```powershell
 do-my-work reference-index-tree --input-dir work/input --output-dir work/output --data-dir work/data

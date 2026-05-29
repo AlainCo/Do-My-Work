@@ -173,6 +173,7 @@ class TaskOutcome(BaseModel):
     created_task_keys: list[str] = Field(default_factory=list)
     error: str | None = None
     error_category: Literal["timeout", "http_status", "request_error"] | None = None
+    http_status_code: int | None = None
     result: TranslatedFragmentResult | None = None
 
 

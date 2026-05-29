@@ -552,6 +552,7 @@ class TranslateFragmentTaskHandler:
                             ),
                             error=str(exc),
                             error_category="http_status",
+                            http_status_code=exc.response.status_code,
                         ),
                     }
                 )

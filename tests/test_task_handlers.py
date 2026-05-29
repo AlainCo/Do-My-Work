@@ -277,6 +277,7 @@ def test_translate_fragment_handler_marks_http_status_error_as_failed(
     )
     assert "503 Service Unavailable" in result.updated_record.outcome.error
     assert result.updated_record.outcome.error_category == "http_status"
+    assert result.updated_record.outcome.http_status_code == 503
 
 
 def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path) -> None:

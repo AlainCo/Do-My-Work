@@ -298,13 +298,16 @@ class WorkflowEngine:
                     and refreshed_record.status == TaskStatus.PENDING
                 ):
                     error_category = None
+                    http_status_code = None
                     if original_record.outcome is not None:
                         error_category = original_record.outcome.error_category
+                        http_status_code = original_record.outcome.http_status_code
                     self._logger.info(
-                        "Task retry scheduled: key=%s kind=%s reason=previous_run_failed error_category=%s",
+                        "Task retry scheduled: key=%s kind=%s reason=previous_run_failed error_category=%s http_status_code=%s",
                         original_record.task_key,
                         original_record.spec.kind,
                         error_category,
+                        http_status_code,
                     )
             elif original_record.task_key in initially_succeeded_task_keys:
                 unchanged_task_keys.add(original_record.task_key)

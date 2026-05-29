@@ -46,6 +46,7 @@ llm:
       url: http://127.0.0.1:11434
       model: qwen2.5:7b
       credential:
+      timeout_seconds: 180.0
       temperature: 0.1
       system_prompt: |
         You are a precise technical translator.
@@ -59,6 +60,7 @@ llm:
       url: http://127.0.0.1:11434
       model: qwen2.5:7b
       credential:
+      timeout_seconds: 180.0
       temperature: 0.7
       system_prompt: |
         You are a more expressive translator.
@@ -90,7 +92,7 @@ The initial client should be able to:
 1. load one named translator profile
 2. render the system and user prompts from named parameters
 3. call `/api/chat` on the configured Ollama-compatible server
-4. pass the configured model and temperature
+4. pass the configured model, timeout, and temperature
 5. optionally send a bearer credential when configured
 6. return the assistant message content as the translated fragment text
 

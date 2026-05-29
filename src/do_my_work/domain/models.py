@@ -29,6 +29,7 @@ class TranslatorProfileConfig(BaseModel):
     url: str
     model: str
     credential: str | None = None
+    timeout_seconds: float = Field(default=180.0, gt=0)
     temperature: float = 0.0
     system_prompt: str
     user_prompt: str

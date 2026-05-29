@@ -7,6 +7,7 @@ llm:
       url: http://127.0.0.1:11434
       model: ministral-3:3b
       temperature: 0.0
+      timeout_seconds: 180.0
       system_prompt: |
         Tu es un robot de traduction automatique strict. Traduis le texte de l'utilisateur du français vers l'anglais. 
         Tu respecte le MarkDown. 

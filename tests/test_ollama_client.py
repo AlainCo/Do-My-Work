@@ -18,6 +18,7 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
     def handler(request: httpx.Request) -> httpx.Response:
         captured_request["url"] = str(request.url)
         captured_request["authorization"] = request.headers.get("Authorization")
+        captured_request["timeout"] = request.extensions["timeout"]
         captured_request["payload"] = json.loads(request.content.decode("utf-8"))
         return httpx.Response(
             200,
@@ -36,6 +37,7 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
                     url="http://mock.example:11434",
                     model="mock-llama",
                     credential="secret-token",
+                    timeout_seconds=42.5,
                     temperature=0.3,
                     system_prompt="You are a translator.",
                     user_prompt=(
@@ -59,6 +61,12 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
     assert result == "BONJOUR MONDE"
     assert captured_request["url"] == "http://mock.example:11434/api/chat"
     assert captured_request["authorization"] == "Bearer secret-token"
+    assert captured_request["timeout"] == {
+        "connect": 42.5,
+        "read": 42.5,
+        "write": 42.5,
+        "pool": 42.5,
+    }
     assert captured_request["payload"] == {
         "model": "mock-llama",
         "messages": [

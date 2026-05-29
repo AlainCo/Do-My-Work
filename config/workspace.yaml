@@ -6,6 +6,7 @@ llm:
     technical:
       url: http://127.0.0.1:11434
       model: ollama-mock
+      timeout_seconds: 5.0
       temperature: 0.0
       system_prompt: |
         You are a professional translator from french to english.

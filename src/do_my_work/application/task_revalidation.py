@@ -1,7 +1,10 @@
 from do_my_work.domain.models import (
     CopyFileTaskSpec,
+    DiscoverDocumentFragmentsTaskSpec,
     DiscoverDocumentsTaskSpec,
     DiscoverSummaryDocumentsTaskSpec,
+    MergeFragmentResultsTaskSpec,
+    ProcessFragmentTaskSpec,
     SummarizeMarkdownDocumentTaskSpec,
     TaskOutcome,
     TaskRecord,
@@ -39,8 +42,17 @@ class TaskRevalidator:
         if isinstance(spec, SummarizeMarkdownDocumentTaskSpec):
             return self._revalidate_summary_document(record, config)
 
+        if isinstance(spec, ProcessFragmentTaskSpec):
+            return record
+
+        if isinstance(spec, MergeFragmentResultsTaskSpec):
+            return self._revalidate_merge_fragment_results(record, config, task_index)
+
         if isinstance(spec, DiscoverDocumentsTaskSpec):
             return self._revalidate_discover_documents(record, task_index)
+
+        if isinstance(spec, DiscoverDocumentFragmentsTaskSpec):
+            return self._revalidate_discover_document_fragments(record, task_index)
 
         if isinstance(spec, DiscoverSummaryDocumentsTaskSpec):
             return self._revalidate_discover_summary_documents(record, task_index)
@@ -93,6 +105,74 @@ class TaskRevalidator:
                 "outcome": TaskOutcome(
                     message=f"{len(record.child_task_keys)} documents discovered.",
                     created_task_keys=created_task_keys,
+                ),
+            }
+        )
+
+    def _revalidate_discover_document_fragments(
+        self,
+        record: TaskRecord,
+        task_index: dict[str, TaskRecord],
+    ) -> TaskRecord:
+        if record.status != TaskStatus.SUCCEEDED:
+            return record
+
+        child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        if all(
+            child is not None and child.status == TaskStatus.SUCCEEDED
+            for child in child_records
+        ):
+            return record
+
+        created_task_keys = []
+        if record.outcome is not None:
+            created_task_keys = record.outcome.created_task_keys
+
+        fragment_task_count = max(len(record.child_task_keys) - 1, 0)
+        return record.model_copy(
+            update={
+                "status": TaskStatus.WAITING,
+                "outcome": TaskOutcome(
+                    message=f"{fragment_task_count} fragments discovered.",
+                    created_task_keys=created_task_keys,
+                ),
+            }
+        )
+
+    def _revalidate_merge_fragment_results(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+        task_index: dict[str, TaskRecord],
+    ) -> TaskRecord:
+        if record.status != TaskStatus.SUCCEEDED:
+            return record
+
+        child_records = [task_index.get(task_key) for task_key in record.spec.fragment_task_keys]
+        if not all(
+            child is not None and child.status == TaskStatus.SUCCEEDED
+            for child in child_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.WAITING,
+                    "outcome": TaskOutcome(
+                        message="Waiting for fragment results.",
+                    ),
+                }
+            )
+
+        destination_path = config.output_dir / build_summary_report_relative_path(
+            record.spec.document_relative_path
+        )
+        if destination_path.exists():
+            return record
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.PENDING,
+                "outcome": TaskOutcome(
+                    message="Output file is missing; task must run again.",
                 ),
             }
         )
@@ -152,6 +232,10 @@ class TaskRevalidator:
 
 def _revalidation_priority(record: TaskRecord) -> tuple[int, str]:
     priority = 1
-    if record.spec.kind in {"copy_file", "summarize_markdown_document"}:
+    if record.spec.kind in {
+        "copy_file",
+        "summarize_markdown_document",
+        "merge_fragment_results",
+    }:
         priority = 0
     return (priority, record.task_key)

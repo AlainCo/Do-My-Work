@@ -151,3 +151,53 @@ def test_workflow_engine_recreates_missing_output_from_succeeded_copy_task(tmp_p
     assert copy_task.status.value == "succeeded"
     assert copy_task.outcome is not None
     assert copy_task.outcome.message == "File copied."
+
+
+def test_workflow_engine_runs_summary_flow_via_fragment_tasks(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n\n- Item one\n",
+        encoding="utf-8",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="summary_document_tree",
+    )
+
+    assert run_request.status == "succeeded"
+    assert run_request.summary.executed_task_count == 6
+    assert run_request.summary.created_task_count == 5
+    assert (output_dir / "note.summary.md").read_text(encoding="utf-8") == (
+        "# Fragment Length Report\n\n"
+        "Source: note.md\n\n"
+        "- heading [Intro] -> 5\n"
+        "- paragraph [Intro] -> 11\n"
+        "- list_item [Intro] -> 8\n"
+    )
+
+    persisted_tasks = [
+        TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in sorted((data_dir / "tasks").glob("*.json"))
+    ]
+
+    assert len(persisted_tasks) == 6
+    assert sorted(task.spec.kind for task in persisted_tasks) == [
+        "discover_document_fragments",
+        "discover_summary_documents",
+        "merge_fragment_results",
+        "process_fragment",
+        "process_fragment",
+        "process_fragment",
+    ]

@@ -4,6 +4,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+FragmentKind = Literal[
+    "heading",
+    "paragraph",
+    "list_item",
+    "blockquote",
+    "code_block",
+    "mermaid",
+]
+
 
 class WorkspaceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -32,14 +41,7 @@ class WorkflowRunSummary(BaseModel):
 class MarkdownFragment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    fragment_kind: Literal[
-        "heading",
-        "paragraph",
-        "list_item",
-        "blockquote",
-        "code_block",
-        "mermaid",
-    ]
+    fragment_kind: FragmentKind
     heading_path: list[str] = Field(default_factory=list)
     text: str
     length: int
@@ -83,13 +85,54 @@ class SummarizeMarkdownDocumentTaskSpec(BaseModel):
     source_digest: str
 
 
+class DiscoverDocumentFragmentsTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["discover_document_fragments"] = "discover_document_fragments"
+    relative_path: Path
+    source_digest: str
+
+
+class ProcessFragmentTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["process_fragment"] = "process_fragment"
+    document_relative_path: Path
+    fragment_kind: FragmentKind
+    heading_path: list[str] = Field(default_factory=list)
+    text: str
+    fragment_digest: str
+
+
+class MergeFragmentResultsTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["merge_fragment_results"] = "merge_fragment_results"
+    document_relative_path: Path
+    source_digest: str
+    fragment_task_keys: list[str] = Field(default_factory=list)
+    header_text: str = "# Fragment Length Report"
+    footer_text: str | None = None
+
+
 TaskSpec = Annotated[
     DiscoverDocumentsTaskSpec
     | DiscoverSummaryDocumentsTaskSpec
     | CopyFileTaskSpec
-    | SummarizeMarkdownDocumentTaskSpec,
+    | SummarizeMarkdownDocumentTaskSpec
+    | DiscoverDocumentFragmentsTaskSpec
+    | ProcessFragmentTaskSpec
+    | MergeFragmentResultsTaskSpec,
     Field(discriminator="kind"),
 ]
+
+
+class ProcessedFragmentResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["processed_fragment"] = "processed_fragment"
+    rendered_text: str
+    length: int
 
 
 class TaskOutcome(BaseModel):
@@ -98,6 +141,7 @@ class TaskOutcome(BaseModel):
     message: str
     created_task_keys: list[str] = Field(default_factory=list)
     error: str | None = None
+    result: ProcessedFragmentResult | None = None
 
 
 class TaskRecord(BaseModel):

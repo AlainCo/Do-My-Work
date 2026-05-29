@@ -152,3 +152,7 @@ In short, the plan is:
 5. synthesize a Markdown report describing fragment lengths
 
 This keeps the work aligned with the long-term target of fragment-based processing, without jumping to translation or reassembly yet.
+
+The next proposed evolution after that document-level report is to move to fragment-level task execution with a final merge step.
+
+That design direction is captured in `docs/fragment-task-dataflow.md`.

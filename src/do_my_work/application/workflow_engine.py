@@ -5,8 +5,11 @@ from typing import Literal
 
 from do_my_work.application.task_handlers import (
     CopyFileTaskHandler,
+    DiscoverDocumentFragmentsTaskHandler,
     DiscoverDocumentsTaskHandler,
     DiscoverSummaryDocumentsTaskHandler,
+    MergeFragmentResultsTaskHandler,
+    ProcessFragmentTaskHandler,
     SummarizeMarkdownDocumentTaskHandler,
 )
 from do_my_work.application.task_keys import (
@@ -71,7 +74,10 @@ class WorkflowEngine:
 
         discover_handler = DiscoverDocumentsTaskHandler()
         discover_summary_handler = DiscoverSummaryDocumentsTaskHandler()
+        discover_fragments_handler = DiscoverDocumentFragmentsTaskHandler()
         copy_handler = CopyFileTaskHandler()
+        process_fragment_handler = ProcessFragmentTaskHandler()
+        merge_fragment_results_handler = MergeFragmentResultsTaskHandler()
         summarize_handler = SummarizeMarkdownDocumentTaskHandler()
         revalidator = TaskRevalidator()
 
@@ -103,6 +109,12 @@ class WorkflowEngine:
                 result = copy_handler.handle(next_task, config)
             elif next_task.spec.kind == "discover_summary_documents":
                 result = discover_summary_handler.handle(next_task, config, task_repository)
+            elif next_task.spec.kind == "discover_document_fragments":
+                result = discover_fragments_handler.handle(next_task, config, task_repository)
+            elif next_task.spec.kind == "process_fragment":
+                result = process_fragment_handler.handle(next_task, config)
+            elif next_task.spec.kind == "merge_fragment_results":
+                result = merge_fragment_results_handler.handle(next_task, config, task_repository)
             else:
                 result = summarize_handler.handle(next_task, config)
 
@@ -207,13 +219,34 @@ class WorkflowEngine:
 
     def _select_next_task(self, task_records: list[TaskRecord]) -> TaskRecord | None:
         ordered_records = sorted(task_records, key=lambda record: record.task_key)
+        task_index = {record.task_key: record for record in task_records}
 
-        for status in (TaskStatus.PENDING, TaskStatus.WAITING):
-            for record in ordered_records:
-                if record.status == status:
-                    return record
+        for record in ordered_records:
+            if record.status == TaskStatus.PENDING:
+                return record
+
+        for record in ordered_records:
+            if record.status != TaskStatus.WAITING:
+                continue
+
+            if self._is_waiting_task_unblocked(record, task_index):
+                return record
 
         return None
+
+    def _is_waiting_task_unblocked(
+        self,
+        record: TaskRecord,
+        task_index: dict[str, TaskRecord],
+    ) -> bool:
+        for child_task_key in record.child_task_keys:
+            child_record = task_index.get(child_task_key)
+            if child_record is None:
+                continue
+            if child_record.status in {TaskStatus.PENDING, TaskStatus.WAITING}:
+                return False
+
+        return True
 
     def _resolve_run_status(
         self,

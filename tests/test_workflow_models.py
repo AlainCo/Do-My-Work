@@ -3,6 +3,8 @@ from pathlib import Path
 from do_my_work.domain.models import (
     CopyFileTaskSpec,
     DiscoverDocumentsTaskSpec,
+    ProcessedFragmentResult,
+    ProcessFragmentTaskSpec,
     RunRequest,
     TaskOutcome,
     TaskRecord,
@@ -61,3 +63,34 @@ def test_task_record_round_trips_discover_documents_record_as_json_data() -> Non
     assert restored_record.child_task_keys == ["task:copy:111a", "task:copy:222b"]
     assert restored_record.outcome is not None
     assert restored_record.outcome.created_task_keys == ["task:copy:111a", "task:copy:222b"]
+
+
+def test_task_record_round_trips_processed_fragment_result() -> None:
+    original_record = TaskRecord(
+        task_key="task:process_fragment:111a",
+        spec=ProcessFragmentTaskSpec(
+            document_relative_path=Path("docs/sample.md"),
+            fragment_kind="paragraph",
+            heading_path=["Intro"],
+            text="Alpha beta.",
+            fragment_digest="sha256:frag",
+        ),
+        status=TaskStatus.SUCCEEDED,
+        outcome=TaskOutcome(
+            message="Fragment processed.",
+            result=ProcessedFragmentResult(
+                rendered_text="- paragraph [Intro] -> 11",
+                length=11,
+            ),
+        ),
+    )
+
+    persisted_payload = original_record.model_dump(mode="json")
+    restored_record = TaskRecord.model_validate(persisted_payload)
+
+    assert isinstance(restored_record.spec, ProcessFragmentTaskSpec)
+    assert restored_record.outcome is not None
+    assert restored_record.outcome.result == ProcessedFragmentResult(
+        rendered_text="- paragraph [Intro] -> 11",
+        length=11,
+    )

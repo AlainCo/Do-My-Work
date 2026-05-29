@@ -102,13 +102,28 @@ def extract_markdown_fragments(source_file: Path) -> list[MarkdownFragment]:
 def render_fragment_length_report(source_file: Path, source_root: Path) -> str:
     relative_source = source_file.relative_to(source_root).as_posix()
     fragments = extract_markdown_fragments(source_file)
-    report_lines = ["# Fragment Length Report", "", f"Source: {relative_source}", ""]
+    processed_lines = [render_fragment_length_line(fragment) for fragment in fragments]
+    return render_fragment_length_report_from_lines(relative_source, processed_lines)
 
-    for fragment in fragments:
-        report_lines.append(
-            f"- {fragment.fragment_kind} "
-            f"[{_format_heading_path(fragment.heading_path)}] -> {fragment.length}"
-        )
+
+def render_fragment_length_line(fragment: MarkdownFragment) -> str:
+    return (
+        f"- {fragment.fragment_kind} "
+        f"[{_format_heading_path(fragment.heading_path)}] -> {fragment.length}"
+    )
+
+
+def render_fragment_length_report_from_lines(
+    relative_source: str,
+    processed_lines: list[str],
+    header_text: str = "# Fragment Length Report",
+    footer_text: str | None = None,
+) -> str:
+    report_lines = [header_text, "", f"Source: {relative_source}", ""]
+    report_lines.extend(processed_lines)
+
+    if footer_text:
+        report_lines.extend(["", footer_text])
 
     report_lines.append("")
     return "\n".join(report_lines)

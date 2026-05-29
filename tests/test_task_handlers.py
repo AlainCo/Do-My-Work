@@ -1,10 +1,24 @@
 from pathlib import Path
 
-from do_my_work.application.task_handlers import CopyFileTaskHandler, DiscoverDocumentsTaskHandler
-from do_my_work.application.task_keys import make_copy_task_key, make_discover_documents_task_key
+from do_my_work.application.task_handlers import (
+    CopyFileTaskHandler,
+    DiscoverDocumentFragmentsTaskHandler,
+    DiscoverDocumentsTaskHandler,
+    MergeFragmentResultsTaskHandler,
+)
+from do_my_work.application.task_keys import (
+    make_copy_task_key,
+    make_discover_documents_task_key,
+    make_merge_fragment_results_task_key,
+)
 from do_my_work.domain.models import (
     CopyFileTaskSpec,
+    DiscoverDocumentFragmentsTaskSpec,
     DiscoverDocumentsTaskSpec,
+    MergeFragmentResultsTaskSpec,
+    ProcessedFragmentResult,
+    ProcessFragmentTaskSpec,
+    TaskOutcome,
     TaskRecord,
     TaskStatus,
     WorkspaceConfig,
@@ -58,3 +72,113 @@ def test_copy_file_handler_fails_when_source_document_is_missing(tmp_path: Path)
     assert result.updated_record.outcome is not None
     assert result.updated_record.outcome.message == "Source file does not exist."
     assert result.updated_record.outcome.error == str(config.input_dir / relative_path)
+
+
+def test_discover_document_fragments_handler_creates_fragment_and_merge_tasks(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    relative_path = Path("note.md")
+    source_path = config.input_dir / relative_path
+    source_path.write_text("# Intro\n\nAlpha beta.\n", encoding="utf-8")
+    record = TaskRecord(
+        task_key="task:discover_document_fragments:abc",
+        spec=DiscoverDocumentFragmentsTaskSpec(
+            relative_path=relative_path,
+            source_digest="sha256:doc",
+        ),
+    )
+
+    result = DiscoverDocumentFragmentsTaskHandler().handle(
+        record,
+        config,
+        JsonTaskRepository(config.data_dir / "tasks"),
+    )
+
+    assert result.updated_record.status == TaskStatus.WAITING
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.message == "2 fragments discovered."
+    assert [new_record.spec.kind for new_record in result.new_records] == [
+        "process_fragment",
+        "process_fragment",
+        "merge_fragment_results",
+    ]
+
+
+def test_merge_fragment_results_handler_writes_report_from_fragment_task_results(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+
+    fragment_task_keys = ["task:process_fragment:1", "task:process_fragment:2"]
+    task_repository.save(
+        TaskRecord(
+            task_key=fragment_task_keys[0],
+            spec=ProcessFragmentTaskSpec(
+                document_relative_path=Path("note.md"),
+                fragment_kind="heading",
+                heading_path=["Intro"],
+                text="Intro",
+                fragment_digest="sha256:1",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="Fragment processed.",
+                result=ProcessedFragmentResult(
+                    rendered_text="- heading [Intro] -> 5",
+                    length=5,
+                ),
+            ),
+        )
+    )
+    task_repository.save(
+        TaskRecord(
+            task_key=fragment_task_keys[1],
+            spec=ProcessFragmentTaskSpec(
+                document_relative_path=Path("note.md"),
+                fragment_kind="paragraph",
+                heading_path=["Intro"],
+                text="Alpha beta.",
+                fragment_digest="sha256:2",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="Fragment processed.",
+                result=ProcessedFragmentResult(
+                    rendered_text="- paragraph [Intro] -> 11",
+                    length=11,
+                ),
+            ),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_fragment_results_task_key(Path("note.md"), "sha256:doc"),
+        spec=MergeFragmentResultsTaskSpec(
+            document_relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            fragment_task_keys=fragment_task_keys,
+            footer_text="Processed by workflow.",
+        ),
+    )
+
+    result = MergeFragmentResultsTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "note.summary.md").read_text(encoding="utf-8") == (
+        "# Fragment Length Report\n\n"
+        "Source: note.md\n\n"
+        "- heading [Intro] -> 5\n"
+        "- paragraph [Intro] -> 11\n\n"
+        "Processed by workflow.\n"
+    )

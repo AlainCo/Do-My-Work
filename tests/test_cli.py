@@ -105,7 +105,8 @@ def test_summary_document_tree_command_generates_markdown_report(tmp_path: Path)
 
     assert result.exit_code == 0
     assert "Workflow run completed:" in result.stdout
-    assert "Tasks executed: 2" in result.stdout
+    assert "Tasks executed: 6" in result.stdout
+    assert "Tasks created: 5" in result.stdout
 
     report_path = output_dir / "note.summary.md"
     assert report_path.read_text(encoding="utf-8") == (
@@ -116,4 +117,4 @@ def test_summary_document_tree_command_generates_markdown_report(tmp_path: Path)
         "- list_item [Intro] -> 8\n"
     )
     assert len(list((data_dir / "runs").glob("*.json"))) == 1
-    assert len(list((data_dir / "tasks").glob("*.json"))) == 2
+    assert len(list((data_dir / "tasks").glob("*.json"))) == 6

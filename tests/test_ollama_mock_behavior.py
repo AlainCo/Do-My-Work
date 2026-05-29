@@ -68,6 +68,32 @@ def test_rule_based_ollama_mock_behavior_chat_translator_mode_uppercases_source_
     assert response["done"] is True
 
 
+def test_rule_based_ollama_mock_behavior_chat_translator_mode_adds_emotive_prefix() -> None:
+    behavior = RuleBasedOllamaMockBehavior()
+
+    response = behavior.chat(
+        model="mock-llama",
+        messages=[
+            MockChatMessage(role="system", content="You are a translator."),
+            MockChatMessage(
+                role="user",
+                content=(
+                    "Please translate this.\n"
+                    "===BEGIN SOURCE TEXT===\n"
+                    "Bonjour monde\n"
+                    "===END SOURCE TEXT===\n"
+                ),
+            ),
+        ],
+        temperature=0.3,
+    )
+
+    assert response["message"] == {
+        "role": "assistant",
+        "content": "Je suis emotif. BONJOUR MONDE\n",
+    }
+
+
 def test_translator_chat_behavior_matches_translator_system_prompt() -> None:
     chat_behavior = TranslatorChatBehavior()
 
@@ -92,6 +118,28 @@ def test_translator_chat_behavior_extracts_and_uppercases_source_text() -> None:
             ),
         ]
     ) == "BONJOUR MONDE\n"
+
+
+def test_translator_chat_behavior_prefixes_output_when_temperature_is_high() -> None:
+    chat_behavior = TranslatorChatBehavior()
+
+    assert (
+        chat_behavior.render(
+            [
+                MockChatMessage(role="system", content="You are a translator."),
+                MockChatMessage(
+                    role="user",
+                    content=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "Bonjour monde\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                ),
+            ],
+            temperature=0.21,
+        )
+        == "Je suis emotif. BONJOUR MONDE\n"
+    )
 
 
 def test_create_app_explains_how_to_install_fastapi_when_missing() -> None:

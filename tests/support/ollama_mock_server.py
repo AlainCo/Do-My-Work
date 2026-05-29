@@ -18,6 +18,7 @@ class GenerateRequest(BaseModel):
     model: str
     prompt: str
     stream: bool = False
+    options: "RequestOptions | None" = None
 
 
 class MessagePayload(BaseModel):
@@ -25,10 +26,15 @@ class MessagePayload(BaseModel):
     content: str
 
 
+class RequestOptions(BaseModel):
+    temperature: float = 0.0
+
+
 class ChatRequest(BaseModel):
     model: str
     messages: list[MessagePayload]
     stream: bool = False
+    options: RequestOptions | None = None
 
 
 def create_app(behavior: OllamaMockBehavior | None = None) -> "FastAPI":
@@ -57,6 +63,7 @@ def create_app(behavior: OllamaMockBehavior | None = None) -> "FastAPI":
             model=request.model,
             prompt=request.prompt,
             stream=request.stream,
+            temperature=request.options.temperature if request.options else 0.0,
         )
 
     @app.post("/api/chat")
@@ -69,6 +76,7 @@ def create_app(behavior: OllamaMockBehavior | None = None) -> "FastAPI":
             model=request.model,
             messages=messages,
             stream=request.stream,
+            temperature=request.options.temperature if request.options else 0.0,
         )
 
     return app

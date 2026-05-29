@@ -22,6 +22,7 @@ class OllamaMockBehavior(Protocol):
         model: str,
         prompt: str,
         stream: bool = False,
+        temperature: float = 0.0,
     ) -> dict[str, object]: ...
 
     def chat(
@@ -29,13 +30,14 @@ class OllamaMockBehavior(Protocol):
         model: str,
         messages: list[MockChatMessage],
         stream: bool = False,
+        temperature: float = 0.0,
     ) -> dict[str, object]: ...
 
 
 class OllamaMockChatBehavior(Protocol):
     def matches(self, messages: list[MockChatMessage]) -> bool: ...
 
-    def render(self, messages: list[MockChatMessage]) -> str: ...
+    def render(self, messages: list[MockChatMessage], temperature: float = 0.0) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +45,7 @@ class TranslatorChatBehavior:
     system_keyword: str = "translator"
     marker_start: str = "===BEGIN SOURCE TEXT===\n"
     marker_end: str = "===END SOURCE TEXT===\n"
+    emotive_prefix: str = "Je suis emotif. "
 
     def matches(self, messages: list[MockChatMessage]) -> bool:
         for message in messages:
@@ -50,8 +53,11 @@ class TranslatorChatBehavior:
                 return True
         return False
 
-    def render(self, messages: list[MockChatMessage]) -> str:
-        return self._extract_source_text(messages).upper()
+    def render(self, messages: list[MockChatMessage], temperature: float = 0.0) -> str:
+        content = self._extract_source_text(messages).upper()
+        if temperature > 0.2:
+            return f"{self.emotive_prefix}{content}"
+        return content
 
     def _extract_source_text(self, messages: list[MockChatMessage]) -> str:
         for message in reversed(messages):
@@ -78,7 +84,8 @@ class KeywordChatBehavior:
         del messages
         return True
 
-    def render(self, messages: list[MockChatMessage]) -> str:
+    def render(self, messages: list[MockChatMessage], temperature: float = 0.0) -> str:
+        del temperature
         prompt = _extract_last_user_message(messages)
         lowered_prompt = prompt.lower()
         for keyword, response in self.keyword_responses.items():
@@ -135,9 +142,11 @@ class RuleBasedOllamaMockBehavior:
         model: str,
         prompt: str,
         stream: bool = False,
+        temperature: float = 0.0,
     ) -> dict[str, object]:
         self._sleep_if_needed()
         del stream
+        del temperature
 
         return {
             "model": model,
@@ -151,11 +160,12 @@ class RuleBasedOllamaMockBehavior:
         model: str,
         messages: list[MockChatMessage],
         stream: bool = False,
+        temperature: float = 0.0,
     ) -> dict[str, object]:
         self._sleep_if_needed()
         del stream
 
-        content = self._render_chat_response(messages)
+        content = self._render_chat_response(messages, temperature)
 
         return {
             "model": model,
@@ -174,10 +184,14 @@ class RuleBasedOllamaMockBehavior:
                 return response
         return f"{self.fallback_prefix}{prompt}"
 
-    def _render_chat_response(self, messages: list[MockChatMessage]) -> str:
+    def _render_chat_response(
+        self,
+        messages: list[MockChatMessage],
+        temperature: float,
+    ) -> str:
         for behavior in self.chat_behaviors:
             if behavior.matches(messages):
-                return behavior.render(messages)
+                return behavior.render(messages, temperature)
 
         return ""
 

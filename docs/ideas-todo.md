@@ -1,7 +1,8 @@
 # Ideas, TODO, and bugs
+
 Here I put ideas that emerge.
 
-## managing LLM callls
+## managing LLM calls
 
 - timeout of LLM call should be configurable via workspace.yaml
 - Timeout exception in LLM call does break the system, it should be trapped

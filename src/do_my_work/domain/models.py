@@ -31,6 +31,8 @@ class TranslatorProfileConfig(BaseModel):
     credential: str | None = None
     timeout_seconds: float = Field(default=180.0, gt=0)
     max_retries: int = Field(default=0, ge=0)
+    max_pre_context_bytes: int = Field(default=0, ge=0)
+    max_post_context_bytes: int = Field(default=0, ge=0)
     temperature: float = 0.0
     system_prompt: str
     user_prompt: str
@@ -130,6 +132,8 @@ class TranslateFragmentTaskSpec(BaseModel):
     fragment_kind: FragmentKind
     heading_path: list[str] = Field(default_factory=list)
     text: str
+    pre_context: str = ""
+    post_context: str = ""
     fragment_digest: str
     profile_name: str
     profile_digest: str

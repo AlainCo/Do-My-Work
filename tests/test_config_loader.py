@@ -17,6 +17,8 @@ llm:
       model: mock-llama
       timeout_seconds: 240
       max_retries: 2
+      max_pre_context_bytes: 120
+      max_post_context_bytes: 240
       temperature: 0.1
       system_prompt: You are a technical translator.
       user_prompt: |
@@ -40,6 +42,8 @@ llm:
     assert config.llm.translator["technical"].url == "http://mock.example:11434"
     assert config.llm.translator["technical"].timeout_seconds == 240
     assert config.llm.translator["technical"].max_retries == 2
+    assert config.llm.translator["technical"].max_pre_context_bytes == 120
+    assert config.llm.translator["technical"].max_post_context_bytes == 240
     assert config.llm.translator["technical"].temperature == 0.1
     assert config.llm.translator["emotional"].credential == "secret-token"
     assert "${inputfragment}" in config.llm.translator["emotional"].user_prompt

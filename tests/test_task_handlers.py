@@ -3,6 +3,7 @@ from pathlib import Path
 import httpx
 
 from do_my_work.application.task_handlers import (
+    DiscoverTranslateDocumentFragmentsTaskHandler,
     IndexMarkdownReferencesTaskHandler,
     MergeReferenceIndexesTaskHandler,
     MergeTranslatedFragmentsTaskHandler,
@@ -14,6 +15,7 @@ from do_my_work.application.task_keys import (
     make_merge_translated_fragments_task_key,
 )
 from do_my_work.domain.models import (
+    DiscoverTranslateDocumentFragmentsTaskSpec,
     IndexMarkdownReferencesTaskSpec,
     LlmConfig,
     MergeReferenceIndexesTaskSpec,
@@ -150,9 +152,15 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
                     temperature=0.0,
                     system_prompt="You are a professional translatoir from french to english.",
                     user_prompt=(
+                        "===BEGIN PREVIOUS CONTEXT===\n"
+                        "${pre_context}\n"
+                        "===END PREVIOUS CONTEXT===\n"
                         "===BEGIN SOURCE TEXT===\n"
                         "${inputfragment}\n"
                         "===END SOURCE TEXT===\n"
+                        "===BEGIN FOLLOWING CONTEXT===\n"
+                        "${post_context}\n"
+                        "===END FOLLOWING CONTEXT===\n"
                     ),
                 )
             }
@@ -167,6 +175,8 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
             fragment_kind="heading",
             heading_path=["Intro"],
             text="Intro",
+            pre_context="Before context.",
+            post_context="After context.",
             fragment_digest="sha256:frag",
             profile_name="technical",
             profile_digest="sha256:profile",
@@ -181,9 +191,61 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
         translated_text="# INTRO",
         length=7,
     )
-    assert '"content":"===BEGIN SOURCE TEXT===\\n# Intro\\n===END SOURCE TEXT===\\n"' in str(
+    assert '"content":"===BEGIN PREVIOUS CONTEXT===\\nBefore context.\\n===END PREVIOUS CONTEXT===\\n===BEGIN SOURCE TEXT===\\n# Intro\\n===END SOURCE TEXT===\\n===BEGIN FOLLOWING CONTEXT===\\nAfter context.\\n===END FOLLOWING CONTEXT===\\n"' in str(
         captured_payload["payload"]
     )
+
+
+def test_discover_translate_fragments_builds_bounded_neighbor_context(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    max_pre_context_bytes=len("# Intro\n\nBefore one.".encode("utf-8")),
+                    max_post_context_bytes=len("After two.\n\nTail.".encode("utf-8")),
+                    temperature=0.0,
+                    system_prompt="You are a translator.",
+                    user_prompt="${pre_context}\n${inputfragment}\n${post_context}",
+                )
+            }
+        ),
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "note.md").write_text(
+        "# Intro\n\nBefore one.\n\nTarget frag.\n\nAfter two.\n\nTail.\n",
+        encoding="utf-8",
+    )
+
+    record = TaskRecord(
+        task_key="task:discover_translate_document_fragments:abc",
+        spec=DiscoverTranslateDocumentFragmentsTaskSpec(
+            relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = DiscoverTranslateDocumentFragmentsTaskHandler().handle(
+        record,
+        config,
+        JsonTaskRepository(config.data_dir / "tasks"),
+    )
+
+    target_record = next(
+        created_record
+        for created_record in result.new_records
+        if created_record.spec.kind == "translate_fragment"
+        and created_record.spec.text == "Target frag."
+    )
+
+    assert target_record.spec.pre_context == "# Intro\n\nBefore one."
+    assert target_record.spec.post_context == "After two.\n\nTail."
 
 
 def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> None:

@@ -48,14 +48,22 @@ llm:
       credential:
       timeout_seconds: 180.0
       max_retries: 2
+      max_pre_context_bytes: 0
+      max_post_context_bytes: 0
       temperature: 0.1
       system_prompt: |
         You are a precise technical translator.
       user_prompt: |
+        Previous context:
+        ${pre_context}
+
         Translate the following fragment.
         ===BEGIN SOURCE TEXT===
         ${inputfragment}
         ===END SOURCE TEXT===
+
+        Following context:
+        ${post_context}
 
     emotional:
       url: http://127.0.0.1:11434
@@ -63,14 +71,22 @@ llm:
       credential:
       timeout_seconds: 180.0
       max_retries: 2
+      max_pre_context_bytes: 0
+      max_post_context_bytes: 0
       temperature: 0.7
       system_prompt: |
         You are a more expressive translator.
       user_prompt: |
+        Previous context:
+        ${pre_context}
+
         Translate the following fragment.
         ===BEGIN SOURCE TEXT===
         ${inputfragment}
         ===END SOURCE TEXT===
+
+        Following context:
+        ${post_context}
 ```
 
 This keeps the configuration explicit without becoming abstract too early.
@@ -82,6 +98,8 @@ The first implementation should use simple named placeholders with Python `strin
 Example placeholder:
 
 - `${inputfragment}`
+- `${pre_context}`
+- `${post_context}`
 
 This is sufficient for the first translation slice and avoids introducing a heavier template engine too early.
 
@@ -94,7 +112,7 @@ The initial client should be able to:
 1. load one named translator profile
 2. render the system and user prompts from named parameters
 3. call `/api/chat` on the configured Ollama-compatible server
-4. pass the configured model, timeout, retry policy, and temperature
+4. pass the configured model, timeout, retry policy, optional neighbor context, and temperature
 5. optionally send a bearer credential when configured
 6. return the assistant message content as the translated fragment text
 

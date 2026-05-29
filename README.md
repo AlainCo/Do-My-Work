@@ -9,6 +9,7 @@ Batch application scaffold in modern Python, with a simple CLI entry point, vali
 - `docs/project-direction.md`: product vision and current direction
 - `docs/workflow-kernel.md`: design note for the toy workflow kernel
 - `docs/markdown-fragment-slice.md`: design note for the first Markdown parsing and fragment reporting slice
+- `docs/reference-index-slice.md`: design note for the Markdown reference indexing slice
 - `docs/collaboration.md`: working method, documentation split, and local environment notes
 
 ## Project layout
@@ -73,7 +74,21 @@ Override one or more directories on the command line:
 do-my-work hello --input-dir custom/input --output-dir custom/output --data-dir custom/data
 ```
 
-## Run the toy workflow kernel
+## Run the current workflows
+
+Generate a Markdown reference index for each source document, with one `.references.md` file per input file:
+
+```powershell
+do-my-work reference-index-tree --input-dir work/input --output-dir work/output --data-dir work/data
+```
+
+Translate Markdown documents through fragment tasks with the `technical` translator profile from the YAML config:
+
+```powershell
+do-my-work translate-document-tree --config config/workspace.yaml
+```
+
+## Earlier teaching workflows
 
 Copy Markdown documents under `input_dir`, persist runs and tasks in `data_dir`, and reproduce the matching tree in `output_dir`:
 
@@ -93,16 +108,11 @@ Generate a Markdown fragment length report for each source document:
 do-my-work summary-document-tree --input-dir work/input --output-dir work/output --data-dir work/data
 ```
 
-Translate Markdown documents through fragment tasks with the `technical` translator profile from the YAML config:
-
-```powershell
-do-my-work translate-document-tree --config config/workspace.yaml
-```
-
 Inspect the current command surface:
 
 ```powershell
 do-my-work --help
+do-my-work reference-index-tree --help
 do-my-work copy-tree --help
 do-my-work summary-document-tree --help
 do-my-work translate-document-tree --help

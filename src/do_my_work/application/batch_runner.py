@@ -48,6 +48,20 @@ class BatchRunner:
         )
         return WorkflowEngine().run(config, root=root, request_kind="summary_document_tree")
 
+    def run_reference_index_tree(
+        self,
+        config: WorkspaceConfig,
+        root: Path = Path("."),
+    ) -> WorkflowRunResult:
+        self._logger.info(
+            "Running Markdown reference index workflow with root=%s input=%s output=%s data=%s",
+            root,
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
+        return WorkflowEngine().run(config, root=root, request_kind="reference_index_tree")
+
     def run_translate_document_tree(
         self,
         config: WorkspaceConfig,

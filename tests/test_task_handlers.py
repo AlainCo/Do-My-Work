@@ -6,6 +6,7 @@ from do_my_work.application.task_handlers import (
     CopyFileTaskHandler,
     DiscoverDocumentFragmentsTaskHandler,
     DiscoverDocumentsTaskHandler,
+    IndexMarkdownReferencesTaskHandler,
     MergeFragmentResultsTaskHandler,
     MergeTranslatedFragmentsTaskHandler,
     TranslateFragmentTaskHandler,
@@ -13,6 +14,7 @@ from do_my_work.application.task_handlers import (
 from do_my_work.application.task_keys import (
     make_copy_task_key,
     make_discover_documents_task_key,
+    make_index_markdown_references_task_key,
     make_merge_fragment_results_task_key,
     make_merge_translated_fragments_task_key,
 )
@@ -20,6 +22,7 @@ from do_my_work.domain.models import (
     CopyFileTaskSpec,
     DiscoverDocumentFragmentsTaskSpec,
     DiscoverDocumentsTaskSpec,
+    IndexMarkdownReferencesTaskSpec,
     LlmConfig,
     MergeFragmentResultsTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
@@ -118,6 +121,36 @@ def test_discover_document_fragments_handler_creates_fragment_and_merge_tasks(
         "process_fragment",
         "merge_fragment_results",
     ]
+
+
+def test_index_markdown_references_handler_writes_reference_report(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    relative_path = Path("note.md")
+    (config.input_dir / relative_path).write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    record = TaskRecord(
+        task_key=make_index_markdown_references_task_key(relative_path, "sha256:doc"),
+        spec=IndexMarkdownReferencesTaskSpec(
+            relative_path=relative_path,
+            source_digest="sha256:doc",
+        ),
+    )
+
+    result = IndexMarkdownReferencesTaskHandler().handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "note.references.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Index\n\n"
+        "Source: note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+    )
 
 
 def test_merge_fragment_results_handler_writes_report_from_fragment_task_results(

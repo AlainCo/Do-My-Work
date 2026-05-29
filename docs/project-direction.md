@@ -164,3 +164,7 @@ That tooling direction is captured in `docs/ollama-mock-tooling.md`.
 The next foundation slice for fragment translation is to add typed translator profile configuration and an Ollama-compatible HTTP client before introducing translation task kinds.
 
 That design direction is captured in `docs/translation-llm-slice.md`.
+
+The next useful report slice is now to extract inline Markdown links together with their heading context and publish manual-checkable `.references.md` reports.
+
+That design direction is captured in `docs/reference-index-slice.md`.

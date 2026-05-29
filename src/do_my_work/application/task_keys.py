@@ -12,6 +12,10 @@ def make_discover_summary_documents_task_key(root: Path) -> str:
     return _make_task_key("discover_summary_documents", root.as_posix())
 
 
+def make_discover_reference_documents_task_key(root: Path) -> str:
+    return _make_task_key("discover_reference_documents", root.as_posix())
+
+
 def make_discover_translate_documents_task_key(
     root: Path,
     profile_name: str,
@@ -107,6 +111,10 @@ def make_merge_translated_fragments_task_key(
 
 def make_summarize_markdown_document_task_key(relative_path: Path, source_digest: str) -> str:
     return _make_task_key("summarize_markdown_document", relative_path.as_posix(), source_digest)
+
+
+def make_index_markdown_references_task_key(relative_path: Path, source_digest: str) -> str:
+    return _make_task_key("index_markdown_references", relative_path.as_posix(), source_digest)
 
 
 def make_translator_profile_digest(profile: TranslatorProfileConfig) -> str:

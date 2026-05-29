@@ -205,6 +205,49 @@ def test_workflow_engine_runs_summary_flow_via_fragment_tasks(tmp_path: Path) ->
     ]
 
 
+def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert run_request.status == "succeeded"
+    assert run_request.summary.executed_task_count == 2
+    assert run_request.summary.created_task_count == 1
+    assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Index\n\n"
+        "Source: note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+    )
+
+    persisted_tasks = [
+        TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in sorted((data_dir / "tasks").glob("*.json"))
+    ]
+    assert len(persisted_tasks) == 2
+    assert sorted(task.spec.kind for task in persisted_tasks) == [
+        "discover_reference_documents",
+        "index_markdown_references",
+    ]
+
+
 def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

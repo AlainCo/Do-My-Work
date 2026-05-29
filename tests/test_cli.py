@@ -121,6 +121,41 @@ def test_summary_document_tree_command_generates_markdown_report(tmp_path: Path)
     assert len(list((data_dir / "tasks").glob("*.json"))) == 6
 
 
+def test_reference_index_tree_command_generates_markdown_reference_report(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "reference-index-tree",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Workflow run completed:" in result.stdout
+    assert "Tasks executed: 2" in result.stdout
+    assert "Tasks created: 1" in result.stdout
+    assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Index\n\n"
+        "Source: note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+    )
+
+
 def test_translate_document_tree_command_translates_markdown_fragments(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

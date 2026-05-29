@@ -65,6 +65,14 @@ class MarkdownFragment(BaseModel):
     length: int
 
 
+class MarkdownReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    heading_path: list[str] = Field(default_factory=list)
+    label: str
+    url: str
+
+
 class TaskStatus(str, Enum):
     PENDING = "pending"
     WAITING = "waiting"
@@ -84,6 +92,13 @@ class DiscoverSummaryDocumentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["discover_summary_documents"] = "discover_summary_documents"
+    root: Path = Field(default=Path("."))
+
+
+class DiscoverReferenceDocumentsTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["discover_reference_documents"] = "discover_reference_documents"
     root: Path = Field(default=Path("."))
 
 
@@ -108,6 +123,14 @@ class SummarizeMarkdownDocumentTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["summarize_markdown_document"] = "summarize_markdown_document"
+    relative_path: Path
+    source_digest: str
+
+
+class IndexMarkdownReferencesTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["index_markdown_references"] = "index_markdown_references"
     relative_path: Path
     source_digest: str
 
@@ -181,9 +204,11 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
 TaskSpec = Annotated[
     DiscoverDocumentsTaskSpec
     | DiscoverSummaryDocumentsTaskSpec
+    | DiscoverReferenceDocumentsTaskSpec
     | DiscoverTranslateDocumentsTaskSpec
     | CopyFileTaskSpec
     | SummarizeMarkdownDocumentTaskSpec
+    | IndexMarkdownReferencesTaskSpec
     | DiscoverDocumentFragmentsTaskSpec
     | DiscoverTranslateDocumentFragmentsTaskSpec
     | ProcessFragmentTaskSpec
@@ -228,6 +253,7 @@ class RunRequest(BaseModel):
     request_kind: Literal[
         "copy_tree",
         "summary_document_tree",
+        "reference_index_tree",
         "translate_document_tree",
     ] = "copy_tree"
     root: Path = Field(default=Path("."))

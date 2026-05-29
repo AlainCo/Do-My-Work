@@ -7,6 +7,7 @@ from do_my_work.application.task_keys import (
     make_copy_task_key,
     make_discover_document_fragments_task_key,
     make_discover_translate_document_fragments_task_key,
+    make_index_markdown_references_task_key,
     make_merge_fragment_results_task_key,
     make_merge_translated_fragments_task_key,
     make_process_fragment_task_key,
@@ -17,9 +18,11 @@ from do_my_work.domain.models import (
     CopyFileTaskSpec,
     DiscoverDocumentFragmentsTaskSpec,
     DiscoverDocumentsTaskSpec,
+    DiscoverReferenceDocumentsTaskSpec,
     DiscoverSummaryDocumentsTaskSpec,
     DiscoverTranslateDocumentFragmentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
+    IndexMarkdownReferencesTaskSpec,
     MarkdownFragment,
     MergeFragmentResultsTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
@@ -41,6 +44,10 @@ from do_my_work.infrastructure.markdown_fragment_report import (
     render_fragment_length_report_from_lines,
     render_markdown_fragment,
     render_translated_document,
+)
+from do_my_work.infrastructure.markdown_reference_report import (
+    build_reference_report_relative_path,
+    render_markdown_reference_report,
 )
 from do_my_work.infrastructure.ollama_client import OllamaChatClient
 
@@ -248,6 +255,89 @@ class DiscoverSummaryDocumentsTaskHandler:
         return TaskHandlerResult(updated_record=updated_record, new_records=discovered_records)
 
 
+class DiscoverReferenceDocumentsTaskHandler:
+    def handle(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+        task_repository: JsonTaskRepository,
+    ) -> TaskHandlerResult:
+        spec = record.spec
+        if not isinstance(spec, DiscoverReferenceDocumentsTaskSpec):
+            raise TypeError("discover handler requires a DiscoverReferenceDocumentsTaskSpec")
+
+        root_path = config.input_dir / spec.root
+        if not root_path.exists():
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="Input root does not exist.",
+                            error=str(root_path),
+                        ),
+                    }
+                )
+            )
+
+        discovered_records: list[TaskRecord] = []
+        child_task_keys: list[str] = []
+
+        for source_path in sorted(_iter_markdown_documents(root_path)):
+            relative_path = source_path.relative_to(config.input_dir)
+            source_digest = _build_source_digest(source_path)
+            task_key = make_index_markdown_references_task_key(relative_path, source_digest)
+            child_task_keys.append(task_key)
+
+            if task_repository.get(task_key) is None:
+                discovered_records.append(
+                    TaskRecord(
+                        task_key=task_key,
+                        spec=IndexMarkdownReferencesTaskSpec(
+                            relative_path=relative_path,
+                            source_digest=source_digest,
+                        ),
+                    )
+                )
+
+        child_records = [task_repository.get(task_key) for task_key in child_task_keys]
+        child_records.extend(discovered_records)
+
+        failed_children = [
+            child
+            for child in child_records
+            if child is not None and child.status == TaskStatus.FAILED
+        ]
+        all_succeeded = all(
+            child is not None and child.status == TaskStatus.SUCCEEDED for child in child_records
+        )
+
+        if failed_children:
+            status = TaskStatus.FAILED
+            message = (
+                f"{len(child_task_keys)} documents discovered, "
+                "at least one reference task failed."
+            )
+        elif all_succeeded:
+            status = TaskStatus.SUCCEEDED
+            message = f"{len(child_task_keys)} documents discovered and indexed."
+        else:
+            status = TaskStatus.WAITING
+            message = f"{len(child_task_keys)} documents discovered."
+
+        updated_record = record.model_copy(
+            update={
+                "status": status,
+                "child_task_keys": child_task_keys,
+                "outcome": TaskOutcome(
+                    message=message,
+                    created_task_keys=[task.task_key for task in discovered_records],
+                ),
+            }
+        )
+        return TaskHandlerResult(updated_record=updated_record, new_records=discovered_records)
+
+
 class DiscoverTranslateDocumentsTaskHandler:
     def handle(
         self,
@@ -350,6 +440,44 @@ class DiscoverTranslateDocumentsTaskHandler:
             }
         )
         return TaskHandlerResult(updated_record=updated_record, new_records=discovered_records)
+
+
+class IndexMarkdownReferencesTaskHandler:
+    def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
+        spec = record.spec
+        if not isinstance(spec, IndexMarkdownReferencesTaskSpec):
+            raise TypeError("reference indexer requires an IndexMarkdownReferencesTaskSpec")
+
+        source_path = config.input_dir / spec.relative_path
+        destination_path = config.output_dir / build_reference_report_relative_path(
+            spec.relative_path
+        )
+
+        if not source_path.exists():
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="Source file does not exist.",
+                            error=str(source_path),
+                        ),
+                    }
+                )
+            )
+
+        report = render_markdown_reference_report(source_path, config.input_dir)
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        destination_path.write_text(report, encoding="utf-8")
+
+        return TaskHandlerResult(
+            updated_record=record.model_copy(
+                update={
+                    "status": TaskStatus.SUCCEEDED,
+                    "outcome": TaskOutcome(message="Markdown reference report written."),
+                }
+            )
+        )
 
 
 class DiscoverDocumentFragmentsTaskHandler:

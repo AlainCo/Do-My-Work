@@ -2,9 +2,11 @@ from do_my_work.domain.models import (
     CopyFileTaskSpec,
     DiscoverDocumentFragmentsTaskSpec,
     DiscoverDocumentsTaskSpec,
+    DiscoverReferenceDocumentsTaskSpec,
     DiscoverSummaryDocumentsTaskSpec,
     DiscoverTranslateDocumentFragmentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
+    IndexMarkdownReferencesTaskSpec,
     MergeFragmentResultsTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     ProcessFragmentTaskSpec,
@@ -16,6 +18,7 @@ from do_my_work.domain.models import (
     WorkspaceConfig,
 )
 from do_my_work.infrastructure.markdown_fragment_report import build_summary_report_relative_path
+from do_my_work.infrastructure.markdown_reference_report import build_reference_report_relative_path
 
 
 class TaskRevalidator:
@@ -46,6 +49,9 @@ class TaskRevalidator:
         if isinstance(spec, SummarizeMarkdownDocumentTaskSpec):
             return self._revalidate_summary_document(record, config)
 
+        if isinstance(spec, IndexMarkdownReferencesTaskSpec):
+            return self._revalidate_reference_index(record, config)
+
         if isinstance(spec, ProcessFragmentTaskSpec):
             return record
 
@@ -60,6 +66,9 @@ class TaskRevalidator:
 
         if isinstance(spec, DiscoverDocumentsTaskSpec):
             return self._revalidate_discover_documents(record, task_index)
+
+        if isinstance(spec, DiscoverReferenceDocumentsTaskSpec):
+            return self._revalidate_discover_reference_documents(record, task_index)
 
         if isinstance(spec, DiscoverDocumentFragmentsTaskSpec):
             return self._revalidate_discover_document_fragments(record, task_index)
@@ -97,6 +106,58 @@ class TaskRevalidator:
         )
 
     def _revalidate_discover_documents(
+        self,
+        record: TaskRecord,
+        task_index: dict[str, TaskRecord],
+    ) -> TaskRecord:
+        if record.status != TaskStatus.SUCCEEDED:
+            return record
+
+        child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        if all(
+            child is not None and child.status == TaskStatus.SUCCEEDED
+            for child in child_records
+        ):
+            return record
+
+        created_task_keys = []
+        if record.outcome is not None:
+            created_task_keys = record.outcome.created_task_keys
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.WAITING,
+                "outcome": TaskOutcome(
+                    message=f"{len(record.child_task_keys)} documents discovered.",
+                    created_task_keys=created_task_keys,
+                ),
+            }
+        )
+
+    def _revalidate_reference_index(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+    ) -> TaskRecord:
+        if record.status != TaskStatus.SUCCEEDED:
+            return record
+
+        destination_path = config.output_dir / build_reference_report_relative_path(
+            record.spec.relative_path
+        )
+        if destination_path.exists():
+            return record
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.PENDING,
+                "outcome": TaskOutcome(
+                    message="Output file is missing; task must run again.",
+                ),
+            }
+        )
+
+    def _revalidate_discover_reference_documents(
         self,
         record: TaskRecord,
         task_index: dict[str, TaskRecord],
@@ -345,6 +406,7 @@ def _revalidation_priority(record: TaskRecord) -> tuple[int, str]:
     priority = 1
     if record.spec.kind in {
         "copy_file",
+        "index_markdown_references",
         "summarize_markdown_document",
         "merge_fragment_results",
         "merge_translated_fragments",

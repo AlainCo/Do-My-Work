@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 
+import httpx
+
 from do_my_work.application.task_keys import (
     make_discover_translate_document_fragments_task_key,
     make_index_markdown_references_task_key,
@@ -416,11 +418,42 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
         discovered_records: list[TaskRecord] = []
         fragment_task_keys: list[str] = []
 
-        for fragment in fragments:
+        profile = config.llm.translator.get(spec.profile_name)
+        if profile is None:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="Translator profile does not exist.",
+                            error=spec.profile_name,
+                        ),
+                    }
+                )
+            )
+
+        for fragment_index, fragment in enumerate(fragments):
+            pre_context = _build_neighbor_context(
+                fragments,
+                fragment_index,
+                direction="pre",
+                max_bytes=profile.max_pre_context_bytes,
+            )
+            post_context = _build_neighbor_context(
+                fragments,
+                fragment_index,
+                direction="post",
+                max_bytes=profile.max_post_context_bytes,
+            )
             fragment_digest = _build_fragment_digest(fragment)
+            translation_input_digest = _build_translation_input_digest(
+                fragment,
+                pre_context,
+                post_context,
+            )
             task_key = make_translate_fragment_task_key(
                 spec.relative_path,
-                fragment_digest,
+                translation_input_digest,
                 spec.profile_name,
                 spec.profile_digest,
             )
@@ -435,6 +468,8 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                             fragment_kind=fragment.fragment_kind,
                             heading_path=fragment.heading_path,
                             text=fragment.text,
+                            pre_context=pre_context,
+                            post_context=post_context,
                             fragment_digest=fragment_digest,
                             profile_name=spec.profile_name,
                             profile_digest=spec.profile_digest,
@@ -524,7 +559,53 @@ class TranslateFragmentTaskHandler:
             translated_fragment = llm_client.translate_fragment(
                 config=config,
                 profile_name=spec.profile_name,
-                parameters={"inputfragment": fragment_markdown},
+                parameters={
+                    "inputfragment": fragment_markdown,
+                    "pre_context": spec.pre_context,
+                    "post_context": spec.post_context,
+                },
+            )
+        except httpx.TimeoutException as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="LLM translation timed out.",
+                            error=str(exc),
+                            error_category="timeout",
+                        ),
+                    }
+                )
+            )
+        except httpx.HTTPStatusError as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message=(
+                                "LLM translation failed with an HTTP status error."
+                            ),
+                            error=str(exc),
+                            error_category="http_status",
+                            http_status_code=exc.response.status_code,
+                        ),
+                    }
+                )
+            )
+        except httpx.RequestError as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="LLM translation request failed.",
+                            error=str(exc),
+                            error_category="request_error",
+                        ),
+                    }
+                )
             )
         finally:
             if self._llm_client is None:
@@ -661,6 +742,65 @@ def _build_fragment_digest(fragment: MarkdownFragment) -> str:
     )
     digest = sha256(payload.encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
+
+
+def _build_translation_input_digest(
+    fragment: MarkdownFragment,
+    pre_context: str,
+    post_context: str,
+) -> str:
+    payload = "|".join(
+        [fragment.fragment_kind, *fragment.heading_path, fragment.text, pre_context, post_context]
+    )
+    digest = sha256(payload.encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _build_neighbor_context(
+    fragments: list[MarkdownFragment],
+    fragment_index: int,
+    direction: str,
+    max_bytes: int,
+) -> str:
+    if max_bytes <= 0:
+        return ""
+
+    selected_fragments: list[str] = []
+    current_size = 0
+    separator_size = len("\n\n".encode("utf-8"))
+
+    if direction == "pre":
+        indices = range(fragment_index - 1, -1, -1)
+    elif direction == "post":
+        indices = range(fragment_index + 1, len(fragments))
+    else:
+        raise ValueError(f"Unsupported direction: {direction}")
+
+    for neighbor_index in indices:
+        neighbor_fragment = fragments[neighbor_index]
+        if not _include_fragment_in_neighbor_context(neighbor_fragment):
+            continue
+
+        rendered_neighbor = render_markdown_fragment(neighbor_fragment)
+        neighbor_size = len(rendered_neighbor.encode("utf-8"))
+        additional_size = neighbor_size
+        if selected_fragments:
+            additional_size += separator_size
+
+        if current_size + additional_size > max_bytes:
+            break
+
+        if direction == "pre":
+            selected_fragments.insert(0, rendered_neighbor)
+        else:
+            selected_fragments.append(rendered_neighbor)
+        current_size += additional_size
+
+    return "\n\n".join(selected_fragments)
+
+
+def _include_fragment_in_neighbor_context(fragment: MarkdownFragment) -> bool:
+    return fragment.fragment_kind not in {"code_block", "mermaid"}
 
 
 def _iter_markdown_documents(root_path: Path) -> list[Path]:

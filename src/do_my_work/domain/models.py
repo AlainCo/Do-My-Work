@@ -29,6 +29,10 @@ class TranslatorProfileConfig(BaseModel):
     url: str
     model: str
     credential: str | None = None
+    timeout_seconds: float = Field(default=180.0, gt=0)
+    max_retries: int = Field(default=0, ge=0)
+    max_pre_context_bytes: int = Field(default=0, ge=0)
+    max_post_context_bytes: int = Field(default=0, ge=0)
     temperature: float = 0.0
     system_prompt: str
     user_prompt: str
@@ -45,6 +49,7 @@ class WorkflowRunSummary(BaseModel):
 
     executed_task_count: int = 0
     replayed_task_count: int = 0
+    retried_failed_task_count: int = 0
     created_task_count: int = 0
     unchanged_task_count: int = 0
 
@@ -127,6 +132,8 @@ class TranslateFragmentTaskSpec(BaseModel):
     fragment_kind: FragmentKind
     heading_path: list[str] = Field(default_factory=list)
     text: str
+    pre_context: str = ""
+    post_context: str = ""
     fragment_digest: str
     profile_name: str
     profile_digest: str
@@ -169,6 +176,8 @@ class TaskOutcome(BaseModel):
     message: str
     created_task_keys: list[str] = Field(default_factory=list)
     error: str | None = None
+    error_category: Literal["timeout", "http_status", "request_error"] | None = None
+    http_status_code: int | None = None
     result: TranslatedFragmentResult | None = None
 
 

@@ -56,6 +56,7 @@ def reference_index_tree(
     typer.echo(f"Workflow run completed: {run_result.run_id}")
     typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
     typer.echo(f"Tasks replayed: {run_result.summary.replayed_task_count}")
+    typer.echo(f"Failed tasks retried: {run_result.summary.retried_failed_task_count}")
     typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
     typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
 
@@ -108,6 +109,7 @@ def translate_document_tree(
     typer.echo(f"Workflow run completed: {run_result.run_id}")
     typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
     typer.echo(f"Tasks replayed: {run_result.summary.replayed_task_count}")
+    typer.echo(f"Failed tasks retried: {run_result.summary.retried_failed_task_count}")
     typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
     typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
 

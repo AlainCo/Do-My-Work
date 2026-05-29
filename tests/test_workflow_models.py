@@ -32,6 +32,8 @@ def test_task_record_round_trips_translated_fragment_result() -> None:
             fragment_kind="paragraph",
             heading_path=["Intro"],
             text="Alpha beta.",
+            pre_context="# Intro",
+            post_context="Next paragraph.",
             fragment_digest="sha256:frag",
             profile_name="technical",
             profile_digest="sha256:profile",
@@ -51,6 +53,8 @@ def test_task_record_round_trips_translated_fragment_result() -> None:
 
     assert isinstance(restored_record.spec, TranslateFragmentTaskSpec)
     assert restored_record.outcome is not None
+    assert restored_record.spec.pre_context == "# Intro"
+    assert restored_record.spec.post_context == "Next paragraph."
     assert restored_record.outcome.result == TranslatedFragmentResult(
         translated_text="ALPHA BETA.",
         length=11,

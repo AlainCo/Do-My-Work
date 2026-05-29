@@ -7,6 +7,10 @@ llm:
       url: http://127.0.0.1:11434
       model: ministral-3:3b
       temperature: 0.0
+      timeout_seconds: 180.0
+      max_retries: 2
+      max_pre_context_bytes: 1200
+      max_post_context_bytes: 1200
       system_prompt: |
         Tu es un robot de traduction automatique strict. Traduis le texte de l'utilisateur du français vers l'anglais. 
         Tu respecte le MarkDown. 
@@ -20,6 +24,15 @@ llm:
         - pour les textes techniques, privilégie la terminologie technique à la traduction mot-à-mot brute
         - Respecte scrupuleusement le registre de langue du texte d'origine. Si le texte est familier, vulgaire ou utilise de l'argot, traduis-le par un équivalent tout aussi familier ou argotique. Ne lisse pas le texte.
       user_prompt: |
+        ===BEGIN PREVIOUS CONTEXT===
+        ${pre_context}
+        ===END PREVIOUS CONTEXT===
+
         ===BEGIN SOURCE TEXT===
-        ${inputfragment}===END SOURCE TEXT===
+        ${inputfragment}
+        ===END SOURCE TEXT===
+
+        ===BEGIN FOLLOWING CONTEXT===
+        ${post_context}
+        ===END FOLLOWING CONTEXT===
         

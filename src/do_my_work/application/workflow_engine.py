@@ -156,6 +156,18 @@ class WorkflowEngine:
                 result.updated_record.spec.kind,
                 result.updated_record.status.value,
             )
+            if (
+                result.updated_record.status == TaskStatus.FAILED
+                and result.updated_record.outcome is not None
+            ):
+                self._logger.warning(
+                    "Task failed: key=%s kind=%s error_category=%s http_status_code=%s error=%s",
+                    result.updated_record.task_key,
+                    result.updated_record.spec.kind,
+                    result.updated_record.outcome.error_category,
+                    result.updated_record.outcome.http_status_code,
+                    result.updated_record.outcome.error,
+                )
             for new_record in result.new_records:
                 task_repository.save(new_record)
                 created_task_keys.add(new_record.task_key)

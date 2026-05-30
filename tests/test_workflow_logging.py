@@ -138,6 +138,68 @@ def test_workflow_engine_logs_when_failed_translation_is_retried(
     assert "retried_failed=1" in caplog.text
 
 
+def test_workflow_engine_logs_timeout_failure_details(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text("# Intro\n\nAlpha beta.\n", encoding="utf-8")
+
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    def timeout_translate_fragment(self, config, profile_name, parameters):
+        del self, config, profile_name, parameters
+        raise httpx.ReadTimeout("temporary timeout")
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        timeout_translate_fragment,
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translatoir from french to english.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${input_fragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        ),
+    )
+
+    with caplog.at_level("INFO"):
+        WorkflowEngine().run(
+            config,
+            root=Path("."),
+            request_kind="translate_document_tree",
+            translator_profile="technical",
+        )
+
+    assert "Task completed:" in caplog.text
+    assert "new_status=failed" in caplog.text
+    assert "Task failed:" in caplog.text
+    assert "kind=translate_fragment" in caplog.text
+    assert "error_category=timeout" in caplog.text
+    assert "http_status_code=None" in caplog.text
+    assert "error=temporary timeout" in caplog.text
+
+
 def test_workflow_engine_logs_http_status_code_when_failed_translation_is_retried(
     tmp_path: Path,
     monkeypatch,

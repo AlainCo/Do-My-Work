@@ -26,6 +26,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] We should put this document in our work methodology, saying that it's where we put ideas and improvement to be considered later
 - [DONE] we should manage to clean this document when the point is treated, either removed, or in an history/done section
 - [DONE] we may qualify points as DONE/ABANDONED/LATER/SOON/URGENT/TODISCUSS...
+- [DONE] I've not observed trace/log for failed call (timeout), there should be one.
 
 ## Project management
 
@@ -39,7 +40,6 @@ Use the following markers when they help clarify priority or outcome:
 - the time of LLM call should be displayed
 - maybe computing the average and why not variance of translation call should be computed
 - I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after...
-- [URGENT] I've not observed trace/log for failed call (timeout), there should be one.
 
 ## task scheduling
 

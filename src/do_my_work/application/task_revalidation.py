@@ -122,9 +122,6 @@ class TaskRevalidator:
         config: WorkspaceConfig,
         task_index: dict[str, TaskRecord],
     ) -> TaskRecord:
-        if record.status != TaskStatus.SUCCEEDED:
-            return record
-
         child_records = [task_index.get(task_key) for task_key in record.spec.reference_task_keys]
         if not all(
             child is not None and child.status == TaskStatus.SUCCEEDED
@@ -140,7 +137,7 @@ class TaskRevalidator:
             )
 
         destination_path = config.output_dir / build_root_reference_index_path()
-        if destination_path.exists():
+        if record.status == TaskStatus.SUCCEEDED and destination_path.exists():
             return record
 
         return record.model_copy(
@@ -260,7 +257,7 @@ class TaskRevalidator:
             )
 
         destination_path = config.output_dir / record.spec.document_relative_path
-        if destination_path.exists():
+        if record.status == TaskStatus.SUCCEEDED and destination_path.exists():
             return record.model_copy(
                 update={
                     "status": TaskStatus.SUCCEEDED,

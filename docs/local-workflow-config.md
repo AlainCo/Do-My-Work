@@ -10,8 +10,9 @@ V1 is intentionally narrow.
 
 - local config can further exclude files from processing
 - local config can override the translation profile used for matching Markdown files
+- local config can add translation hints for matching Markdown files
 - local config does not add new files that the workspace-level selection already excluded
-- local config does not yet add translation hints, glossary entries, or prompt fragments
+- local config does not yet add glossary entries or prompt fragments
 
 ## File Name And Location
 
@@ -31,6 +32,9 @@ translation:
   rules:
     - match: "stories/**/*.md"
       profile: literary
+      hints: |
+        Use a narrative tone.
+        Keep metaphors vivid but readable.
 
     - match: "drafts/**/*.md"
       exclude: true
@@ -48,6 +52,7 @@ reference_index:
 - `match`: glob-like pattern relative to the folder containing this `do-my-work.yaml`
 - `exclude`: optional boolean; when `true`, matching files are excluded from translation
 - `profile`: optional translation profile name from `workspace.yaml`; when present, matching files use this profile instead of the default run profile
+- `hints`: optional free text appended to the effective translation hints for matching files
 
 `reference_index.rules[]`
 
@@ -62,8 +67,9 @@ The effective policy for one document follows these rules.
 2. local config may exclude more files, but may not re-include files excluded by the workspace
 3. for translation, the CLI or root workflow profile is the default profile
 4. matching local `profile` rules may override that default translation profile for one document
-5. within one config file, `last matching rule wins`
-6. across multiple `do-my-work.yaml` files, deeper folders override higher folders because configs are applied from `input_dir` down to the document folder
+5. matching local `hints` rules are accumulated in application order, so broader folders can provide shared guidance and deeper folders can add document-family-specific hints
+6. within one config file, `last matching rule wins` for scalar values like `exclude` and `profile`
+7. across multiple `do-my-work.yaml` files, deeper folders override higher folders because configs are applied from `input_dir` down to the document folder
 
 ## Matching Scope
 
@@ -81,12 +87,32 @@ The workflow root task identity includes a digest of the relevant `do-my-work.ya
 
 This means that changing local workflow config causes discovery to run again on the next workflow execution, even if the root path and top-level workspace config did not change.
 
+For translation workflows, the effective local hints also contribute to downstream task identity, so changing `hints` forces fragment translation and document merge tasks to be recreated for the affected documents.
+
+## Prompt Integration
+
+Translation hints are only useful if the selected translator profile prompt uses them.
+
+The translator prompt may reference `${translation_hints}` the same way it already references `${input_fragment}`, `${pre_context}`, or `${post_context}`.
+
+Example:
+
+```yaml
+llm:
+  translator:
+    literary:
+      user_prompt: |
+        ${translation_hints}
+
+        ${input_fragment}
+```
+
 ## Current Limits
 
 V1 intentionally does not do the following.
 
 - no local `include` rules
-- no local glossary or translation hints yet
+- no local glossary entries yet
 - no local prompt fragments yet
 - no local reference-index parameters beyond exclusion
 - no automatic cleanup of previously generated output files that became excluded after an earlier run

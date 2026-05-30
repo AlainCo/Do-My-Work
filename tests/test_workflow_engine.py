@@ -349,6 +349,8 @@ def test_workflow_engine_applies_local_translation_profile_and_exclusion(
         "  rules:\n"
         "    - match: \"stories/**/*.md\"\n"
         "      profile: literary\n"
+        "      hints: |\n"
+        "        Use a narrative tone.\n"
         "    - match: \"drafts/**/*.md\"\n"
         "      exclude: true\n",
         encoding="utf-8",
@@ -360,7 +362,10 @@ def test_workflow_engine_applies_local_translation_profile_and_exclusion(
     monkeypatch.setattr(
         OllamaChatClient,
         "translate_fragment",
-        lambda self, config, profile_name, parameters: f"[{profile_name}] {parameters['input_fragment']}",
+        lambda self, config, profile_name, parameters: (
+            f"[{profile_name}]"
+            f"[{parameters['translation_hints']}] {parameters['input_fragment']}"
+        ),
     )
 
     config = WorkspaceConfig(
@@ -396,9 +401,9 @@ def test_workflow_engine_applies_local_translation_profile_and_exclusion(
 
     assert run_request.status == "succeeded"
     assert "[technical]" in (output_dir / "docs" / "default.md").read_text(encoding="utf-8")
-    assert "[literary]" in (
-        output_dir / "docs" / "stories" / "special.md"
-    ).read_text(encoding="utf-8")
+    special_output = (output_dir / "docs" / "stories" / "special.md").read_text(encoding="utf-8")
+    assert "[literary]" in special_output
+    assert "Use a narrative tone." in special_output
     assert not (output_dir / "docs" / "drafts" / "skip.md").exists()
 
 
@@ -439,6 +444,77 @@ def test_workflow_engine_root_task_key_changes_when_local_policy_changes(
     )
 
     assert first_run.run_request.root_task_key != second_run.run_request.root_task_key
+
+
+def test_workflow_engine_recreates_translation_tasks_when_local_hints_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\ntranslation:\n  rules:\n    - match: \"*.md\"\n      hints: |\n        First hint.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: (
+            self._record_attempt_duration(1.0),
+            f"[{parameters['translation_hints']}] {parameters['input_fragment']}"
+        )[1],
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a translator.",
+                    user_prompt="${translation_hints}\n${input_fragment}",
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\ntranslation:\n  rules:\n    - match: \"*.md\"\n      hints: |\n        Second hint.\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.run_request.root_task_key != second_run.run_request.root_task_key
+    assert second_run.status == "succeeded"
+    assert "Second hint." in (output_dir / "note.md").read_text(encoding="utf-8")
 
 
 def test_workflow_engine_runs_translation_flow_via_fragment_tasks(

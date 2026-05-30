@@ -155,6 +155,9 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
                         "===BEGIN PREVIOUS CONTEXT===\n"
                         "${pre_context}\n"
                         "===END PREVIOUS CONTEXT===\n"
+                        "===BEGIN TRANSLATION HINTS===\n"
+                        "${translation_hints}\n"
+                        "===END TRANSLATION HINTS===\n"
                         "===BEGIN SOURCE TEXT===\n"
                         "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
@@ -180,6 +183,7 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
             fragment_digest="sha256:frag",
             profile_name="technical",
             profile_digest="sha256:profile",
+            translation_hints="Prefer maritime vocabulary.",
         ),
     )
 
@@ -191,7 +195,7 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
         translated_text="# INTRO",
         length=7,
     )
-    assert '"content":"===BEGIN PREVIOUS CONTEXT===\\nBefore context.\\n===END PREVIOUS CONTEXT===\\n===BEGIN SOURCE TEXT===\\n# Intro\\n===END SOURCE TEXT===\\n===BEGIN FOLLOWING CONTEXT===\\nAfter context.\\n===END FOLLOWING CONTEXT===\\n"' in str(
+    assert '"content":"===BEGIN PREVIOUS CONTEXT===\\nBefore context.\\n===END PREVIOUS CONTEXT===\\n===BEGIN TRANSLATION HINTS===\\nPrefer maritime vocabulary.\\n===END TRANSLATION HINTS===\\n===BEGIN SOURCE TEXT===\\n# Intro\\n===END SOURCE TEXT===\\n===BEGIN FOLLOWING CONTEXT===\\nAfter context.\\n===END FOLLOWING CONTEXT===\\n"' in str(
         captured_payload["payload"]
     )
 

@@ -39,12 +39,15 @@ def make_discover_translate_document_fragments_task_key(
     profile_digest: str,
     plan_digest: str | None = None,
     render_digest: str | None = None,
+    translation_hints_digest: str | None = None,
 ) -> str:
     parts = [relative_path.as_posix(), source_digest, profile_name, profile_digest]
     if plan_digest:
         parts.append(plan_digest)
     if render_digest:
         parts.append(render_digest)
+    if translation_hints_digest:
+        parts.append(translation_hints_digest)
     return _make_task_key("discover_translate_document_fragments", *parts)
 
 
@@ -53,16 +56,18 @@ def make_translate_fragment_task_key(
     fragment_digest: str,
     profile_name: str,
     profile_digest: str,
+    translation_hints_digest: str | None = None,
 ) -> str:
     document_scope = _make_key_digest(document_relative_path.as_posix())
-    return _make_scoped_task_key(
-        "translate_fragment",
-        document_scope,
+    parts = [
         document_relative_path.as_posix(),
         fragment_digest,
         profile_name,
         profile_digest,
-    )
+    ]
+    if translation_hints_digest:
+        parts.append(translation_hints_digest)
+    return _make_scoped_task_key("translate_fragment", document_scope, *parts)
 
 
 def make_merge_translated_fragments_task_key(
@@ -72,12 +77,15 @@ def make_merge_translated_fragments_task_key(
     profile_digest: str,
     plan_digest: str | None = None,
     render_digest: str | None = None,
+    translation_hints_digest: str | None = None,
 ) -> str:
     parts = [document_relative_path.as_posix(), source_digest, profile_name, profile_digest]
     if plan_digest:
         parts.append(plan_digest)
     if render_digest:
         parts.append(render_digest)
+    if translation_hints_digest:
+        parts.append(translation_hints_digest)
     return _make_task_key("merge_translated_fragments", *parts)
 
 

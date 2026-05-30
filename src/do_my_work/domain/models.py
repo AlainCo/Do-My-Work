@@ -44,6 +44,7 @@ class LocalTranslationRule(BaseModel):
     match: str
     exclude: bool = False
     profile: str | None = None
+    hints: str | None = None
 
 
 class LocalTranslationConfig(BaseModel):
@@ -189,6 +190,8 @@ class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     profile_digest: str
     plan_digest: str | None = None
     render_digest: str | None = None
+    translation_hints: str = ""
+    translation_hints_digest: str | None = None
 
 
 class TranslateFragmentTaskSpec(BaseModel):
@@ -205,6 +208,8 @@ class TranslateFragmentTaskSpec(BaseModel):
     fragment_digest: str
     profile_name: str
     profile_digest: str
+    translation_hints: str = ""
+    translation_hints_digest: str | None = None
 
 
 class MergeTranslatedFragmentsTaskSpec(BaseModel):
@@ -218,6 +223,7 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
     profile_digest: str
     plan_digest: str | None = None
     render_digest: str | None = None
+    translation_hints_digest: str | None = None
     translated_document_header: str | None = None
     translated_document_footer: str | None = None
 

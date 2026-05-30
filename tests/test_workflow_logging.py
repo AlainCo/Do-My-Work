@@ -38,7 +38,7 @@ def test_workflow_engine_logs_revalidation_and_execution(
     assert "Task completed:" in caplog.text
     assert "Workflow run summary:" in caplog.text
     assert "executed=3" in caplog.text
-    assert "replayed=1" in caplog.text
+    assert "replayed=2" in caplog.text
     assert "retried_failed=0" in caplog.text
 
 

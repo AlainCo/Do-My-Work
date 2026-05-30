@@ -73,6 +73,7 @@ class DocumentWorkflowSettings:
     source_path: Path
     relative_path: Path
     translation_profile_name: str | None = None
+    translation_hints: str = ""
 
 
 class DiscoverReferenceDocumentsTaskHandler:
@@ -264,6 +265,7 @@ class DiscoverTranslateDocumentsTaskHandler:
             profile_digest = make_translator_profile_digest(effective_profile)
             plan_digest = make_translation_plan_digest(effective_profile)
             render_digest = make_translated_document_render_digest(effective_profile)
+            translation_hints_digest = _build_optional_text_digest(document.translation_hints)
             source_digest = _build_source_digest(source_path)
             task_key = make_discover_translate_document_fragments_task_key(
                 relative_path,
@@ -272,6 +274,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                 profile_digest,
                 plan_digest,
                 render_digest,
+                translation_hints_digest,
             )
             child_task_keys.append(task_key)
 
@@ -286,6 +289,8 @@ class DiscoverTranslateDocumentsTaskHandler:
                             profile_digest=profile_digest,
                             plan_digest=plan_digest,
                             render_digest=render_digest,
+                            translation_hints=document.translation_hints,
+                            translation_hints_digest=translation_hints_digest,
                         ),
                     )
                 )
@@ -510,6 +515,7 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                 chunk.translation_input_digest,
                 spec.profile_name,
                 spec.profile_digest,
+                spec.translation_hints_digest,
             )
             fragment_task_keys.append(task_key)
 
@@ -528,6 +534,8 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                             fragment_digest=chunk.fragment_digest,
                             profile_name=spec.profile_name,
                             profile_digest=spec.profile_digest,
+                            translation_hints=spec.translation_hints,
+                            translation_hints_digest=spec.translation_hints_digest,
                         ),
                     )
                 )
@@ -541,6 +549,7 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
             spec.profile_digest,
             spec.plan_digest,
             spec.render_digest,
+            spec.translation_hints_digest,
         )
         child_task_keys = [*fragment_task_keys, merge_task_key]
 
@@ -556,6 +565,7 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                         profile_digest=spec.profile_digest,
                         plan_digest=spec.plan_digest,
                         render_digest=spec.render_digest,
+                        translation_hints_digest=spec.translation_hints_digest,
                         translated_document_header=profile.translated_document_header,
                         translated_document_footer=profile.translated_document_footer,
                     ),
@@ -646,6 +656,7 @@ class TranslateFragmentTaskHandler:
                     "input_fragment": fragment_markdown,
                     "pre_context": spec.pre_context,
                     "post_context": spec.post_context,
+                    "translation_hints": spec.translation_hints,
                 },
             )
         except httpx.TimeoutException as exc:
@@ -1128,6 +1139,7 @@ def _resolve_document_workflow_settings(
 
     excluded = False
     translation_profile_name = default_translation_profile_name
+    translation_hints_parts: list[str] = []
 
     for directory, local_config in _iter_applicable_local_workflow_configs(
         source_path,
@@ -1147,6 +1159,8 @@ def _resolve_document_workflow_settings(
                     excluded = True
                 if rule.profile is not None:
                     translation_profile_name = rule.profile
+                if rule.hints is not None:
+                    translation_hints_parts.append(rule.hints)
         else:
             raise ValueError(f"Unsupported workflow kind: {workflow_kind}")
 
@@ -1157,6 +1171,7 @@ def _resolve_document_workflow_settings(
         source_path=source_path,
         relative_path=relative_path,
         translation_profile_name=translation_profile_name,
+        translation_hints="\n\n".join(part for part in translation_hints_parts if part),
     )
 
 
@@ -1186,6 +1201,12 @@ def _iter_applicable_local_workflow_configs(
         applicable_configs.append((directory, local_config))
 
     return applicable_configs
+
+
+def _build_optional_text_digest(text: str) -> str | None:
+    if not text:
+        return None
+    return f"sha256:{sha256(text.encode('utf-8')).hexdigest()}"
 
 
 def _is_selected_markdown_document(relative_path: Path, config: WorkspaceConfig) -> bool:

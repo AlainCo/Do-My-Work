@@ -2,11 +2,33 @@
 
 Here I put ideas that emerge.
 
+This document is the shared backlog for ideas, improvements, annoyances, and deferred discussions that appear during implementation.
+
+## Status vocabulary
+
+Use the following markers when they help clarify priority or outcome:
+
+- `[URGENT]`: should be treated soon because it blocks quality, reliability, or useful progress
+- `[SOON]`: good candidate for a near-term implementation slice
+- `[LATER]`: worth keeping, but intentionally deferred
+- `[TODISCUSS]`: needs a design discussion before implementation
+- `[DONE]`: treated and kept temporarily for traceability before cleanup
+- `[ABANDONED]`: explicitly rejected, kept temporarily so the same idea is not reopened by accident
+
+## Backlog hygiene
+
+- when a point is treated, either remove it or move it to a short history section instead of leaving it mixed with active items
+- when a point is no longer relevant, remove it rather than keeping stale backlog noise
+- regularly group nearby points together and merge duplicates when they describe the same future change
+
+## History / recently treated
+
+- [DONE] We should put this document in our work methodology, saying that it's where we put ideas and improvement to be considered later
+- [DONE] we should manage to clean this document when the point is treated, either removed, or in an history/done section
+- [DONE] we may qualify points as DONE/ABANDONED/LATER/SOON/URGENT/TODISCUSS...
+
 ## Project management
 
-- [URGENT] We should put this document in our work methodology, saying that it's where we put ideas and improvement to be considered later
-- we should manage to clean this document when the point is treated, either removed, or in an history/done section
-- we may qualify points as DONE/ABANDONED/LATER/SOON/URGENT/TODISCUSS...
 - we should regularly sort similar points together, or even merge them.
 
 ## managing LLM calls

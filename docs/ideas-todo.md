@@ -31,7 +31,8 @@ Here I put ideas that emerge.
 ## translation improvement
 
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
-- [LATER] why not add a glossary in the workspace yaml, as a list of french:english. why not translations hints. why not control it in the target folder with yaml configuration
+- [LATER] why not add a glossary in the workspace yaml, as a list of french:english or more generally translations hints.
+- [LATER] why not control translation profile, glosssary, translation hints, file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration
 - [SOON] [TODISCUSS] why not increase the size of the fragment. I propose a mechanism with 2 limits
   - let's introduce a "max_total_text_bytes" that limit the total of pre,input and post.
   - and a "max_input_fragment_bytes" that is a harder limit for the input_fragment.
@@ -47,6 +48,7 @@ Here I put ideas that emerge.
         - anyway there will be a hardlimit with the max_input_fragment_bytes, that prevent to increase the size of the input_fragment too much, so if we have reached the end of the document, we may only partially integrate the post_context segments to the input_fragment as long as it does not get above max_input_fragment_bytes.
     - of course the used segments put inside the input_fragment, should not be sent again as input_fragment... they will be consumed.
 - [URGENT] we should add a header and footer (optional) to generated documents. best would be it is static not to cause spurious diff just for date of generation... if needed, user should just change the headers in the workspace yaml. my first test would be to add <!-- Translated by Do-My Work with ministrel-3:3g --> as header and footer.
+- [LATER] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
 ## references and bibliography
 

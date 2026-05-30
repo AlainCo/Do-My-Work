@@ -57,8 +57,9 @@ Use the following markers when they help clarify priority or outcome:
 ## translation improvement
 
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
-- [SOON] why not add translations hints in the workspace yaml (translations hints or glossary, free text)
-- [SOON] [TODISCUSS] why not control translation profile, glossary, translation hints, file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration
+
+- [SOON] [TODISCUSS] why not control translation profile and file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration... I see something like file_selection:... with either exclude, or a way to set the profile, or some other parameter later... the file discover task shoudl use it and transfer the parameters to the subtask (about translation, or reference index )
+- [LATER] why not add translations hints  in the target folder yaml, beside the translation profile. it should be usable in the profile's prompt, like the  ${pre_context} and so on
 - [LATER] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
 ## references and bibliography

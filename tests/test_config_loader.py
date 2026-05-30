@@ -23,7 +23,7 @@ llm:
       system_prompt: You are a technical translator.
       user_prompt: |
         ===BEGIN SOURCE TEXT===
-        ${inputfragment}
+        ${input_fragment}
         ===END SOURCE TEXT===
     emotional:
       url: http://cloud.example:11434
@@ -31,7 +31,7 @@ llm:
       credential: secret-token
       temperature: 0.7
       system_prompt: You are an emotional translator.
-      user_prompt: "Translate this fragment: ${inputfragment}"
+      user_prompt: "Translate this fragment: ${input_fragment}"
 """.strip(),
         encoding="utf-8",
     )
@@ -46,4 +46,4 @@ llm:
     assert config.llm.translator["technical"].max_post_context_bytes == 240
     assert config.llm.translator["technical"].temperature == 0.1
     assert config.llm.translator["emotional"].credential == "secret-token"
-    assert "${inputfragment}" in config.llm.translator["emotional"].user_prompt
+    assert "${input_fragment}" in config.llm.translator["emotional"].user_prompt

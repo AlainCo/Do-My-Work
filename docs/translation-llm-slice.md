@@ -59,7 +59,7 @@ llm:
 
         Translate the following fragment.
         ===BEGIN SOURCE TEXT===
-        ${inputfragment}
+        ${input_fragment}
         ===END SOURCE TEXT===
 
         Following context:
@@ -82,7 +82,7 @@ llm:
 
         Translate the following fragment.
         ===BEGIN SOURCE TEXT===
-        ${inputfragment}
+        ${input_fragment}
         ===END SOURCE TEXT===
 
         Following context:
@@ -97,7 +97,7 @@ The first implementation should use simple named placeholders with Python `strin
 
 Example placeholder:
 
-- `${inputfragment}`
+- `${input_fragment}`
 - `${pre_context}`
 - `${post_context}`
 

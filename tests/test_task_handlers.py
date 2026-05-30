@@ -156,7 +156,7 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
                         "${pre_context}\n"
                         "===END PREVIOUS CONTEXT===\n"
                         "===BEGIN SOURCE TEXT===\n"
-                        "${inputfragment}\n"
+                        "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
                         "===BEGIN FOLLOWING CONTEXT===\n"
                         "${post_context}\n"
@@ -210,7 +210,7 @@ def test_discover_translate_fragments_builds_bounded_neighbor_context(tmp_path: 
                     max_post_context_bytes=len("After two.\n\nTail.".encode("utf-8")),
                     temperature=0.0,
                     system_prompt="You are a translator.",
-                    user_prompt="${pre_context}\n${inputfragment}\n${post_context}",
+                    user_prompt="${pre_context}\n${input_fragment}\n${post_context}",
                 )
             }
         ),
@@ -264,7 +264,7 @@ def test_discover_translate_fragments_excludes_fenced_blocks_from_neighbor_conte
                     max_post_context_bytes=4096,
                     temperature=0.0,
                     system_prompt="You are a translator.",
-                    user_prompt="${pre_context}\n${inputfragment}\n${post_context}",
+                    user_prompt="${pre_context}\n${input_fragment}\n${post_context}",
                 )
             }
         ),
@@ -326,7 +326,7 @@ def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> N
                     model="ollama-mock",
                     temperature=0.0,
                     system_prompt="You are a professional translator from french to english.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         ),
@@ -372,7 +372,7 @@ def test_translate_fragment_handler_marks_http_status_error_as_failed(
                     model="ollama-mock",
                     temperature=0.0,
                     system_prompt="You are a professional translator from french to english.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         ),
@@ -420,7 +420,7 @@ def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path
                     model="ollama-mock",
                     temperature=0.0,
                     system_prompt="You are a professional translator from french to english.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         ),

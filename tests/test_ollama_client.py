@@ -42,7 +42,7 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
                     system_prompt="You are a translator.",
                     user_prompt=(
                         "===BEGIN SOURCE TEXT===\n"
-                        "${inputfragment}\n"
+                        "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
                     ),
                 )
@@ -55,7 +55,7 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
     result = client.translate_fragment(
         config=config,
         profile_name="technical",
-        parameters={"inputfragment": "Bonjour monde"},
+        parameters={"input_fragment": "Bonjour monde"},
     )
 
     assert result == "BONJOUR MONDE"
@@ -106,7 +106,7 @@ def test_ollama_chat_client_retries_timeout_and_eventually_succeeds() -> None:
                     timeout_seconds=5.0,
                     max_retries=2,
                     system_prompt="You are a translator.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         )
@@ -116,7 +116,7 @@ def test_ollama_chat_client_retries_timeout_and_eventually_succeeds() -> None:
     result = client.translate_fragment(
         config=config,
         profile_name="technical",
-        parameters={"inputfragment": "Bonjour monde"},
+        parameters={"input_fragment": "Bonjour monde"},
     )
 
     assert result == "RECOVERED"
@@ -143,7 +143,7 @@ def test_ollama_chat_client_retries_server_error_and_eventually_succeeds() -> No
                     model="mock-llama",
                     max_retries=1,
                     system_prompt="You are a translator.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         )
@@ -153,7 +153,7 @@ def test_ollama_chat_client_retries_server_error_and_eventually_succeeds() -> No
     result = client.translate_fragment(
         config=config,
         profile_name="technical",
-        parameters={"inputfragment": "Bonjour monde"},
+        parameters={"input_fragment": "Bonjour monde"},
     )
 
     assert result == "RECOVERED"
@@ -175,7 +175,7 @@ def test_ollama_chat_client_does_not_retry_client_error() -> None:
                     model="mock-llama",
                     max_retries=3,
                     system_prompt="You are a translator.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         )
@@ -186,7 +186,7 @@ def test_ollama_chat_client_does_not_retry_client_error() -> None:
         client.translate_fragment(
             config=config,
             profile_name="technical",
-            parameters={"inputfragment": "Bonjour monde"},
+            parameters={"input_fragment": "Bonjour monde"},
         )
 
     assert captured_attempts == [1]
@@ -199,7 +199,7 @@ def test_ollama_chat_client_raises_when_translator_profile_is_missing() -> None:
         client.translate_fragment(
             config=WorkspaceConfig(),
             profile_name="technical",
-            parameters={"inputfragment": "Bonjour monde"},
+            parameters={"input_fragment": "Bonjour monde"},
         )
 
 
@@ -211,7 +211,7 @@ def test_ollama_chat_client_raises_when_template_parameter_is_missing() -> None:
                     url="http://mock.example:11434",
                     model="mock-llama",
                     system_prompt="You are a translator for ${language}.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         )
@@ -222,7 +222,7 @@ def test_ollama_chat_client_raises_when_template_parameter_is_missing() -> None:
         client.translate_fragment(
             config=config,
             profile_name="technical",
-            parameters={"inputfragment": "Bonjour monde"},
+            parameters={"input_fragment": "Bonjour monde"},
         )
 
 
@@ -238,7 +238,7 @@ def test_ollama_chat_client_raises_when_response_has_no_message_content() -> Non
                     url="http://mock.example:11434",
                     model="mock-llama",
                     system_prompt="You are a translator.",
-                    user_prompt="${inputfragment}",
+                    user_prompt="${input_fragment}",
                 )
             }
         )
@@ -249,7 +249,7 @@ def test_ollama_chat_client_raises_when_response_has_no_message_content() -> Non
         client.translate_fragment(
             config=config,
             profile_name="technical",
-            parameters={"inputfragment": "Bonjour monde"},
+            parameters={"input_fragment": "Bonjour monde"},
         )
 
 

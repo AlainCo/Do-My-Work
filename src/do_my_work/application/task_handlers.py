@@ -560,7 +560,7 @@ class TranslateFragmentTaskHandler:
                 config=config,
                 profile_name=spec.profile_name,
                 parameters={
-                    "inputfragment": fragment_markdown,
+                    "input_fragment": fragment_markdown,
                     "pre_context": spec.pre_context,
                     "post_context": spec.post_context,
                 },

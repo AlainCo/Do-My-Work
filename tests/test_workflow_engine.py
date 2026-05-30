@@ -91,7 +91,7 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     monkeypatch.setattr(
         OllamaChatClient,
         "translate_fragment",
-        lambda self, config, profile_name, parameters: str(parameters["inputfragment"]).upper(),
+        lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
     )
 
     config = WorkspaceConfig(
@@ -107,7 +107,7 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
                     system_prompt="You are a professional translatoir from french to english.",
                     user_prompt=(
                         "===BEGIN SOURCE TEXT===\n"
-                        "${inputfragment}\n"
+                        "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
                     ),
                 )
@@ -169,7 +169,7 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
         call_count["value"] += 1
         if call_count["value"] == 1:
             raise httpx.ReadTimeout("temporary timeout")
-        return str(parameters["inputfragment"]).upper()
+        return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
         OllamaChatClient,
@@ -190,7 +190,7 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
                     system_prompt="You are a professional translatoir from french to english.",
                     user_prompt=(
                         "===BEGIN SOURCE TEXT===\n"
-                        "${inputfragment}\n"
+                        "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
                     ),
                 )

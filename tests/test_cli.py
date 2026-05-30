@@ -96,7 +96,7 @@ def test_translate_document_tree_command_translates_markdown_fragments(
             "        You are a professional translatoir from french to english.\n"
             "      user_prompt: |\n"
             "        ===BEGIN SOURCE TEXT===\n"
-            "        ${inputfragment}\n"
+            "        ${input_fragment}\n"
             "        ===END SOURCE TEXT===\n"
         ),
         encoding="utf-8",
@@ -107,7 +107,7 @@ def test_translate_document_tree_command_translates_markdown_fragments(
     monkeypatch.setattr(
         OllamaChatClient,
         "translate_fragment",
-        lambda self, config, profile_name, parameters: str(parameters["inputfragment"]).upper(),
+        lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
     )
 
     result = runner.invoke(

@@ -86,7 +86,7 @@ def test_workflow_engine_logs_when_failed_translation_is_retried(
         call_count["value"] += 1
         if call_count["value"] == 1:
             raise httpx.ReadTimeout("temporary timeout")
-        return str(parameters["inputfragment"]).upper()
+        return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
         OllamaChatClient,
@@ -107,7 +107,7 @@ def test_workflow_engine_logs_when_failed_translation_is_retried(
                     system_prompt="You are a professional translatoir from french to english.",
                     user_prompt=(
                         "===BEGIN SOURCE TEXT===\n"
-                        "${inputfragment}\n"
+                        "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
                     ),
                 )
@@ -169,7 +169,7 @@ def test_workflow_engine_logs_http_status_code_when_failed_translation_is_retrie
                 request=request,
                 response=response,
             )
-        return str(parameters["inputfragment"]).upper()
+        return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
         OllamaChatClient,
@@ -190,7 +190,7 @@ def test_workflow_engine_logs_http_status_code_when_failed_translation_is_retrie
                     system_prompt="You are a professional translatoir from french to english.",
                     user_prompt=(
                         "===BEGIN SOURCE TEXT===\n"
-                        "${inputfragment}\n"
+                        "${input_fragment}\n"
                         "===END SOURCE TEXT===\n"
                     ),
                 )

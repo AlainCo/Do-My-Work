@@ -213,6 +213,13 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
         "merge_reference_indexes",
     ]
 
+    persisted_runs = sorted((data_dir / "runs").glob("*.json"))
+    assert len(persisted_runs) == 1
+    persisted_run = json.loads(persisted_runs[0].read_text(encoding="utf-8"))
+    assert persisted_run["summary"]["executed_task_count"] == 4
+    assert persisted_run["summary"]["succeeded_task_count"] == 4
+    assert persisted_run["summary"]["llm_call_attempt_count"] == 0
+
 
 def test_workflow_engine_applies_workspace_file_selection_to_reference_index(
     tmp_path: Path,

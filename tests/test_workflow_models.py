@@ -24,6 +24,7 @@ def test_run_request_uses_reference_index_defaults() -> None:
     assert run_request.request_kind == "reference_index_tree"
     assert run_request.root == Path(".")
     assert run_request.status == "pending"
+    assert run_request.summary is None
 
 
 def test_task_record_round_trips_translated_fragment_result() -> None:

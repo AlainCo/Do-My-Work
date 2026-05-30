@@ -41,6 +41,20 @@ class JsonRunRepository:
     def __init__(self, directory: Path) -> None:
         self._directory = directory
 
+    def get(self, run_id: str) -> RunRequest | None:
+        path = self._directory / f"{_safe_file_name(run_id)}.json"
+        if not path.exists():
+            return None
+        return RunRequest.model_validate(json.loads(path.read_text(encoding="utf-8")))
+
+    def list_all(self) -> list[RunRequest]:
+        if not self._directory.exists():
+            return []
+        return [
+            RunRequest.model_validate(json.loads(path.read_text(encoding="utf-8")))
+            for path in sorted(self._directory.glob("*.json"))
+        ]
+
     def save(self, run_request: RunRequest) -> None:
         self._directory.mkdir(parents=True, exist_ok=True)
         path = self._directory / f"{_safe_file_name(run_request.run_id)}.json"

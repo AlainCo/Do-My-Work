@@ -203,8 +203,6 @@ class WorkflowEngine:
         final_task_records = task_repository.list_all()
         root_record = task_repository.get(root_task_key)
         run_status = self._resolve_run_status(final_task_records, root_record)
-        completed_run = run_request.model_copy(update={"status": run_status})
-        run_repository.save(completed_run)
         final_active_task_status_counts = self._build_active_task_status_counts(
             final_task_records,
             unchanged_task_keys,
@@ -227,6 +225,8 @@ class WorkflowEngine:
                 0.0 if llm_timing_summary is None else llm_timing_summary.variance_elapsed_seconds
             ),
         )
+        completed_run = run_request.model_copy(update={"status": run_status, "summary": summary})
+        run_repository.save(completed_run)
         self._logger.info(
             "Workflow run summary: executed=%s replayed=%s retried_failed=%s created=%s unchanged=%s pending=%s waiting=%s succeeded=%s failed=%s llm_attempts=%s llm_avg_seconds=%.3f llm_variance_seconds=%.3f",
             summary.executed_task_count,

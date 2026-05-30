@@ -237,6 +237,7 @@ class RunRequest(BaseModel):
     root: Path = Field(default=Path("."))
     status: Literal["pending", "running", "succeeded", "failed"] = "pending"
     root_task_key: str
+    summary: WorkflowRunSummary | None = None
 
 
 class WorkflowRunResult(BaseModel):

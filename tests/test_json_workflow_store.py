@@ -8,6 +8,7 @@ from do_my_work.domain.models import (
     TaskRecord,
     TaskStatus,
     TranslateFragmentTaskSpec,
+    WorkflowRunSummary,
 )
 from do_my_work.infrastructure.json_workflow_store import JsonRunRepository, JsonTaskRepository
 
@@ -25,6 +26,11 @@ def test_json_run_repository_saves_run_request_as_json_file(tmp_path: Path) -> N
         root=Path("docs"),
         status="succeeded",
         root_task_key="task:discover:8f2d",
+        summary=WorkflowRunSummary(
+            executed_task_count=4,
+            created_task_count=3,
+            succeeded_task_count=4,
+        ),
     )
 
     repository.save(run_request)
@@ -37,6 +43,24 @@ def test_json_run_repository_saves_run_request_as_json_file(tmp_path: Path) -> N
     restored_run = RunRequest.model_validate(persisted_payload)
 
     assert restored_run == run_request
+
+
+def test_json_run_repository_gets_and_lists_saved_runs(tmp_path: Path) -> None:
+    repository = JsonRunRepository(tmp_path / "runs")
+    older_run = RunRequest(
+        run_id="20260528T210000Z",
+        root_task_key="task:discover:older",
+    )
+    newer_run = RunRequest(
+        run_id="20260528T220000Z",
+        root_task_key="task:discover:newer",
+    )
+
+    repository.save(newer_run)
+    repository.save(older_run)
+
+    assert repository.get(older_run.run_id) == older_run
+    assert repository.list_all() == [older_run, newer_run]
 
 
 def test_json_task_repository_stores_task_in_kind_subdirectory(tmp_path: Path) -> None:

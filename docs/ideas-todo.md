@@ -37,6 +37,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] workflow scheduling now logs active task counts by state before each task selection/execution, excluding unchanged tasks carried over from previous runs.
 - [DONE] workflow run summaries now expose active task state counts in the CLI output, and LLM call logs include per-attempt elapsed time.
 - [DONE] workflow run summaries now expose aggregated LLM timing stats (`attempt_count`, average, variance) for the current run.
+- [DONE] local `do-my-work.yaml` config files under the source tree now support V1 business overrides: per-folder `exclude` rules for translation/reference workflows and per-folder translation `profile` overrides.
 
 ## Project management
 
@@ -58,7 +59,6 @@ Use the following markers when they help clarify priority or outcome:
 
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
 
-- [SOON] [TODISCUSS] why not control translation profile and file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration... I see something like file_selection:... with either exclude, or a way to set the profile, or some other parameter later... the file discover task shoudl use it and transfer the parameters to the subtask (about translation, or reference index )
 - [LATER] why not add translations hints  in the target folder yaml, beside the translation profile. it should be usable in the profile's prompt, like the  ${pre_context} and so on
 - [LATER] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
@@ -72,6 +72,4 @@ Use the following markers when they help clarify priority or outcome:
   - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
 - [ABANDONED] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
 - [ABANDONED] nested `overrides` with "most specific rule wins" for the first version. a flat ordered rule list is enough for now and much simpler to reason about.
-- [SOON] an idea could be to add customization yaml in the target folder, to control few things.
-  - the files to exclude (don't oppose with restriction at the workspace level, but add more locally)
-  - some hints to add to the translator, glossary, corrections, warnings, specific to files or folder.
+- [LATER] local `do-my-work.yaml` can later grow beyond V1 with translation hints, glossary-like guidance, corrections, warnings, and other folder-specific business parameters.

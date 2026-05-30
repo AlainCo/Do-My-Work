@@ -277,6 +277,170 @@ def test_workflow_engine_applies_workspace_file_selection_to_reference_index(
     assert not (output_dir / "outside.references.md").exists()
 
 
+def test_workflow_engine_applies_local_folder_exclusion_to_reference_index(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "keep.md").write_text(
+        "# Kept\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "drafts").mkdir(parents=True)
+    (input_dir / "docs" / "drafts" / "skip.md").write_text(
+        "# Skip\n\nSee [Skip](https://example.org/skip).\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "reference_index:\n"
+        "  rules:\n"
+        "    - match: \"drafts/**/*.md\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert run_request.status == "succeeded"
+    assert (output_dir / "docs" / "keep.references.md").exists()
+    assert not (output_dir / "docs" / "drafts" / "skip.references.md").exists()
+
+
+def test_workflow_engine_applies_local_translation_profile_and_exclusion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "default.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "stories").mkdir(parents=True)
+    (input_dir / "docs" / "stories" / "special.md").write_text(
+        "# Intro\n\nStory body.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "drafts").mkdir(parents=True)
+    (input_dir / "docs" / "drafts" / "skip.md").write_text(
+        "# Intro\n\nShould stay out.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"stories/**/*.md\"\n"
+        "      profile: literary\n"
+        "    - match: \"drafts/**/*.md\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: f"[{profile_name}] {parameters['input_fragment']}",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a technical translator.",
+                    user_prompt="${input_fragment}",
+                ),
+                "literary": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a literary translator.",
+                    user_prompt="${input_fragment}",
+                ),
+            }
+        ),
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert run_request.status == "succeeded"
+    assert "[technical]" in (output_dir / "docs" / "default.md").read_text(encoding="utf-8")
+    assert "[literary]" in (
+        output_dir / "docs" / "stories" / "special.md"
+    ).read_text(encoding="utf-8")
+    assert not (output_dir / "docs" / "drafts" / "skip.md").exists()
+
+
+def test_workflow_engine_root_task_key_changes_when_local_policy_changes(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\nreference_index:\n  rules:\n    - match: \"*.md\"\n      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert first_run.run_request.root_task_key != second_run.run_request.root_task_key
+
+
 def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

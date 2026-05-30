@@ -38,6 +38,43 @@ class FileSelectionConfig(BaseModel):
     rules: list[FileSelectionRule] = Field(default_factory=list)
 
 
+class LocalTranslationRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    match: str
+    exclude: bool = False
+    profile: str | None = None
+
+
+class LocalTranslationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rules: list[LocalTranslationRule] = Field(default_factory=list)
+
+
+class LocalReferenceIndexRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    match: str
+    exclude: bool = False
+
+
+class LocalReferenceIndexConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rules: list[LocalReferenceIndexRule] = Field(default_factory=list)
+
+
+class LocalWorkflowConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: int = 1
+    translation: LocalTranslationConfig = Field(default_factory=lambda: LocalTranslationConfig())
+    reference_index: LocalReferenceIndexConfig = Field(
+        default_factory=lambda: LocalReferenceIndexConfig()
+    )
+
+
 class TranslatorProfileConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -4,8 +4,14 @@ from pathlib import Path
 from do_my_work.domain.models import TranslatorProfileConfig
 
 
-def make_discover_reference_documents_task_key(root: Path) -> str:
-    return _make_task_key("discover_reference_documents", root.as_posix())
+def make_discover_reference_documents_task_key(
+    root: Path,
+    local_policy_digest: str | None = None,
+) -> str:
+    parts = [root.as_posix()]
+    if local_policy_digest:
+        parts.append(local_policy_digest)
+    return _make_task_key("discover_reference_documents", *parts)
 
 
 def make_discover_translate_documents_task_key(
@@ -14,12 +20,15 @@ def make_discover_translate_documents_task_key(
     profile_digest: str,
     plan_digest: str | None = None,
     render_digest: str | None = None,
+    local_policy_digest: str | None = None,
 ) -> str:
     parts = [root.as_posix(), profile_name, profile_digest]
     if plan_digest:
         parts.append(plan_digest)
     if render_digest:
         parts.append(render_digest)
+    if local_policy_digest:
+        parts.append(local_policy_digest)
     return _make_task_key("discover_translate_documents", *parts)
 
 

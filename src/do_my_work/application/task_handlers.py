@@ -19,6 +19,7 @@ from do_my_work.domain.models import (
     DiscoverTranslateDocumentFragmentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
     IndexMarkdownReferencesTaskSpec,
+    LocalWorkflowConfig,
     MarkdownFragment,
     MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
@@ -29,6 +30,10 @@ from do_my_work.domain.models import (
     TranslatorProfileConfig,
     TranslateFragmentTaskSpec,
     WorkspaceConfig,
+)
+from do_my_work.infrastructure.config_loader import (
+    LOCAL_WORKFLOW_CONFIG_NAME,
+    load_local_workflow_config,
 )
 from do_my_work.infrastructure.json_workflow_store import JsonTaskRepository
 from do_my_work.infrastructure.markdown_fragment_report import (
@@ -63,6 +68,13 @@ class TranslationChunk:
     first_fragment: MarkdownFragment
 
 
+@dataclass(frozen=True, slots=True)
+class DocumentWorkflowSettings:
+    source_path: Path
+    relative_path: Path
+    translation_profile_name: str | None = None
+
+
 class DiscoverReferenceDocumentsTaskHandler:
     def handle(
         self,
@@ -92,8 +104,12 @@ class DiscoverReferenceDocumentsTaskHandler:
         document_relative_paths: list[Path] = []
         child_task_keys: list[str] = []
 
-        for source_path in sorted(_iter_markdown_documents(root_path, config)):
-            relative_path = source_path.relative_to(config.input_dir)
+        for document in sorted(
+            _iter_markdown_documents(root_path, config, workflow_kind="reference_index_tree"),
+            key=lambda item: item.relative_path.as_posix(),
+        ):
+            source_path = document.source_path
+            relative_path = document.relative_path
             document_relative_paths.append(relative_path)
             source_digest = _build_source_digest(source_path)
             task_key = make_index_markdown_references_task_key(relative_path, source_digest)
@@ -214,19 +230,45 @@ class DiscoverTranslateDocumentsTaskHandler:
                 )
             )
 
-        profile_digest = make_translator_profile_digest(profile)
-        plan_digest = make_translation_plan_digest(profile)
-        render_digest = make_translated_document_render_digest(profile)
         discovered_records: list[TaskRecord] = []
         child_task_keys: list[str] = []
 
-        for source_path in sorted(_iter_markdown_documents(root_path, config)):
-            relative_path = source_path.relative_to(config.input_dir)
+        for document in sorted(
+            _iter_markdown_documents(
+                root_path,
+                config,
+                workflow_kind="translate_document_tree",
+                default_translation_profile_name=spec.profile_name,
+            ),
+            key=lambda item: item.relative_path.as_posix(),
+        ):
+            source_path = document.source_path
+            relative_path = document.relative_path
+            effective_profile_name = document.translation_profile_name or spec.profile_name
+            effective_profile = config.llm.translator.get(effective_profile_name)
+            if effective_profile is None:
+                return TaskHandlerResult(
+                    updated_record=record.model_copy(
+                        update={
+                            "status": TaskStatus.FAILED,
+                            "outcome": TaskOutcome(
+                                message="Translator profile does not exist.",
+                                error=(
+                                    f"{effective_profile_name} for {relative_path.as_posix()}"
+                                ),
+                            ),
+                        }
+                    )
+                )
+
+            profile_digest = make_translator_profile_digest(effective_profile)
+            plan_digest = make_translation_plan_digest(effective_profile)
+            render_digest = make_translated_document_render_digest(effective_profile)
             source_digest = _build_source_digest(source_path)
             task_key = make_discover_translate_document_fragments_task_key(
                 relative_path,
                 source_digest,
-                spec.profile_name,
+                effective_profile_name,
                 profile_digest,
                 plan_digest,
                 render_digest,
@@ -240,7 +282,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                         spec=DiscoverTranslateDocumentFragmentsTaskSpec(
                             relative_path=relative_path,
                             source_digest=source_digest,
-                            profile_name=spec.profile_name,
+                            profile_name=effective_profile_name,
                             profile_digest=profile_digest,
                             plan_digest=plan_digest,
                             render_digest=render_digest,
@@ -1048,14 +1090,102 @@ def _include_fragment_in_neighbor_context(fragment: MarkdownFragment) -> bool:
     return fragment.fragment_kind not in {"code_block", "mermaid"}
 
 
-def _iter_markdown_documents(root_path: Path, config: WorkspaceConfig) -> list[Path]:
+def _iter_markdown_documents(
+    root_path: Path,
+    config: WorkspaceConfig,
+    workflow_kind: str,
+    default_translation_profile_name: str | None = None,
+) -> list[DocumentWorkflowSettings]:
+    local_config_cache: dict[Path, LocalWorkflowConfig | None] = {}
     return [
-        path
+        document
         for path in root_path.rglob("*")
         if path.is_file()
         and path.suffix.lower() == ".md"
-        and _is_selected_markdown_document(path.relative_to(config.input_dir), config)
+        and (
+            document := _resolve_document_workflow_settings(
+                path,
+                config,
+                workflow_kind,
+                default_translation_profile_name,
+                local_config_cache,
+            )
+        )
+        is not None
     ]
+
+
+def _resolve_document_workflow_settings(
+    source_path: Path,
+    config: WorkspaceConfig,
+    workflow_kind: str,
+    default_translation_profile_name: str | None,
+    local_config_cache: dict[Path, LocalWorkflowConfig | None],
+) -> DocumentWorkflowSettings | None:
+    relative_path = source_path.relative_to(config.input_dir)
+    if not _is_selected_markdown_document(relative_path, config):
+        return None
+
+    excluded = False
+    translation_profile_name = default_translation_profile_name
+
+    for directory, local_config in _iter_applicable_local_workflow_configs(
+        source_path,
+        config.input_dir,
+        local_config_cache,
+    ):
+        relative_to_directory = source_path.relative_to(directory)
+        if workflow_kind == "reference_index_tree":
+            for rule in local_config.reference_index.rules:
+                if _path_matches_rule(relative_to_directory, rule.match) and rule.exclude:
+                    excluded = True
+        elif workflow_kind == "translate_document_tree":
+            for rule in local_config.translation.rules:
+                if not _path_matches_rule(relative_to_directory, rule.match):
+                    continue
+                if rule.exclude:
+                    excluded = True
+                if rule.profile is not None:
+                    translation_profile_name = rule.profile
+        else:
+            raise ValueError(f"Unsupported workflow kind: {workflow_kind}")
+
+    if excluded:
+        return None
+
+    return DocumentWorkflowSettings(
+        source_path=source_path,
+        relative_path=relative_path,
+        translation_profile_name=translation_profile_name,
+    )
+
+
+def _iter_applicable_local_workflow_configs(
+    source_path: Path,
+    input_dir: Path,
+    local_config_cache: dict[Path, LocalWorkflowConfig | None],
+) -> list[tuple[Path, LocalWorkflowConfig]]:
+    directories: list[Path] = []
+    current_directory = source_path.parent
+    while True:
+        directories.append(current_directory)
+        if current_directory == input_dir:
+            break
+        current_directory = current_directory.parent
+
+    applicable_configs: list[tuple[Path, LocalWorkflowConfig]] = []
+    for directory in reversed(directories):
+        config_path = directory / LOCAL_WORKFLOW_CONFIG_NAME
+        if config_path not in local_config_cache:
+            local_config_cache[config_path] = (
+                load_local_workflow_config(config_path) if config_path.exists() else None
+            )
+        local_config = local_config_cache[config_path]
+        if local_config is None:
+            continue
+        applicable_configs.append((directory, local_config))
+
+    return applicable_configs
 
 
 def _is_selected_markdown_document(relative_path: Path, config: WorkspaceConfig) -> bool:

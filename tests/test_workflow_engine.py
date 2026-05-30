@@ -60,7 +60,7 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
 
     persisted_tasks = [
         TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
-        for path in sorted((data_dir / "tasks").glob("*.json"))
+        for path in sorted((data_dir / "tasks").rglob("*.json"))
     ]
     assert len(persisted_tasks) == 4
     assert sorted(task.spec.kind for task in persisted_tasks) == [
@@ -132,7 +132,7 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
 
     persisted_tasks = [
         TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
-        for path in sorted((data_dir / "tasks").glob("*.json"))
+        for path in sorted((data_dir / "tasks").rglob("*.json"))
     ]
     assert len(persisted_tasks) == 6
     assert sorted(task.spec.kind for task in persisted_tasks) == [

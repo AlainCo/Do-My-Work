@@ -81,12 +81,7 @@ def make_merge_reference_indexes_task_key(root: Path, relative_paths: list[Path]
 def make_translator_profile_digest(profile: TranslatorProfileConfig) -> str:
     payload = "|".join(
         [
-            profile.url,
             profile.model,
-            str(profile.timeout_seconds),
-            str(profile.max_retries),
-            str(profile.max_pre_context_bytes),
-            str(profile.max_post_context_bytes),
             str(profile.temperature),
             profile.system_prompt,
             profile.user_prompt,

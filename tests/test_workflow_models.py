@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from do_my_work.application.task_keys import make_translator_profile_digest
 from do_my_work.domain.models import (
     DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
@@ -11,6 +12,7 @@ from do_my_work.domain.models import (
     TaskOutcome,
     TaskRecord,
     TaskStatus,
+    TranslatorProfileConfig,
     TranslatedFragmentResult,
     TranslateFragmentTaskSpec,
 )
@@ -146,3 +148,42 @@ def test_task_record_round_trips_reference_merge_task_as_json_data() -> None:
         Path("alpha.md"),
         Path("nested/beta.md"),
     ]
+
+
+def test_translator_profile_digest_depends_only_on_generation_parameters() -> None:
+    profile = TranslatorProfileConfig(
+        url="http://mock-a.example:11434",
+        model="ollama-mock",
+        credential="secret-a",
+        timeout_seconds=180.0,
+        max_retries=0,
+        max_pre_context_bytes=128,
+        max_post_context_bytes=256,
+        temperature=0.2,
+        system_prompt="Translate from French to English.",
+        user_prompt="SOURCE:\n${input_fragment}",
+    )
+
+    same_generation_profile = profile.model_copy(
+        update={
+            "url": "http://mock-b.example:11434",
+            "credential": "secret-b",
+            "timeout_seconds": 30.0,
+            "max_retries": 4,
+            "max_pre_context_bytes": 512,
+            "max_post_context_bytes": 1024,
+        }
+    )
+    changed_generation_profile = profile.model_copy(
+        update={
+            "model": "ollama-other",
+            "temperature": 0.7,
+            "system_prompt": "Translate carefully from French to English.",
+            "user_prompt": "TEXT:\n${input_fragment}",
+        }
+    )
+
+    original_digest = make_translator_profile_digest(profile)
+
+    assert make_translator_profile_digest(same_generation_profile) == original_digest
+    assert make_translator_profile_digest(changed_generation_profile) != original_digest

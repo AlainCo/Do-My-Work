@@ -27,6 +27,9 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] we should manage to clean this document when the point is treated, either removed, or in an history/done section
 - [DONE] we may qualify points as DONE/ABANDONED/LATER/SOON/URGENT/TODISCUSS...
 - [DONE] I've not observed trace/log for failed call (timeout), there should be one.
+- [DONE] What if we stored the JSON data for the tasks in a folder named according to the task type, like discover_translate_document_fragments/ etc.?
+- [DONE] we should have a command just to clean the tasks in the workspace
+- [DONE] the hash of a translation task should depend on the content of the translation profile (except the url, max_retries, timeout, the max*bytes which are already in the data - in fact it remains, model, prompts, temperature), I imagine we will compute a hash of profile specification, so that all fragments that use a profile that has changed meaningfully, are retranslated next time.
 
 ## Project management
 
@@ -46,9 +49,6 @@ Use the following markers when they help clarify priority or outcome:
 - [TODISCUSS] it seems the fragment translation is done in random order... maybe it should be better if the fragments that will be merged in a given file are treated first, before treating the fragments of another file...
   - [TODISCUSS] What if the ID of the fragment tasks, like translate_fragment, was prefixed with the hash of the document from which the fragments originate? This would help with sorting by document, and then the scheduler would list the tasks to be done in alphanumeric order, thus processing the fragments of the same document together.
 - why not showing the count of various task by state before scheduling a task. it can simply be don by increasing or decreasing totals (don't count), when task are created of state changed. Note taht we should only count actives task, useful for this run.
-- [URGENT] the hash of a translation task should depend on the content of the translation profile (except the url, max_retries, timeout, the max*bytes which are already in the data - in fact it remains, model, prompts, temperature), I imagine we will compute a hash of profile specification, so that all fragments that use a profile that has changed meaningfully, are retranslated next time.
-- [URGENT] What if we stored the JSON data for the tasks in a folder named according to the task type, like discover_translate_document_fragments/ etc.?
-- [URGENT] we should have a command just to clean the tasks in the workspace
 
 ## translation improvement
 

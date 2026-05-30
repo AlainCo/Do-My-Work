@@ -12,11 +12,36 @@ def test_cli_help_only_exposes_reference_and_translation_commands() -> None:
     result = runner.invoke(app, ["--help"])
 
     assert result.exit_code == 0
+    assert "clean-tasks" in result.stdout
     assert "reference-index-tree" in result.stdout
     assert "translate-document-tree" in result.stdout
     assert "hello" not in result.stdout
     assert "copy-tree" not in result.stdout
     assert "summary-document-tree" not in result.stdout
+
+
+def test_clean_tasks_command_removes_persisted_task_files(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    task_dir = data_dir / "tasks" / "translate_fragment"
+    task_dir.mkdir(parents=True)
+    (task_dir / "task__translate_fragment__frag-001.json").write_text(
+        "{}",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "clean-tasks",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Data directory: {data_dir}" in result.stdout
+    assert "Task files removed: 1" in result.stdout
+    assert not (data_dir / "tasks").exists()
 
 
 def test_reference_index_tree_command_generates_markdown_reference_report(tmp_path: Path) -> None:

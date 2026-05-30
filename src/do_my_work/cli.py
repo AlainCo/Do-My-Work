@@ -16,6 +16,25 @@ def main() -> None:
     """Batch command group."""
 
 
+def _resolve_workspace_config(
+    config: Path | None,
+    input_dir: Path | None = None,
+    output_dir: Path | None = None,
+    data_dir: Path | None = None,
+) -> WorkspaceConfig:
+    workspace_config = load_workspace_config(config) if config else WorkspaceConfig()
+    overrides = {
+        key: value
+        for key, value in {
+            "input_dir": input_dir,
+            "output_dir": output_dir,
+            "data_dir": data_dir,
+        }.items()
+        if value is not None
+    }
+    return workspace_config.model_copy(update=overrides)
+
+
 @app.command("reference-index-tree")
 def reference_index_tree(
     config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,
@@ -38,17 +57,7 @@ def reference_index_tree(
 ) -> None:
     """Index Markdown references from the requested input subtree."""
     configure_logging()
-    workspace_config = load_workspace_config(config) if config else WorkspaceConfig()
-    overrides = {
-        key: value
-        for key, value in {
-            "input_dir": input_dir,
-            "output_dir": output_dir,
-            "data_dir": data_dir,
-        }.items()
-        if value is not None
-    }
-    workspace_config = workspace_config.model_copy(update=overrides)
+    workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
@@ -87,17 +96,7 @@ def translate_document_tree(
 ) -> None:
     """Translate Markdown documents through fragment tasks using a named LLM profile."""
     configure_logging()
-    workspace_config = load_workspace_config(config) if config else WorkspaceConfig()
-    overrides = {
-        key: value
-        for key, value in {
-            "input_dir": input_dir,
-            "output_dir": output_dir,
-            "data_dir": data_dir,
-        }.items()
-        if value is not None
-    }
-    workspace_config = workspace_config.model_copy(update=overrides)
+    workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
@@ -112,6 +111,22 @@ def translate_document_tree(
     typer.echo(f"Failed tasks retried: {run_result.summary.retried_failed_task_count}")
     typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
     typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
+
+
+@app.command("clean-tasks")
+def clean_tasks(
+    config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,
+    data_dir: Annotated[
+        Path | None,
+        typer.Option(help="Data directory containing workflow state and task files."),
+    ] = None,
+) -> None:
+    """Remove persisted workflow task JSON data from the workspace data directory."""
+    configure_logging()
+    workspace_config = _resolve_workspace_config(config=config, data_dir=data_dir)
+    typer.echo(f"Data directory: {workspace_config.data_dir}")
+    removed_task_count = BatchRunner().clean_tasks(workspace_config)
+    typer.echo(f"Task files removed: {removed_task_count}")
 
 
 if __name__ == "__main__":

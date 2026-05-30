@@ -4,8 +4,88 @@ from pathlib import Path
 import httpx
 import pytest
 
+from do_my_work.application.task_keys import make_translate_fragment_task_key
 from do_my_work.application.workflow_engine import WorkflowEngine
-from do_my_work.domain.models import TaskRecord, WorkspaceConfig
+from do_my_work.domain.models import TaskRecord, TaskStatus, TranslateFragmentTaskSpec, WorkspaceConfig
+
+
+def test_workflow_engine_selects_translate_fragment_tasks_grouped_by_document() -> None:
+    engine = WorkflowEngine()
+    task_records = [
+        TaskRecord(
+            task_key=make_translate_fragment_task_key(
+                Path("zeta.md"),
+                "sha256:frag-1",
+                "technical",
+                "sha256:profile",
+            ),
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("zeta.md"),
+                fragment_kind="paragraph",
+                heading_path=[],
+                text="Zeta first.",
+                pre_context="",
+                post_context="",
+                fragment_digest="sha256:frag-1",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.PENDING,
+        ),
+        TaskRecord(
+            task_key=make_translate_fragment_task_key(
+                Path("alpha.md"),
+                "sha256:frag-1",
+                "technical",
+                "sha256:profile",
+            ),
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("alpha.md"),
+                fragment_kind="paragraph",
+                heading_path=[],
+                text="Alpha first.",
+                pre_context="",
+                post_context="",
+                fragment_digest="sha256:frag-1",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.PENDING,
+        ),
+        TaskRecord(
+            task_key=make_translate_fragment_task_key(
+                Path("alpha.md"),
+                "sha256:frag-2",
+                "technical",
+                "sha256:profile",
+            ),
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("alpha.md"),
+                fragment_kind="paragraph",
+                heading_path=[],
+                text="Alpha second.",
+                pre_context="",
+                post_context="",
+                fragment_digest="sha256:frag-2",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.PENDING,
+        ),
+    ]
+
+    ordered_paths: list[Path] = []
+    remaining_records = task_records.copy()
+    while remaining_records:
+        next_task = engine._select_next_task(remaining_records)
+        assert next_task is not None
+        ordered_paths.append(next_task.spec.document_relative_path)
+        remaining_records = [
+            record for record in remaining_records if record.task_key != next_task.task_key
+        ]
+
+    assert ordered_paths[:2] == [Path("alpha.md"), Path("alpha.md")]
+    assert ordered_paths[2] == Path("zeta.md")
 
 
 def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:

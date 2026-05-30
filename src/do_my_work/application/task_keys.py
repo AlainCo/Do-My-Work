@@ -45,8 +45,10 @@ def make_translate_fragment_task_key(
     profile_name: str,
     profile_digest: str,
 ) -> str:
-    return _make_task_key(
+    document_scope = _make_key_digest(document_relative_path.as_posix())
+    return _make_scoped_task_key(
         "translate_fragment",
+        document_scope,
         document_relative_path.as_posix(),
         fragment_digest,
         profile_name,
@@ -130,6 +132,15 @@ def make_translation_plan_digest(profile: TranslatorProfileConfig) -> str | None
 
 
 def _make_task_key(kind: str, *parts: str) -> str:
-    payload = "|".join(parts)
-    digest = sha256(payload.encode("utf-8")).hexdigest()[:12]
+    digest = _make_key_digest(*parts)
     return f"task:{kind}:{digest}"
+
+
+def _make_scoped_task_key(kind: str, scope: str, *parts: str) -> str:
+    digest = _make_key_digest(*parts)
+    return f"task:{kind}:{scope}:{digest}"
+
+
+def _make_key_digest(*parts: str) -> str:
+    payload = "|".join(parts)
+    return sha256(payload.encode("utf-8")).hexdigest()[:12]

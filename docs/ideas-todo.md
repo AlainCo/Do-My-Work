@@ -33,6 +33,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] we should add a header and footer (optional) to generated documents. best would be it is static not to cause spurious diff just for date of generation... if needed, user should just change the headers in the workspace yaml. my first test would be to add <!-- Translated by Do-My Work with ministrel-3:3g --> as header and footer.
 - [DONE] workspace-level file selection now supports flat include/exclude rules in `workspace.yaml` for both translation and reference scan workflows.
 - [DONE] larger translation inputs now support `max_total_text_bytes` and `max_input_fragment_bytes`, with contiguous fragment grouping and end-of-document absorption when the post-context reaches the end.
+- [DONE] translate_fragment task keys now carry a stable per-document prefix so scheduler ordering keeps fragments from the same document together, allowing each output file to complete sooner.
 
 ## Project management
 
@@ -49,8 +50,6 @@ Use the following markers when they help clarify priority or outcome:
 
 ## task scheduling
 
-- [TODISCUSS] it seems the fragment translation is done in random order... maybe it should be better if the fragments that will be merged in a given file are treated first, before treating the fragments of another file...
-  - [TODISCUSS] What if the ID of the fragment tasks, like translate_fragment, was prefixed with the hash of the document from which the fragments originate? This would help with sorting by document, and then the scheduler would list the tasks to be done in alphanumeric order, thus processing the fragments of the same document together.
 - why not showing the count of various task by state before scheduling a task. it can simply be don by increasing or decreasing totals (don't count), when task are created of state changed. Note taht we should only count actives task, useful for this run.
 
 ## translation improvement

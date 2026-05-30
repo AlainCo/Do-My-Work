@@ -46,6 +46,7 @@ Here I put ideas that emerge.
         - if we have read the end, we may move the segments in the post_context into the input_fragment
         - anyway there will be a hardlimit with the max_input_fragment_bytes, that prevent to increase the size of the input_fragment too much, so if we have reached the end of the document, we may only partially integrate the post_context segments to the input_fragment as long as it does not get above max_input_fragment_bytes.
     - of course the used segments put inside the input_fragment, should not be sent again as input_fragment... they will be consumed.
+- [URGENT] we should add a header and footer (optional) to generated documents. best would be it is static not to cause spurious diff just for date of generation... if needed, user should just change the headers in the workspace yaml. my first test would be to add <!-- Translated by Do-My Work with ministrel-3:3g --> as header and footer.
 
 ## references and bibliography
 

@@ -52,9 +52,15 @@ def test_rule_based_ollama_mock_behavior_chat_translator_mode_uppercases_source_
                 role="user",
                 content=(
                     "Please translate this.\n"
+                    "===BEGIN PREVIOUS CONTEXT===\n"
+                    "Avant\n"
+                    "===END PREVIOUS CONTEXT===\n"
                     "===BEGIN SOURCE TEXT===\n"
                     "Bonjour monde\n"
                     "===END SOURCE TEXT===\n"
+                    "===BEGIN FOLLOWING CONTEXT===\n"
+                    "Apres\n"
+                    "===END FOLLOWING CONTEXT===\n"
                 ),
             ),
         ],
@@ -63,7 +69,7 @@ def test_rule_based_ollama_mock_behavior_chat_translator_mode_uppercases_source_
     assert response["model"] == "mock-llama"
     assert response["message"] == {
         "role": "assistant",
-        "content": "BONJOUR MONDE\n",
+        "content": "(Avant\n) BONJOUR MONDE\n (Apres\n)",
     }
     assert response["done"] is True
 
@@ -79,9 +85,15 @@ def test_rule_based_ollama_mock_behavior_chat_translator_mode_adds_emotive_prefi
                 role="user",
                 content=(
                     "Please translate this.\n"
+                    "===BEGIN PREVIOUS CONTEXT===\n"
+                    "Avant\n"
+                    "===END PREVIOUS CONTEXT===\n"
                     "===BEGIN SOURCE TEXT===\n"
                     "Bonjour monde\n"
                     "===END SOURCE TEXT===\n"
+                    "===BEGIN FOLLOWING CONTEXT===\n"
+                    "Apres\n"
+                    "===END FOLLOWING CONTEXT===\n"
                 ),
             ),
         ],
@@ -90,7 +102,7 @@ def test_rule_based_ollama_mock_behavior_chat_translator_mode_adds_emotive_prefi
 
     assert response["message"] == {
         "role": "assistant",
-        "content": "Je suis emotif. BONJOUR MONDE\n",
+        "content": "Je suis emotif. (Avant\n) BONJOUR MONDE\n (Apres\n)",
     }
 
 
@@ -111,13 +123,19 @@ def test_translator_chat_behavior_extracts_and_uppercases_source_text() -> None:
             MockChatMessage(
                 role="user",
                 content=(
+                    "===BEGIN PREVIOUS CONTEXT===\n"
+                    "Contexte avant\n"
+                    "===END PREVIOUS CONTEXT===\n"
                     "===BEGIN SOURCE TEXT===\n"
                     "Bonjour monde\n"
                     "===END SOURCE TEXT===\n"
+                    "===BEGIN FOLLOWING CONTEXT===\n"
+                    "Contexte apres\n"
+                    "===END FOLLOWING CONTEXT===\n"
                 ),
             ),
         ]
-    ) == "BONJOUR MONDE\n"
+    ) == "(Contexte avant\n) BONJOUR MONDE\n (Contexte apres\n)"
 
 
 def test_translator_chat_behavior_prefixes_output_when_temperature_is_high() -> None:
@@ -130,16 +148,40 @@ def test_translator_chat_behavior_prefixes_output_when_temperature_is_high() -> 
                 MockChatMessage(
                     role="user",
                     content=(
+                        "===BEGIN PREVIOUS CONTEXT===\n"
+                        "Contexte avant\n"
+                        "===END PREVIOUS CONTEXT===\n"
                         "===BEGIN SOURCE TEXT===\n"
                         "Bonjour monde\n"
                         "===END SOURCE TEXT===\n"
+                        "===BEGIN FOLLOWING CONTEXT===\n"
+                        "Contexte apres\n"
+                        "===END FOLLOWING CONTEXT===\n"
                     ),
                 ),
             ],
             temperature=0.21,
         )
-        == "Je suis emotif. BONJOUR MONDE\n"
+        == "Je suis emotif. (Contexte avant\n) BONJOUR MONDE\n (Contexte apres\n)"
     )
+
+
+def test_translator_chat_behavior_keeps_legacy_rendering_without_context_markers() -> None:
+    chat_behavior = TranslatorChatBehavior()
+
+    assert chat_behavior.render(
+        [
+            MockChatMessage(role="system", content="You are a translator."),
+            MockChatMessage(
+                role="user",
+                content=(
+                    "===BEGIN SOURCE TEXT===\n"
+                    "Bonjour monde\n"
+                    "===END SOURCE TEXT===\n"
+                ),
+            ),
+        ]
+    ) == "BONJOUR MONDE\n"
 
 
 def test_create_app_explains_how_to_install_fastapi_when_missing() -> None:

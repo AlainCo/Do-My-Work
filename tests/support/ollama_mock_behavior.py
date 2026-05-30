@@ -43,8 +43,12 @@ class OllamaMockChatBehavior(Protocol):
 @dataclass(frozen=True, slots=True)
 class TranslatorChatBehavior:
     system_keyword: str = "translator"
+    pre_context_marker_start: str = "===BEGIN PREVIOUS CONTEXT===\n"
+    pre_context_marker_end: str = "===END PREVIOUS CONTEXT===\n"
     marker_start: str = "===BEGIN SOURCE TEXT===\n"
     marker_end: str = "===END SOURCE TEXT===\n"
+    post_context_marker_start: str = "===BEGIN FOLLOWING CONTEXT===\n"
+    post_context_marker_end: str = "===END FOLLOWING CONTEXT===\n"
     emotive_prefix: str = "Je suis emotif. "
 
     def matches(self, messages: list[MockChatMessage]) -> bool:
@@ -54,25 +58,53 @@ class TranslatorChatBehavior:
         return False
 
     def render(self, messages: list[MockChatMessage], temperature: float = 0.0) -> str:
-        content = self._extract_source_text(messages).upper()
+        content = self._render_translated_content(messages)
         if temperature > 0.2:
             return f"{self.emotive_prefix}{content}"
         return content
 
-    def _extract_source_text(self, messages: list[MockChatMessage]) -> str:
+    def _render_translated_content(self, messages: list[MockChatMessage]) -> str:
+        pre_context = self._extract_marked_section(
+            messages,
+            self.pre_context_marker_start,
+            self.pre_context_marker_end,
+        )
+        source_text = self._extract_marked_section(
+            messages,
+            self.marker_start,
+            self.marker_end,
+        )
+        post_context = self._extract_marked_section(
+            messages,
+            self.post_context_marker_start,
+            self.post_context_marker_end,
+        )
+
+        translated = source_text.upper()
+        if pre_context is None and post_context is None:
+            return translated
+
+        return f"({pre_context or ''}) {translated} ({post_context or ''})"
+
+    def _extract_marked_section(
+        self,
+        messages: list[MockChatMessage],
+        marker_start: str,
+        marker_end: str,
+    ) -> str | None:
         for message in reversed(messages):
-            start_index = message.content.find(self.marker_start)
+            start_index = message.content.find(marker_start)
             if start_index == -1:
                 continue
 
-            source_start = start_index + len(self.marker_start)
-            end_index = message.content.find(self.marker_end, source_start)
+            source_start = start_index + len(marker_start)
+            end_index = message.content.find(marker_end, source_start)
             if end_index == -1:
                 continue
 
             return message.content[source_start:end_index]
 
-        return ""
+        return None
 
 
 @dataclass(frozen=True, slots=True)

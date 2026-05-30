@@ -83,6 +83,6 @@ Use the following markers when they help clarify priority or outcome:
   - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
 - [LATER] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
 - [ABANDONED] nested `overrides` with "most specific rule wins" for the first version. a flat ordered rule list is enough for now and much simpler to reason about.
-- an idea could be to add customization yaml in the target folder, to control few things.
+- [LATER] an idea could be to add customization yaml in the target folder, to control few things.
   - the files to exclude (don't oppose with restriction at the workspace level, but add more locally)
   - some hints to add to the translator, glossary, corrections, warnings, specific to files or folder.

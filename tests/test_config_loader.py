@@ -25,6 +25,8 @@ llm:
         ===BEGIN SOURCE TEXT===
         ${input_fragment}
         ===END SOURCE TEXT===
+      translated_document_header: <!-- Translated automatically -->
+      translated_document_footer: <!-- End automatic translation -->
     emotional:
       url: http://cloud.example:11434
       model: mock-emotional
@@ -45,5 +47,11 @@ llm:
     assert config.llm.translator["technical"].max_pre_context_bytes == 120
     assert config.llm.translator["technical"].max_post_context_bytes == 240
     assert config.llm.translator["technical"].temperature == 0.1
+    assert config.llm.translator["technical"].translated_document_header == (
+      "<!-- Translated automatically -->"
+    )
+    assert config.llm.translator["technical"].translated_document_footer == (
+      "<!-- End automatic translation -->"
+    )
     assert config.llm.translator["emotional"].credential == "secret-token"
     assert "${input_fragment}" in config.llm.translator["emotional"].user_prompt

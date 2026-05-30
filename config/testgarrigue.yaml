@@ -54,4 +54,5 @@ llm:
         ===BEGIN FOLLOWING CONTEXT===
         ${post_context}
         ===END FOLLOWING CONTEXT===
-        
+      translated_document_header: "<!-- Translated automatically ; profile: technical -->"
+      translated_document_footer: "<!-- End automatic translation ; profile: technical -->"             

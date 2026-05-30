@@ -119,10 +119,20 @@ def render_markdown_fragment(fragment: MarkdownFragment) -> str:
     return f"```mermaid\n{fragment.text}\n```"
 
 
-def render_translated_document(translated_fragments: list[str]) -> str:
-    if not translated_fragments:
+def render_translated_document(
+    translated_fragments: list[str],
+    header: str | None = None,
+    footer: str | None = None,
+) -> str:
+    parts: list[str] = []
+    if header:
+        parts.append(header)
+    parts.extend(translated_fragments)
+    if footer:
+        parts.append(footer)
+    if not parts:
         return ""
-    return "\n\n".join(translated_fragments) + "\n"
+    return "\n\n".join(parts) + "\n"
 
 
 def _collect_inline_content(tokens: list[Token]) -> str:

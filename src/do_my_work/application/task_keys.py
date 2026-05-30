@@ -12,13 +12,12 @@ def make_discover_translate_documents_task_key(
     root: Path,
     profile_name: str,
     profile_digest: str,
+    render_digest: str | None = None,
 ) -> str:
-    return _make_task_key(
-        "discover_translate_documents",
-        root.as_posix(),
-        profile_name,
-        profile_digest,
-    )
+    parts = [root.as_posix(), profile_name, profile_digest]
+    if render_digest:
+        parts.append(render_digest)
+    return _make_task_key("discover_translate_documents", *parts)
 
 
 def make_discover_translate_document_fragments_task_key(
@@ -26,14 +25,12 @@ def make_discover_translate_document_fragments_task_key(
     source_digest: str,
     profile_name: str,
     profile_digest: str,
+    render_digest: str | None = None,
 ) -> str:
-    return _make_task_key(
-        "discover_translate_document_fragments",
-        relative_path.as_posix(),
-        source_digest,
-        profile_name,
-        profile_digest,
-    )
+    parts = [relative_path.as_posix(), source_digest, profile_name, profile_digest]
+    if render_digest:
+        parts.append(render_digest)
+    return _make_task_key("discover_translate_document_fragments", *parts)
 
 
 def make_translate_fragment_task_key(
@@ -56,14 +53,12 @@ def make_merge_translated_fragments_task_key(
     source_digest: str,
     profile_name: str,
     profile_digest: str,
+    render_digest: str | None = None,
 ) -> str:
-    return _make_task_key(
-        "merge_translated_fragments",
-        document_relative_path.as_posix(),
-        source_digest,
-        profile_name,
-        profile_digest,
-    )
+    parts = [document_relative_path.as_posix(), source_digest, profile_name, profile_digest]
+    if render_digest:
+        parts.append(render_digest)
+    return _make_task_key("merge_translated_fragments", *parts)
 
 
 def make_index_markdown_references_task_key(relative_path: Path, source_digest: str) -> str:
@@ -85,6 +80,21 @@ def make_translator_profile_digest(profile: TranslatorProfileConfig) -> str:
             str(profile.temperature),
             profile.system_prompt,
             profile.user_prompt,
+        ]
+    )
+    return f"sha256:{sha256(payload.encode('utf-8')).hexdigest()}"
+
+
+def make_translated_document_render_digest(
+    profile: TranslatorProfileConfig,
+) -> str | None:
+    if not profile.translated_document_header and not profile.translated_document_footer:
+        return None
+
+    payload = "|".join(
+        [
+            profile.translated_document_header or "",
+            profile.translated_document_footer or "",
         ]
     )
     return f"sha256:{sha256(payload.encode('utf-8')).hexdigest()}"

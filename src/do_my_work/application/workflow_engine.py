@@ -15,6 +15,7 @@ from do_my_work.application.task_handlers import (
 from do_my_work.application.task_keys import (
     make_discover_reference_documents_task_key,
     make_discover_translate_documents_task_key,
+    make_translated_document_render_digest,
     make_translator_profile_digest,
 )
 from do_my_work.application.task_revalidation import TaskRevalidator
@@ -230,6 +231,7 @@ class WorkflowEngine:
                     root=root,
                     profile_name=translator_profile,
                     profile_digest=make_translator_profile_digest(profile),
+                    render_digest=make_translated_document_render_digest(profile),
                 ),
             )
 
@@ -255,6 +257,7 @@ class WorkflowEngine:
                 root,
                 translator_profile,
                 make_translator_profile_digest(profile),
+                make_translated_document_render_digest(profile),
             )
         raise ValueError(f"Unsupported request kind: {request_kind}")
 

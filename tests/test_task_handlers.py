@@ -518,3 +518,81 @@ def test_merge_translated_fragments_handler_writes_translated_document(tmp_path:
     assert (config.output_dir / "note.md").read_text(encoding="utf-8") == (
         "# INTRO\n\nALPHA BETA.\n"
     )
+
+
+def test_merge_translated_fragments_writes_optional_header_and_footer(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    fragment_task_keys = ["task:translate_fragment:1", "task:translate_fragment:2"]
+    task_repository.save(
+        TaskRecord(
+            task_key=fragment_task_keys[0],
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("note.md"),
+                fragment_kind="heading",
+                heading_path=["Intro"],
+                text="Intro",
+                fragment_digest="sha256:1",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="Fragment translated.",
+                result=TranslatedFragmentResult(translated_text="# INTRO", length=7),
+            ),
+        )
+    )
+    task_repository.save(
+        TaskRecord(
+            task_key=fragment_task_keys[1],
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("note.md"),
+                fragment_kind="paragraph",
+                heading_path=["Intro"],
+                text="Alpha beta.",
+                fragment_digest="sha256:2",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="Fragment translated.",
+                result=TranslatedFragmentResult(translated_text="ALPHA BETA.", length=11),
+            ),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_translated_fragments_task_key(
+            Path("note.md"),
+            "sha256:doc",
+            "technical",
+            "sha256:profile",
+            "sha256:render",
+        ),
+        spec=MergeTranslatedFragmentsTaskSpec(
+            document_relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            fragment_task_keys=fragment_task_keys,
+            profile_name="technical",
+            profile_digest="sha256:profile",
+            render_digest="sha256:render",
+            translated_document_header="<!-- Translated automatically -->",
+            translated_document_footer="<!-- End automatic translation -->",
+        ),
+    )
+
+    result = MergeTranslatedFragmentsTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "note.md").read_text(encoding="utf-8") == (
+        "<!-- Translated automatically -->\n\n"
+        "# INTRO\n\n"
+        "ALPHA BETA.\n\n"
+        "<!-- End automatic translation -->\n"
+    )

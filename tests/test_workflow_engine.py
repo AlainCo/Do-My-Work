@@ -218,3 +218,85 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
     assert second_run.status == "succeeded"
     assert second_run.summary.retried_failed_task_count == 1
     assert (output_dir / "note.md").read_text(encoding="utf-8") == "# INTRO\n\nALPHA BETA.\n"
+
+
+def test_workflow_engine_rerenders_translated_document_when_header_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
+    )
+
+    base_profile = TranslatorProfileConfig(
+        url="http://mock.example:11434",
+        model="ollama-mock",
+        temperature=0.0,
+        system_prompt="You are a professional translatoir from french to english.",
+        user_prompt=(
+            "===BEGIN SOURCE TEXT===\n"
+            "${input_fragment}\n"
+            "===END SOURCE TEXT===\n"
+        ),
+    )
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(translator={"technical": base_profile}),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    config_with_header = config.model_copy(
+        update={
+            "llm": LlmConfig(
+                translator={
+                    "technical": base_profile.model_copy(
+                        update={
+                            "translated_document_header": "<!-- Translated automatically -->",
+                            "translated_document_footer": "<!-- End automatic translation -->",
+                        }
+                    )
+                }
+            )
+        }
+    )
+
+    second_run = WorkflowEngine().run(
+        config_with_header,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "succeeded"
+    assert second_run.status == "succeeded"
+    assert second_run.summary.executed_task_count == 3
+    assert second_run.summary.created_task_count == 2
+    assert (output_dir / "note.md").read_text(encoding="utf-8") == (
+        "<!-- Translated automatically -->\n\n"
+        "# INTRO\n\n"
+        "ALPHA BETA.\n\n"
+        "<!-- End automatic translation -->\n"
+    )

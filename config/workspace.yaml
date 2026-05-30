@@ -14,4 +14,5 @@ llm:
       user_prompt: |
         ===BEGIN SOURCE TEXT===
         ${input_fragment}===END SOURCE TEXT===
-        
+      translated_document_header: "<!-- Translated automatically ; profile: technical -->"
+      translated_document_footer: "<!-- End automatic translation ; profile: technical -->"        

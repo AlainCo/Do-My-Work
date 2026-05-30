@@ -10,6 +10,7 @@ from do_my_work.application.task_keys import (
     make_merge_reference_indexes_task_key,
     make_merge_translated_fragments_task_key,
     make_translate_fragment_task_key,
+    make_translated_document_render_digest,
     make_translator_profile_digest,
 )
 from do_my_work.domain.models import (
@@ -200,6 +201,7 @@ class DiscoverTranslateDocumentsTaskHandler:
             )
 
         profile_digest = make_translator_profile_digest(profile)
+        render_digest = make_translated_document_render_digest(profile)
         discovered_records: list[TaskRecord] = []
         child_task_keys: list[str] = []
 
@@ -211,6 +213,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                 source_digest,
                 spec.profile_name,
                 profile_digest,
+                render_digest,
             )
             child_task_keys.append(task_key)
 
@@ -223,6 +226,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                             source_digest=source_digest,
                             profile_name=spec.profile_name,
                             profile_digest=profile_digest,
+                            render_digest=render_digest,
                         ),
                     )
                 )
@@ -482,6 +486,7 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
             spec.source_digest,
             spec.profile_name,
             spec.profile_digest,
+            spec.render_digest,
         )
         child_task_keys = [*fragment_task_keys, merge_task_key]
 
@@ -495,6 +500,9 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                         fragment_task_keys=fragment_task_keys,
                         profile_name=spec.profile_name,
                         profile_digest=spec.profile_digest,
+                        render_digest=spec.render_digest,
+                        translated_document_header=profile.translated_document_header,
+                        translated_document_footer=profile.translated_document_footer,
                     ),
                     child_task_keys=fragment_task_keys,
                 )
@@ -717,7 +725,11 @@ class MergeTranslatedFragmentsTaskHandler:
         destination_path = config.output_dir / spec.document_relative_path
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         destination_path.write_text(
-            render_translated_document(translated_fragments),
+            render_translated_document(
+                translated_fragments,
+                header=spec.translated_document_header,
+                footer=spec.translated_document_footer,
+            ),
             encoding="utf-8",
         )
 

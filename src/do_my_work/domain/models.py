@@ -36,6 +36,8 @@ class TranslatorProfileConfig(BaseModel):
     temperature: float = 0.0
     system_prompt: str
     user_prompt: str
+    translated_document_header: str | None = None
+    translated_document_footer: str | None = None
 
 
 class LlmConfig(BaseModel):
@@ -93,6 +95,7 @@ class DiscoverTranslateDocumentsTaskSpec(BaseModel):
     root: Path = Field(default=Path("."))
     profile_name: str
     profile_digest: str
+    render_digest: str | None = None
 
 
 class IndexMarkdownReferencesTaskSpec(BaseModel):
@@ -122,6 +125,7 @@ class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     source_digest: str
     profile_name: str
     profile_digest: str
+    render_digest: str | None = None
 
 
 class TranslateFragmentTaskSpec(BaseModel):
@@ -148,6 +152,9 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
     fragment_task_keys: list[str] = Field(default_factory=list)
     profile_name: str
     profile_digest: str
+    render_digest: str | None = None
+    translated_document_header: str | None = None
+    translated_document_footer: str | None = None
 
 
 TaskSpec = Annotated[

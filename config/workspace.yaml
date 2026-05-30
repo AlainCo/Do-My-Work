@@ -18,10 +18,23 @@ llm:
       timeout_seconds: 5.0
       max_retries: 2
       temperature: 0.0
+      max_pre_context_bytes: 2400
+      max_post_context_bytes: 2400
+      max_input_fragment_bytes: 2400
+      max_total_text_bytes: 6000
       system_prompt: |
         You are a professional translator from french to english.
       user_prompt: |
+        ===BEGIN PREVIOUS CONTEXT===
+        ${pre_context}
+        ===END PREVIOUS CONTEXT===
+
         ===BEGIN SOURCE TEXT===
-        ${input_fragment}===END SOURCE TEXT===
+        ${input_fragment}
+        ===END SOURCE TEXT===
+
+        ===BEGIN FOLLOWING CONTEXT===
+        ${post_context}
+        ===END FOLLOWING CONTEXT===
       translated_document_header: "<!-- Translated automatically ; profile: technical -->"
       translated_document_footer: "<!-- End automatic translation ; profile: technical -->"        

@@ -84,7 +84,7 @@ class TranslatorChatBehavior:
         if pre_context is None and post_context is None:
             return translated
 
-        return f"({pre_context or ''}) {translated} ({post_context or ''})"
+        return f"(PRE_CONTEXT:{pre_context or ''}) {translated} (POST_CONTEXT:{post_context or ''})"
 
     def _extract_marked_section(
         self,

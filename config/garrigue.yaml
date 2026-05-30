@@ -9,8 +9,10 @@ llm:
       temperature: 0.0
       timeout_seconds: 400.0
       max_retries: 2
-      max_pre_context_bytes: 1200
-      max_post_context_bytes: 1200
+      max_pre_context_bytes: 2400
+      max_post_context_bytes: 2400
+      max_input_fragment_bytes: 2400
+      max_total_text_bytes: 6000
       system_prompt: |
         **RÔLE** : Tu es un traducteur automatique **strict** français → anglais. **Ne fais que traduire**.
 

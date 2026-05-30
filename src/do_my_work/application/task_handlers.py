@@ -561,6 +561,26 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
 class TranslateFragmentTaskHandler:
     def __init__(self, llm_client: OllamaChatClient | None = None) -> None:
         self._llm_client = llm_client
+        self._owned_llm_client: OllamaChatClient | None = None
+
+    def close(self) -> None:
+        if self._owned_llm_client is None:
+            return
+        self._owned_llm_client.close()
+        self._owned_llm_client = None
+
+    def get_llm_timing_summary(self):
+        llm_client = self._llm_client or self._owned_llm_client
+        if llm_client is None:
+            return None
+        return llm_client.get_timing_summary()
+
+    def _get_llm_client(self) -> OllamaChatClient:
+        if self._llm_client is not None:
+            return self._llm_client
+        if self._owned_llm_client is None:
+            self._owned_llm_client = OllamaChatClient()
+        return self._owned_llm_client
 
     def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
         spec = record.spec
@@ -575,7 +595,7 @@ class TranslateFragmentTaskHandler:
         )
         fragment_markdown = spec.input_markdown or render_markdown_fragment(fragment)
 
-        llm_client = self._llm_client or OllamaChatClient()
+        llm_client = self._get_llm_client()
         try:
             translated_fragment = llm_client.translate_fragment(
                 config=config,
@@ -628,9 +648,6 @@ class TranslateFragmentTaskHandler:
                     }
                 )
             )
-        finally:
-            if self._llm_client is None:
-                llm_client.close()
 
         return TaskHandlerResult(
             updated_record=record.model_copy(

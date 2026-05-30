@@ -34,6 +34,9 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] workspace-level file selection now supports flat include/exclude rules in `workspace.yaml` for both translation and reference scan workflows.
 - [DONE] larger translation inputs now support `max_total_text_bytes` and `max_input_fragment_bytes`, with contiguous fragment grouping and end-of-document absorption when the post-context reaches the end.
 - [DONE] translate_fragment task keys now carry a stable per-document prefix so scheduler ordering keeps fragments from the same document together, allowing each output file to complete sooner.
+- [DONE] workflow scheduling now logs active task counts by state before each task selection/execution, excluding unchanged tasks carried over from previous runs.
+- [DONE] workflow run summaries now expose active task state counts in the CLI output, and LLM call logs include per-attempt elapsed time.
+- [DONE] workflow run summaries now expose aggregated LLM timing stats (`attempt_count`, average, variance) for the current run.
 
 ## Project management
 
@@ -44,19 +47,18 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] timeout of LLM call should be configurable via workspace.yaml
 - [DONE]  Timeout exception in LLM call does break the system, it should be trapped
 - [DONE] In case of LLM technical exception (timeout) a way to retry should exist... maybe few retries (configurable in yaml), and anyway, if the command is relaunched, past failed job should be just forgotten, thus retried.
-- the time of LLM call should be displayed
-- maybe computing the average and why not variance of translation call should be computed
-- I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after...
+- [DONE] the time of LLM call should be displayed
+- [DONE] average and variance of translation call time are now computed for the current run summary from the LLM call attempts made during that run.
+- [DONE] I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after...
 
 ## task scheduling
 
-- why not showing the count of various task by state before scheduling a task. it can simply be don by increasing or decreasing totals (don't count), when task are created of state changed. Note taht we should only count actives task, useful for this run.
 
 ## translation improvement
 
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
-- [LATER] why not add a glossary in the workspace yaml, as a list of french:english or more generally translations hints.
-- [LATER] why not control translation profile, glosssary, translation hints, file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration
+- [SOON] why not add translations hints in the workspace yaml (translations hints or glossary, free text)
+- [SOON] why not control translation profile, glossary, translation hints, file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration
 - [LATER] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
 ## references and bibliography
@@ -67,8 +69,8 @@ Use the following markers when they help clarify priority or outcome:
 
 - [DONE] its should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
   - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
-- [LATER] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
+- [ABANDONED] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
 - [ABANDONED] nested `overrides` with "most specific rule wins" for the first version. a flat ordered rule list is enough for now and much simpler to reason about.
-- [LATER] an idea could be to add customization yaml in the target folder, to control few things.
+- [SOON] an idea could be to add customization yaml in the target folder, to control few things.
   - the files to exclude (don't oppose with restriction at the workspace level, but add more locally)
   - some hints to add to the translator, glossary, corrections, warnings, specific to files or folder.

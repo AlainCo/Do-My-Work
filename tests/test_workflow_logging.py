@@ -31,6 +31,9 @@ def test_workflow_engine_logs_revalidation_and_execution(
 
     assert "Task revalidated:" in caplog.text
     assert "old_status=succeeded new_status=pending" in caplog.text
+    assert "Task scheduling snapshot:" in caplog.text
+    assert "pending=" in caplog.text
+    assert "waiting=" in caplog.text
     assert "Executing task:" in caplog.text
     assert "Task completed:" in caplog.text
     assert "Workflow run summary:" in caplog.text

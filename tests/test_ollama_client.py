@@ -5,6 +5,7 @@ import pytest
 
 from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig, WorkspaceConfig
 from do_my_work.infrastructure.ollama_client import (
+    LlmCallTimingSummary,
     OllamaChatClient,
     OllamaResponseError,
     PromptTemplateParameterError,
@@ -12,7 +13,7 @@ from do_my_work.infrastructure.ollama_client import (
 )
 
 
-def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint() -> None:
+def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint(caplog) -> None:
     captured_request: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -52,11 +53,12 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
     client = OllamaChatClient(http_client=http_client)
 
-    result = client.translate_fragment(
-        config=config,
-        profile_name="technical",
-        parameters={"input_fragment": "Bonjour monde"},
-    )
+    with caplog.at_level("INFO"):
+        result = client.translate_fragment(
+            config=config,
+            profile_name="technical",
+            parameters={"input_fragment": "Bonjour monde"},
+        )
 
     assert result == "BONJOUR MONDE"
     assert captured_request["url"] == "http://mock.example:11434/api/chat"
@@ -83,9 +85,12 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint()
         "stream": False,
         "options": {"temperature": 0.3},
     }
+    assert "LLM call completed:" in caplog.text
+    assert "profile=technical" in caplog.text
+    assert "elapsed_seconds=" in caplog.text
 
 
-def test_ollama_chat_client_retries_timeout_and_eventually_succeeds() -> None:
+def test_ollama_chat_client_retries_timeout_and_eventually_succeeds(caplog) -> None:
     captured_attempts: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -113,14 +118,33 @@ def test_ollama_chat_client_retries_timeout_and_eventually_succeeds() -> None:
     )
     client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-    result = client.translate_fragment(
-        config=config,
-        profile_name="technical",
-        parameters={"input_fragment": "Bonjour monde"},
-    )
+    with caplog.at_level("INFO"):
+        result = client.translate_fragment(
+            config=config,
+            profile_name="technical",
+            parameters={"input_fragment": "Bonjour monde"},
+        )
 
     assert result == "RECOVERED"
     assert captured_attempts == [1, 2, 3]
+    assert "LLM call failed:" in caplog.text
+    assert "error_category=timeout" in caplog.text
+    assert "will_retry=True" in caplog.text
+    assert "LLM call completed:" in caplog.text
+
+
+def test_ollama_chat_client_computes_average_and_variance_from_attempt_durations() -> None:
+    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
+
+    client._record_attempt_duration(1.0)
+    client._record_attempt_duration(3.0)
+    client._record_attempt_duration(5.0)
+
+    assert client.get_timing_summary() == LlmCallTimingSummary(
+        attempt_count=3,
+        average_elapsed_seconds=3.0,
+        variance_elapsed_seconds=8.0 / 3.0,
+    )
 
 
 def test_ollama_chat_client_retries_server_error_and_eventually_succeeds() -> None:

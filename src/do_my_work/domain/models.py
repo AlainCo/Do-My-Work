@@ -71,6 +71,13 @@ class WorkflowRunSummary(BaseModel):
     retried_failed_task_count: int = 0
     created_task_count: int = 0
     unchanged_task_count: int = 0
+    pending_task_count: int = 0
+    waiting_task_count: int = 0
+    succeeded_task_count: int = 0
+    failed_task_count: int = 0
+    llm_call_attempt_count: int = 0
+    llm_call_average_seconds: float = 0.0
+    llm_call_variance_seconds: float = 0.0
 
 
 class MarkdownFragment(BaseModel):

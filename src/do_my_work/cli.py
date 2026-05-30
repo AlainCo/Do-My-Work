@@ -35,6 +35,28 @@ def _resolve_workspace_config(
     return workspace_config.model_copy(update=overrides)
 
 
+def _echo_run_summary(run_result) -> None:
+    typer.echo(f"Workflow run completed: {run_result.run_id}")
+    typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
+    typer.echo(f"Tasks replayed: {run_result.summary.replayed_task_count}")
+    typer.echo(f"Failed tasks retried: {run_result.summary.retried_failed_task_count}")
+    typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
+    typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
+    typer.echo(
+        "Active task states: "
+        f"pending={run_result.summary.pending_task_count} "
+        f"waiting={run_result.summary.waiting_task_count} "
+        f"succeeded={run_result.summary.succeeded_task_count} "
+        f"failed={run_result.summary.failed_task_count}"
+    )
+    typer.echo(
+        "LLM call timings: "
+        f"attempts={run_result.summary.llm_call_attempt_count} "
+        f"avg_seconds={run_result.summary.llm_call_average_seconds:.3f} "
+        f"variance_seconds={run_result.summary.llm_call_variance_seconds:.3f}"
+    )
+
+
 @app.command("reference-index-tree")
 def reference_index_tree(
     config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,
@@ -62,12 +84,7 @@ def reference_index_tree(
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
     run_result = BatchRunner().run_reference_index_tree(workspace_config, root=root)
-    typer.echo(f"Workflow run completed: {run_result.run_id}")
-    typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
-    typer.echo(f"Tasks replayed: {run_result.summary.replayed_task_count}")
-    typer.echo(f"Failed tasks retried: {run_result.summary.retried_failed_task_count}")
-    typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
-    typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
+    _echo_run_summary(run_result)
 
 
 @app.command("translate-document-tree")
@@ -105,12 +122,7 @@ def translate_document_tree(
         root=root,
         translator_profile=translator_profile,
     )
-    typer.echo(f"Workflow run completed: {run_result.run_id}")
-    typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
-    typer.echo(f"Tasks replayed: {run_result.summary.replayed_task_count}")
-    typer.echo(f"Failed tasks retried: {run_result.summary.retried_failed_task_count}")
-    typer.echo(f"Tasks created: {run_result.summary.created_task_count}")
-    typer.echo(f"Tasks unchanged: {run_result.summary.unchanged_task_count}")
+    _echo_run_summary(run_result)
 
 
 @app.command("clean-tasks")

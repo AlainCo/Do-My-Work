@@ -88,6 +88,65 @@ def test_workflow_engine_selects_translate_fragment_tasks_grouped_by_document() 
     assert ordered_paths[2] == Path("zeta.md")
 
 
+def test_workflow_engine_counts_only_active_task_statuses() -> None:
+    engine = WorkflowEngine()
+    active_task = TaskRecord(
+        task_key="task:index_markdown_references:active",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("alpha.md"),
+            fragment_kind="paragraph",
+            heading_path=[],
+            text="Alpha.",
+            pre_context="",
+            post_context="",
+            fragment_digest="sha256:frag-active",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+        status=TaskStatus.PENDING,
+    )
+    unchanged_task = TaskRecord(
+        task_key="task:index_markdown_references:unchanged",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("beta.md"),
+            fragment_kind="paragraph",
+            heading_path=[],
+            text="Beta.",
+            pre_context="",
+            post_context="",
+            fragment_digest="sha256:frag-unchanged",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+        status=TaskStatus.SUCCEEDED,
+    )
+    waiting_task = TaskRecord(
+        task_key="task:merge_translated_fragments:waiting",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("gamma.md"),
+            fragment_kind="paragraph",
+            heading_path=[],
+            text="Gamma.",
+            pre_context="",
+            post_context="",
+            fragment_digest="sha256:frag-waiting",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+        status=TaskStatus.WAITING,
+    )
+
+    counts = engine._build_active_task_status_counts(
+        [active_task, unchanged_task, waiting_task],
+        {unchanged_task.task_key},
+    )
+
+    assert counts[TaskStatus.PENDING] == 1
+    assert counts[TaskStatus.WAITING] == 1
+    assert counts[TaskStatus.SUCCEEDED] == 0
+    assert counts[TaskStatus.FAILED] == 0
+
+
 def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
@@ -120,6 +179,10 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
     assert run_request.summary.executed_task_count == 4
     assert run_request.summary.retried_failed_task_count == 0
     assert run_request.summary.created_task_count == 3
+    assert run_request.summary.pending_task_count == 0
+    assert run_request.summary.waiting_task_count == 0
+    assert run_request.summary.succeeded_task_count == 4
+    assert run_request.summary.failed_task_count == 0
     assert (output_dir / "note.references.md").read_text(encoding="utf-8") == (
         "# Markdown Reference Index\n\n"
         "Source: note.md\n\n"
@@ -227,7 +290,10 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     monkeypatch.setattr(
         OllamaChatClient,
         "translate_fragment",
-        lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
+        lambda self, config, profile_name, parameters: (
+            self._record_attempt_duration(1.0),
+            str(parameters["input_fragment"]).upper(),
+        )[1],
     )
 
     config = WorkspaceConfig(
@@ -262,6 +328,13 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     assert run_request.summary.executed_task_count == 6
     assert run_request.summary.retried_failed_task_count == 0
     assert run_request.summary.created_task_count == 5
+    assert run_request.summary.pending_task_count == 0
+    assert run_request.summary.waiting_task_count == 0
+    assert run_request.summary.succeeded_task_count == 6
+    assert run_request.summary.failed_task_count == 0
+    assert run_request.summary.llm_call_attempt_count == 3
+    assert run_request.summary.llm_call_average_seconds == 1.0
+    assert run_request.summary.llm_call_variance_seconds == 0.0
     assert (output_dir / "note.md").read_text(encoding="utf-8") == (
         "# INTRO\n\nALPHA BETA.\n\n- ITEM ONE\n"
     )

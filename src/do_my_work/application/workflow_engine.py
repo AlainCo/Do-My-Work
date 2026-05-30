@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -98,105 +99,148 @@ class WorkflowEngine:
         merge_translated_fragments_handler = MergeTranslatedFragmentsTaskHandler()
         revalidator = TaskRevalidator()
 
-        while True:
-            task_records = self._revalidate_task_records(
-                task_repository.list_all(),
-                config,
-                task_repository,
-                revalidator,
-                initially_failed_task_keys,
-                initially_succeeded_task_keys,
-                replayed_task_keys,
-                retried_failed_task_keys,
-                unchanged_task_keys,
-            )
-            next_task = self._select_next_task(task_records)
-            if next_task is None:
-                break
-
-            executed_task_keys.add(next_task.task_key)
-            self._logger.info(
-                "Executing task: key=%s kind=%s status=%s",
-                next_task.task_key,
-                next_task.spec.kind,
-                next_task.status.value,
-            )
-
-            if next_task.spec.kind == "discover_reference_documents":
-                result = discover_reference_handler.handle(next_task, config, task_repository)
-            elif next_task.spec.kind == "discover_translate_documents":
-                result = discover_translate_handler.handle(next_task, config, task_repository)
-            elif next_task.spec.kind == "index_markdown_references":
-                result = index_references_handler.handle(next_task, config)
-            elif next_task.spec.kind == "merge_reference_indexes":
-                result = merge_reference_indexes_handler.handle(
-                    next_task,
+        llm_timing_summary = None
+        try:
+            while True:
+                task_records = self._revalidate_task_records(
+                    task_repository.list_all(),
                     config,
                     task_repository,
+                    revalidator,
+                    initially_failed_task_keys,
+                    initially_succeeded_task_keys,
+                    replayed_task_keys,
+                    retried_failed_task_keys,
+                    unchanged_task_keys,
                 )
-            elif next_task.spec.kind == "discover_translate_document_fragments":
-                result = discover_translate_fragments_handler.handle(
-                    next_task,
-                    config,
-                    task_repository,
-                )
-            elif next_task.spec.kind == "translate_fragment":
-                result = translate_fragment_handler.handle(next_task, config)
-            elif next_task.spec.kind == "merge_translated_fragments":
-                result = merge_translated_fragments_handler.handle(
-                    next_task,
-                    config,
-                    task_repository,
-                )
-            else:
-                raise ValueError(f"Unsupported task kind: {next_task.spec.kind}")
+                next_task = self._select_next_task(task_records)
+                if next_task is None:
+                    break
 
-            task_repository.save(result.updated_record)
-            self._logger.info(
-                "Task completed: key=%s kind=%s new_status=%s",
-                result.updated_record.task_key,
-                result.updated_record.spec.kind,
-                result.updated_record.status.value,
-            )
-            if (
-                result.updated_record.status == TaskStatus.FAILED
-                and result.updated_record.outcome is not None
-            ):
-                self._logger.warning(
-                    "Task failed: key=%s kind=%s error_category=%s http_status_code=%s error=%s",
+                active_task_status_counts = self._build_active_task_status_counts(
+                    task_records,
+                    unchanged_task_keys,
+                )
+                self._logger.info(
+                    "Task scheduling snapshot: active=%s pending=%s waiting=%s succeeded=%s failed=%s next_key=%s next_kind=%s",
+                    sum(active_task_status_counts.values()),
+                    active_task_status_counts[TaskStatus.PENDING],
+                    active_task_status_counts[TaskStatus.WAITING],
+                    active_task_status_counts[TaskStatus.SUCCEEDED],
+                    active_task_status_counts[TaskStatus.FAILED],
+                    next_task.task_key,
+                    next_task.spec.kind,
+                )
+
+                executed_task_keys.add(next_task.task_key)
+                self._logger.info(
+                    "Executing task: key=%s kind=%s status=%s",
+                    next_task.task_key,
+                    next_task.spec.kind,
+                    next_task.status.value,
+                )
+
+                if next_task.spec.kind == "discover_reference_documents":
+                    result = discover_reference_handler.handle(next_task, config, task_repository)
+                elif next_task.spec.kind == "discover_translate_documents":
+                    result = discover_translate_handler.handle(next_task, config, task_repository)
+                elif next_task.spec.kind == "index_markdown_references":
+                    result = index_references_handler.handle(next_task, config)
+                elif next_task.spec.kind == "merge_reference_indexes":
+                    result = merge_reference_indexes_handler.handle(
+                        next_task,
+                        config,
+                        task_repository,
+                    )
+                elif next_task.spec.kind == "discover_translate_document_fragments":
+                    result = discover_translate_fragments_handler.handle(
+                        next_task,
+                        config,
+                        task_repository,
+                    )
+                elif next_task.spec.kind == "translate_fragment":
+                    result = translate_fragment_handler.handle(next_task, config)
+                elif next_task.spec.kind == "merge_translated_fragments":
+                    result = merge_translated_fragments_handler.handle(
+                        next_task,
+                        config,
+                        task_repository,
+                    )
+                else:
+                    raise ValueError(f"Unsupported task kind: {next_task.spec.kind}")
+
+                task_repository.save(result.updated_record)
+                self._logger.info(
+                    "Task completed: key=%s kind=%s new_status=%s",
                     result.updated_record.task_key,
                     result.updated_record.spec.kind,
-                    result.updated_record.outcome.error_category,
-                    result.updated_record.outcome.http_status_code,
-                    result.updated_record.outcome.error,
+                    result.updated_record.status.value,
                 )
-            for new_record in result.new_records:
-                task_repository.save(new_record)
-                created_task_keys.add(new_record.task_key)
-                self._logger.info(
-                    "Task created: key=%s kind=%s",
-                    new_record.task_key,
-                    new_record.spec.kind,
-                )
+                if (
+                    result.updated_record.status == TaskStatus.FAILED
+                    and result.updated_record.outcome is not None
+                ):
+                    self._logger.warning(
+                        "Task failed: key=%s kind=%s error_category=%s http_status_code=%s error=%s",
+                        result.updated_record.task_key,
+                        result.updated_record.spec.kind,
+                        result.updated_record.outcome.error_category,
+                        result.updated_record.outcome.http_status_code,
+                        result.updated_record.outcome.error,
+                    )
+                for new_record in result.new_records:
+                    task_repository.save(new_record)
+                    created_task_keys.add(new_record.task_key)
+                    self._logger.info(
+                        "Task created: key=%s kind=%s",
+                        new_record.task_key,
+                        new_record.spec.kind,
+                    )
+        finally:
+            llm_timing_summary = translate_fragment_handler.get_llm_timing_summary()
+            translate_fragment_handler.close()
 
+        final_task_records = task_repository.list_all()
         root_record = task_repository.get(root_task_key)
-        run_status = self._resolve_run_status(task_repository.list_all(), root_record)
+        run_status = self._resolve_run_status(final_task_records, root_record)
         completed_run = run_request.model_copy(update={"status": run_status})
         run_repository.save(completed_run)
+        final_active_task_status_counts = self._build_active_task_status_counts(
+            final_task_records,
+            unchanged_task_keys,
+        )
         summary = WorkflowRunSummary(
             executed_task_count=len(executed_task_keys),
             replayed_task_count=len(replayed_task_keys),
             retried_failed_task_count=len(retried_failed_task_keys),
             created_task_count=len(created_task_keys),
             unchanged_task_count=len(unchanged_task_keys),
+            pending_task_count=final_active_task_status_counts[TaskStatus.PENDING],
+            waiting_task_count=final_active_task_status_counts[TaskStatus.WAITING],
+            succeeded_task_count=final_active_task_status_counts[TaskStatus.SUCCEEDED],
+            failed_task_count=final_active_task_status_counts[TaskStatus.FAILED],
+            llm_call_attempt_count=0 if llm_timing_summary is None else llm_timing_summary.attempt_count,
+            llm_call_average_seconds=(
+                0.0 if llm_timing_summary is None else llm_timing_summary.average_elapsed_seconds
+            ),
+            llm_call_variance_seconds=(
+                0.0 if llm_timing_summary is None else llm_timing_summary.variance_elapsed_seconds
+            ),
         )
         self._logger.info(
-            "Workflow run summary: executed=%s replayed=%s retried_failed=%s created=%s unchanged=%s",
+            "Workflow run summary: executed=%s replayed=%s retried_failed=%s created=%s unchanged=%s pending=%s waiting=%s succeeded=%s failed=%s llm_attempts=%s llm_avg_seconds=%.3f llm_variance_seconds=%.3f",
             summary.executed_task_count,
             summary.replayed_task_count,
             summary.retried_failed_task_count,
             summary.created_task_count,
             summary.unchanged_task_count,
+            summary.pending_task_count,
+            summary.waiting_task_count,
+            summary.succeeded_task_count,
+            summary.failed_task_count,
+            summary.llm_call_attempt_count,
+            summary.llm_call_average_seconds,
+            summary.llm_call_variance_seconds,
         )
         self._logger.info(
             "Workflow run finished: run_id=%s status=%s",
@@ -348,6 +392,22 @@ class WorkflowEngine:
                 return record
 
         return None
+
+    def _build_active_task_status_counts(
+        self,
+        task_records: list[TaskRecord],
+        inactive_task_keys: set[str],
+    ) -> Counter[TaskStatus]:
+        counts: Counter[TaskStatus] = Counter()
+        for record in task_records:
+            if record.task_key in inactive_task_keys:
+                continue
+            counts[record.status] += 1
+
+        for status in (TaskStatus.PENDING, TaskStatus.WAITING, TaskStatus.SUCCEEDED, TaskStatus.FAILED):
+            counts.setdefault(status, 0)
+
+        return counts
 
     def _is_waiting_task_unblocked(
         self,

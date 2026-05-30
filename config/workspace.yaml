@@ -1,6 +1,15 @@
 input_dir: work/input
 output_dir: work/output
 data_dir: work/data
+file_selection:
+  default_action: exclude
+  rules:
+    - match: "**/test*.md"
+      action: include
+    - match: "**/*index.md"
+      action: exclude
+    - match: "**/*3.md"
+      action: exclude
 llm:
   translator:
     technical:

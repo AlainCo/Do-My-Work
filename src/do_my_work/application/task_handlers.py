@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from hashlib import sha256
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import httpx
 
@@ -78,7 +78,7 @@ class DiscoverReferenceDocumentsTaskHandler:
         document_relative_paths: list[Path] = []
         child_task_keys: list[str] = []
 
-        for source_path in sorted(_iter_markdown_documents(root_path)):
+        for source_path in sorted(_iter_markdown_documents(root_path, config)):
             relative_path = source_path.relative_to(config.input_dir)
             document_relative_paths.append(relative_path)
             source_digest = _build_source_digest(source_path)
@@ -205,7 +205,7 @@ class DiscoverTranslateDocumentsTaskHandler:
         discovered_records: list[TaskRecord] = []
         child_task_keys: list[str] = []
 
-        for source_path in sorted(_iter_markdown_documents(root_path)):
+        for source_path in sorted(_iter_markdown_documents(root_path, config)):
             relative_path = source_path.relative_to(config.input_dir)
             source_digest = _build_source_digest(source_path)
             task_key = make_discover_translate_document_fragments_task_key(
@@ -815,9 +815,31 @@ def _include_fragment_in_neighbor_context(fragment: MarkdownFragment) -> bool:
     return fragment.fragment_kind not in {"code_block", "mermaid"}
 
 
-def _iter_markdown_documents(root_path: Path) -> list[Path]:
+def _iter_markdown_documents(root_path: Path, config: WorkspaceConfig) -> list[Path]:
     return [
         path
         for path in root_path.rglob("*")
-        if path.is_file() and path.suffix.lower() == ".md"
+        if path.is_file()
+        and path.suffix.lower() == ".md"
+        and _is_selected_markdown_document(path.relative_to(config.input_dir), config)
     ]
+
+
+def _is_selected_markdown_document(relative_path: Path, config: WorkspaceConfig) -> bool:
+    selection = config.file_selection
+    selected = selection.default_action == "include"
+
+    for rule in selection.rules:
+        if _path_matches_rule(relative_path, rule.match):
+            selected = rule.action == "include"
+
+    return selected
+
+
+def _path_matches_rule(relative_path: Path, pattern: str) -> bool:
+    relative_posix_path = PurePosixPath(relative_path.as_posix())
+    candidate_patterns = [pattern]
+    while "/**/" in candidate_patterns[-1]:
+        candidate_patterns.append(candidate_patterns[-1].replace("/**/", "/", 1))
+
+    return any(relative_posix_path.match(candidate) for candidate in candidate_patterns)

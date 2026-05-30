@@ -31,6 +31,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] we should have a command just to clean the tasks in the workspace
 - [DONE] the hash of a translation task should depend on the content of the translation profile (except the url, max_retries, timeout, the max*bytes which are already in the data - in fact it remains, model, prompts, temperature), I imagine we will compute a hash of profile specification, so that all fragments that use a profile that has changed meaningfully, are retranslated next time.
 - [DONE] we should add a header and footer (optional) to generated documents. best would be it is static not to cause spurious diff just for date of generation... if needed, user should just change the headers in the workspace yaml. my first test would be to add <!-- Translated by Do-My Work with ministrel-3:3g --> as header and footer.
+- [DONE] workspace-level file selection now supports flat include/exclude rules in `workspace.yaml` for both translation and reference scan workflows.
 
 ## Project management
 
@@ -78,46 +79,10 @@ Use the following markers when they help clarify priority or outcome:
 
 ## file selection
 
-- [TODISCUSS] its should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
-  - it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
-    Someone proposed me this idea, it seems nice and flexible:
-    🎯 **Concept**
-    You define a list of ordered rules.  
-    Each rule has:
-
-    - **match** — a glob pattern targeting `.md` files  
-    - **action** — `include` or `exclude`  
-    - **overrides** — more specific rules that override the parent  
-
-    The **most specific rule wins**.
-
-    🧱 **Minimal YAML**
-
-    ```yaml
-    rules:
-      - match: "docs/**/*.md"
-        action: include
-
-      - match: "docs/drafts/**/*.md"
-        action: exclude
-        overrides:
-          - match: "docs/drafts/reviewed/**/*.md"
-            action: include
-
-      - match: "**/*.tmp.md"
-        action: exclude
-        overrides:
-          - match: "keep/**/*.tmp.md"
-            action: include
-    ```
-
-    🧠 **Intended behavior**
-
-    - `docs/**/*.md` → **included**  
-    - `docs/drafts/**/*.md` → **excluded**  
-    - `docs/drafts/reviewed/**/*.md` → **re‑included**  
-    - `**/*.tmp.md` → **excluded**  
-    - `keep/**/*.tmp.md` → **re‑included**
+- [DONE] its should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
+  - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
+- [LATER] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
+- [ABANDONED] nested `overrides` with "most specific rule wins" for the first version. a flat ordered rule list is enough for now and much simpler to reason about.
 - an idea could be to add customization yaml in the target folder, to control few things.
   - the files to exclude (don't oppose with restriction at the workspace level, but add more locally)
   - some hints to add to the translator, glossary, corrections, warnings, specific to files or folder.

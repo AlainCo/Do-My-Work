@@ -10,6 +10,15 @@ def test_load_workspace_config_reads_translator_profiles(tmp_path: Path) -> None
 input_dir: inbound
 output_dir: outbound
 data_dir: state
+file_selection:
+  default_action: exclude
+  rules:
+    - match: docs/**/*.md
+      action: include
+    - match: docs/drafts/**/*.md
+      action: exclude
+    - match: docs/drafts/reviewed/**/*.md
+      action: include
 llm:
   translator:
     technical:
@@ -41,6 +50,12 @@ llm:
     config = load_workspace_config(config_file)
 
     assert config.input_dir == Path("inbound")
+    assert config.file_selection.default_action == "exclude"
+    assert [rule.match for rule in config.file_selection.rules] == [
+      "docs/**/*.md",
+      "docs/drafts/**/*.md",
+      "docs/drafts/reviewed/**/*.md",
+    ]
     assert config.llm.translator["technical"].url == "http://mock.example:11434"
     assert config.llm.translator["technical"].timeout_seconds == 240
     assert config.llm.translator["technical"].max_retries == 2

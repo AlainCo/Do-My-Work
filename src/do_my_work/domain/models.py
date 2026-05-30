@@ -20,7 +20,22 @@ class WorkspaceConfig(BaseModel):
     input_dir: Path = Field(default=Path("work/input"))
     output_dir: Path = Field(default=Path("work/output"))
     data_dir: Path = Field(default=Path("work/data"))
+    file_selection: "FileSelectionConfig" = Field(default_factory=lambda: FileSelectionConfig())
     llm: "LlmConfig" = Field(default_factory=lambda: LlmConfig())
+
+
+class FileSelectionRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    match: str
+    action: Literal["include", "exclude"]
+
+
+class FileSelectionConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    default_action: Literal["include", "exclude"] = "include"
+    rules: list[FileSelectionRule] = Field(default_factory=list)
 
 
 class TranslatorProfileConfig(BaseModel):

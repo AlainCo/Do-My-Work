@@ -71,6 +71,62 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
     ]
 
 
+def test_workflow_engine_applies_workspace_file_selection_to_reference_index(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "keep.md").write_text(
+        "# Kept\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "drafts").mkdir(parents=True)
+    (input_dir / "docs" / "drafts" / "skip.md").write_text(
+        "# Skip\n\nSee [Skip](https://example.org/skip).\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "drafts" / "reviewed").mkdir(parents=True)
+    (input_dir / "docs" / "drafts" / "reviewed" / "back.md").write_text(
+        "# Back\n\nSee [Alice](https://example.org/alice).\n",
+        encoding="utf-8",
+    )
+    (input_dir / "outside.md").write_text(
+        "# Outside\n\nSee [Out](https://example.org/out).\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import FileSelectionConfig, FileSelectionRule
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        file_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[
+                FileSelectionRule(match="docs/**/*.md", action="include"),
+                FileSelectionRule(match="docs/drafts/**/*.md", action="exclude"),
+                FileSelectionRule(match="docs/drafts/reviewed/**/*.md", action="include"),
+            ],
+        ),
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert run_request.status == "succeeded"
+    assert (output_dir / "docs" / "keep.references.md").exists()
+    assert not (output_dir / "docs" / "drafts" / "skip.references.md").exists()
+    assert (output_dir / "docs" / "drafts" / "reviewed" / "back.references.md").exists()
+    assert not (output_dir / "outside.references.md").exists()
+
+
 def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -143,6 +199,80 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
         "translate_fragment",
         "translate_fragment",
     ]
+
+
+def test_workflow_engine_applies_workspace_file_selection_to_translation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "keep.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs" / "skip.tmp.md").write_text(
+        "# Skip\n\nShould not translate.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import (
+        FileSelectionConfig,
+        FileSelectionRule,
+        LlmConfig,
+        TranslatorProfileConfig,
+    )
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        file_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[
+                FileSelectionRule(match="docs/**/*.md", action="include"),
+                FileSelectionRule(match="**/*.tmp.md", action="exclude"),
+            ],
+        ),
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translatoir from french to english.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${input_fragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        ),
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert run_request.status == "succeeded"
+    assert (output_dir / "docs" / "keep.md").read_text(encoding="utf-8") == (
+        "# INTRO\n\nALPHA BETA.\n"
+    )
+    assert not (output_dir / "docs" / "skip.tmp.md").exists()
 
 
 def test_workflow_engine_retries_failed_translation_tasks_on_next_run(

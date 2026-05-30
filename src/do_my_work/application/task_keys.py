@@ -12,9 +12,12 @@ def make_discover_translate_documents_task_key(
     root: Path,
     profile_name: str,
     profile_digest: str,
+    plan_digest: str | None = None,
     render_digest: str | None = None,
 ) -> str:
     parts = [root.as_posix(), profile_name, profile_digest]
+    if plan_digest:
+        parts.append(plan_digest)
     if render_digest:
         parts.append(render_digest)
     return _make_task_key("discover_translate_documents", *parts)
@@ -25,9 +28,12 @@ def make_discover_translate_document_fragments_task_key(
     source_digest: str,
     profile_name: str,
     profile_digest: str,
+    plan_digest: str | None = None,
     render_digest: str | None = None,
 ) -> str:
     parts = [relative_path.as_posix(), source_digest, profile_name, profile_digest]
+    if plan_digest:
+        parts.append(plan_digest)
     if render_digest:
         parts.append(render_digest)
     return _make_task_key("discover_translate_document_fragments", *parts)
@@ -53,9 +59,12 @@ def make_merge_translated_fragments_task_key(
     source_digest: str,
     profile_name: str,
     profile_digest: str,
+    plan_digest: str | None = None,
     render_digest: str | None = None,
 ) -> str:
     parts = [document_relative_path.as_posix(), source_digest, profile_name, profile_digest]
+    if plan_digest:
+        parts.append(plan_digest)
     if render_digest:
         parts.append(render_digest)
     return _make_task_key("merge_translated_fragments", *parts)
@@ -95,6 +104,26 @@ def make_translated_document_render_digest(
         [
             profile.translated_document_header or "",
             profile.translated_document_footer or "",
+        ]
+    )
+    return f"sha256:{sha256(payload.encode('utf-8')).hexdigest()}"
+
+
+def make_translation_plan_digest(profile: TranslatorProfileConfig) -> str | None:
+    if (
+        profile.max_pre_context_bytes <= 0
+        and profile.max_post_context_bytes <= 0
+        and profile.max_total_text_bytes <= 0
+        and profile.max_input_fragment_bytes <= 0
+    ):
+        return None
+
+    payload = "|".join(
+        [
+            str(profile.max_pre_context_bytes),
+            str(profile.max_post_context_bytes),
+            str(profile.max_total_text_bytes),
+            str(profile.max_input_fragment_bytes),
         ]
     )
     return f"sha256:{sha256(payload.encode('utf-8')).hexdigest()}"

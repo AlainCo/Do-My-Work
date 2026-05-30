@@ -9,6 +9,7 @@ from do_my_work.application.task_keys import (
     make_index_markdown_references_task_key,
     make_merge_reference_indexes_task_key,
     make_merge_translated_fragments_task_key,
+    make_translation_plan_digest,
     make_translate_fragment_task_key,
     make_translated_document_render_digest,
     make_translator_profile_digest,
@@ -25,6 +26,7 @@ from do_my_work.domain.models import (
     TaskRecord,
     TaskStatus,
     TranslatedFragmentResult,
+    TranslatorProfileConfig,
     TranslateFragmentTaskSpec,
     WorkspaceConfig,
 )
@@ -47,6 +49,18 @@ from do_my_work.infrastructure.ollama_client import OllamaChatClient
 class TaskHandlerResult:
     updated_record: TaskRecord
     new_records: list[TaskRecord] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TranslationChunk:
+    start_index: int
+    end_index: int
+    input_markdown: str
+    pre_context: str
+    post_context: str
+    fragment_digest: str
+    translation_input_digest: str
+    first_fragment: MarkdownFragment
 
 
 class DiscoverReferenceDocumentsTaskHandler:
@@ -201,6 +215,7 @@ class DiscoverTranslateDocumentsTaskHandler:
             )
 
         profile_digest = make_translator_profile_digest(profile)
+        plan_digest = make_translation_plan_digest(profile)
         render_digest = make_translated_document_render_digest(profile)
         discovered_records: list[TaskRecord] = []
         child_task_keys: list[str] = []
@@ -213,6 +228,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                 source_digest,
                 spec.profile_name,
                 profile_digest,
+                plan_digest,
                 render_digest,
             )
             child_task_keys.append(task_key)
@@ -226,6 +242,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                             source_digest=source_digest,
                             profile_name=spec.profile_name,
                             profile_digest=profile_digest,
+                            plan_digest=plan_digest,
                             render_digest=render_digest,
                         ),
                     )
@@ -436,28 +453,19 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                 )
             )
 
-        for fragment_index, fragment in enumerate(fragments):
-            pre_context = _build_neighbor_context(
+        rendered_fragments = [render_markdown_fragment(fragment) for fragment in fragments]
+
+        next_fragment_index = 0
+        while next_fragment_index < len(fragments):
+            chunk = _build_translation_chunk(
                 fragments,
-                fragment_index,
-                direction="pre",
-                max_bytes=profile.max_pre_context_bytes,
-            )
-            post_context = _build_neighbor_context(
-                fragments,
-                fragment_index,
-                direction="post",
-                max_bytes=profile.max_post_context_bytes,
-            )
-            fragment_digest = _build_fragment_digest(fragment)
-            translation_input_digest = _build_translation_input_digest(
-                fragment,
-                pre_context,
-                post_context,
+                rendered_fragments,
+                next_fragment_index,
+                profile,
             )
             task_key = make_translate_fragment_task_key(
                 spec.relative_path,
-                translation_input_digest,
+                chunk.translation_input_digest,
                 spec.profile_name,
                 spec.profile_digest,
             )
@@ -469,23 +477,27 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                         task_key=task_key,
                         spec=TranslateFragmentTaskSpec(
                             document_relative_path=spec.relative_path,
-                            fragment_kind=fragment.fragment_kind,
-                            heading_path=fragment.heading_path,
-                            text=fragment.text,
-                            pre_context=pre_context,
-                            post_context=post_context,
-                            fragment_digest=fragment_digest,
+                            fragment_kind=chunk.first_fragment.fragment_kind,
+                            heading_path=chunk.first_fragment.heading_path,
+                            text=chunk.input_markdown,
+                            input_markdown=chunk.input_markdown,
+                            pre_context=chunk.pre_context,
+                            post_context=chunk.post_context,
+                            fragment_digest=chunk.fragment_digest,
                             profile_name=spec.profile_name,
                             profile_digest=spec.profile_digest,
                         ),
                     )
                 )
 
+            next_fragment_index = chunk.end_index + 1
+
         merge_task_key = make_merge_translated_fragments_task_key(
             spec.relative_path,
             spec.source_digest,
             spec.profile_name,
             spec.profile_digest,
+            spec.plan_digest,
             spec.render_digest,
         )
         child_task_keys = [*fragment_task_keys, merge_task_key]
@@ -500,6 +512,7 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                         fragment_task_keys=fragment_task_keys,
                         profile_name=spec.profile_name,
                         profile_digest=spec.profile_digest,
+                        plan_digest=spec.plan_digest,
                         render_digest=spec.render_digest,
                         translated_document_header=profile.translated_document_header,
                         translated_document_footer=profile.translated_document_footer,
@@ -560,7 +573,7 @@ class TranslateFragmentTaskHandler:
             text=spec.text,
             length=len(spec.text),
         )
-        fragment_markdown = render_markdown_fragment(fragment)
+        fragment_markdown = spec.input_markdown or render_markdown_fragment(fragment)
 
         llm_client = self._llm_client or OllamaChatClient()
         try:
@@ -756,6 +769,11 @@ def _build_fragment_digest(fragment: MarkdownFragment) -> str:
     return f"sha256:{digest}"
 
 
+def _build_rendered_fragment_digest(rendered_fragments: list[str]) -> str:
+    digest = sha256("|".join(rendered_fragments).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
 def _build_translation_input_digest(
     fragment: MarkdownFragment,
     pre_context: str,
@@ -766,6 +784,204 @@ def _build_translation_input_digest(
     )
     digest = sha256(payload.encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
+
+
+def _build_translation_input_digest_from_markdown(
+    input_markdown: str,
+    pre_context: str,
+    post_context: str,
+) -> str:
+    payload = "|".join([input_markdown, pre_context, post_context])
+    digest = sha256(payload.encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _build_translation_chunk(
+    fragments: list[MarkdownFragment],
+    rendered_fragments: list[str],
+    start_index: int,
+    profile: TranslatorProfileConfig,
+) -> TranslationChunk:
+    first_fragment = fragments[start_index]
+    first_rendered_fragment = rendered_fragments[start_index]
+    pre_context = _build_neighbor_context(
+        fragments,
+        start_index,
+        direction="pre",
+        max_bytes=profile.max_pre_context_bytes,
+    )
+
+    if (
+        profile.max_total_text_bytes <= 0
+        and profile.max_input_fragment_bytes <= 0
+    ):
+        post_context = _build_neighbor_context(
+            fragments,
+            start_index,
+            direction="post",
+            max_bytes=profile.max_post_context_bytes,
+        )
+        return TranslationChunk(
+            start_index=start_index,
+            end_index=start_index,
+            input_markdown=first_rendered_fragment,
+            pre_context=pre_context,
+            post_context=post_context,
+            fragment_digest=_build_fragment_digest(first_fragment),
+            translation_input_digest=_build_translation_input_digest(
+                first_fragment,
+                pre_context,
+                post_context,
+            ),
+            first_fragment=first_fragment,
+        )
+
+    selected_rendered_fragments = [first_rendered_fragment]
+    chunk_size = len(first_rendered_fragment.encode("utf-8"))
+    end_index = start_index
+    input_budget = _compute_initial_input_budget(profile, pre_context)
+
+    while end_index + 1 < len(fragments):
+        next_rendered_fragment = rendered_fragments[end_index + 1]
+        candidate_size = chunk_size + len("\n\n".encode("utf-8")) + len(
+            next_rendered_fragment.encode("utf-8")
+        )
+        if input_budget is not None and candidate_size > input_budget:
+            break
+        end_index += 1
+        selected_rendered_fragments.append(next_rendered_fragment)
+        chunk_size = candidate_size
+
+    while True:
+        post_context = _build_neighbor_context(
+            fragments,
+            end_index,
+            direction="post",
+            max_bytes=profile.max_post_context_bytes,
+        )
+        if end_index + 1 >= len(fragments):
+            break
+        if not _post_context_reaches_document_end(
+            fragments,
+            end_index,
+            profile.max_post_context_bytes,
+        ):
+            break
+
+        phase_two_budget = _compute_phase_two_input_budget(profile, pre_context)
+        next_rendered_fragment = rendered_fragments[end_index + 1]
+        candidate_size = chunk_size + len("\n\n".encode("utf-8")) + len(
+            next_rendered_fragment.encode("utf-8")
+        )
+        if phase_two_budget is not None and candidate_size > phase_two_budget:
+            break
+
+        end_index += 1
+        selected_rendered_fragments.append(next_rendered_fragment)
+        chunk_size = candidate_size
+
+    input_markdown = "\n\n".join(selected_rendered_fragments)
+    post_context = _build_neighbor_context(
+        fragments,
+        end_index,
+        direction="post",
+        max_bytes=profile.max_post_context_bytes,
+    )
+    return TranslationChunk(
+        start_index=start_index,
+        end_index=end_index,
+        input_markdown=input_markdown,
+        pre_context=pre_context,
+        post_context=post_context,
+        fragment_digest=_build_rendered_fragment_digest(selected_rendered_fragments),
+        translation_input_digest=_build_translation_input_digest_from_markdown(
+            input_markdown,
+            pre_context,
+            post_context,
+        ),
+        first_fragment=first_fragment,
+    )
+
+
+def _compute_initial_input_budget(
+    profile: TranslatorProfileConfig,
+    pre_context: str,
+) -> int | None:
+    total_limit = profile.max_total_text_bytes if profile.max_total_text_bytes > 0 else None
+    hard_limit = (
+        profile.max_input_fragment_bytes if profile.max_input_fragment_bytes > 0 else None
+    )
+
+    budget = total_limit
+    if total_limit is not None:
+        budget = max(
+            total_limit
+            - profile.max_pre_context_bytes
+            - profile.max_post_context_bytes,
+            0,
+        )
+        budget += max(
+            profile.max_pre_context_bytes - len(pre_context.encode("utf-8")),
+            0,
+        )
+
+    if hard_limit is not None:
+        if budget is None:
+            return hard_limit
+        return min(budget, hard_limit)
+    return budget
+
+
+def _compute_phase_two_input_budget(
+    profile: TranslatorProfileConfig,
+    pre_context: str,
+) -> int | None:
+    total_limit = profile.max_total_text_bytes if profile.max_total_text_bytes > 0 else None
+    hard_limit = (
+        profile.max_input_fragment_bytes if profile.max_input_fragment_bytes > 0 else None
+    )
+
+    budget = total_limit
+    if total_limit is not None:
+        budget = max(total_limit - len(pre_context.encode("utf-8")), 0)
+
+    if hard_limit is not None:
+        if budget is None:
+            return hard_limit
+        return min(budget, hard_limit)
+    return budget
+
+
+def _post_context_reaches_document_end(
+    fragments: list[MarkdownFragment],
+    fragment_index: int,
+    max_bytes: int,
+) -> bool:
+    if max_bytes <= 0:
+        return fragment_index >= len(fragments) - 1
+
+    current_size = 0
+    separator_size = len("\n\n".encode("utf-8"))
+    last_eligible_index = fragment_index
+
+    for neighbor_index in range(fragment_index + 1, len(fragments)):
+        neighbor_fragment = fragments[neighbor_index]
+        if not _include_fragment_in_neighbor_context(neighbor_fragment):
+            continue
+
+        rendered_neighbor = render_markdown_fragment(neighbor_fragment)
+        neighbor_size = len(rendered_neighbor.encode("utf-8"))
+        additional_size = neighbor_size
+        if last_eligible_index != fragment_index:
+            additional_size += separator_size
+
+        if current_size + additional_size > max_bytes:
+            return False
+
+        current_size += additional_size
+        last_eligible_index = neighbor_index
+
+    return True
 
 
 def _build_neighbor_context(

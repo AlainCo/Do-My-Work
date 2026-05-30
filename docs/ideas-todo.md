@@ -32,6 +32,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] the hash of a translation task should depend on the content of the translation profile (except the url, max_retries, timeout, the max*bytes which are already in the data - in fact it remains, model, prompts, temperature), I imagine we will compute a hash of profile specification, so that all fragments that use a profile that has changed meaningfully, are retranslated next time.
 - [DONE] we should add a header and footer (optional) to generated documents. best would be it is static not to cause spurious diff just for date of generation... if needed, user should just change the headers in the workspace yaml. my first test would be to add <!-- Translated by Do-My Work with ministrel-3:3g --> as header and footer.
 - [DONE] workspace-level file selection now supports flat include/exclude rules in `workspace.yaml` for both translation and reference scan workflows.
+- [DONE] larger translation inputs now support `max_total_text_bytes` and `max_input_fragment_bytes`, with contiguous fragment grouping and end-of-document absorption when the post-context reaches the end.
 
 ## Project management
 
@@ -57,20 +58,6 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
 - [LATER] why not add a glossary in the workspace yaml, as a list of french:english or more generally translations hints.
 - [LATER] why not control translation profile, glosssary, translation hints, file selection (add exclusion only, taking precedence over the workspace config) it in the target folder with yaml configuration
-- [SOON] [TODISCUSS] why not increase the size of the fragment. I propose a mechanism with 2 limits
-  - let's introduce a "max_total_text_bytes" that limit the total of pre,input and post.
-  - and a "max_input_fragment_bytes" that is a harder limit for the input_fragment.
-  - Note that those limit are not enforced for the first input fragment that we cannot reduce. the only question is if we add few more segments. 
-  - it will not be simple, so I propose this algorithm:
-    - the first segment is mandatory even if toobig.
-    - first we compute the "remaining bytes", the max_total_text_bytes minus max_pre_context_bytes plus  max_post_context_bytes
-    - we increase that size in 2 phases.
-      - phase 1: when the pre_context is empty or smaller than the limit,  we can increase the input_fragment size limit by the unconsumed pre_context_size, and thus increase the "remaining bytes". This mean we have to compute the pre_context before increasing the budget.
-        - anyway there will be a hardlimit with the max_input_fragment_bytes, that prevent to increase the budget too much, so the "remaining bytes" will be caped to "max_input_fragment_bytes"
-      - phase 2: when the post context have reached the end of the document, we can incorporate all the post context as a fragment to translate. this mean we have to try to extend input_fragment as much as possible according to the updated "remaining bytes" (and anyway respect max_input_fragment_bytes), then try to extends the post_context size as usual (limited by max_post_context_bytes), and see if we reach the end of the document
-        - if we have read the end, we may move the segments in the post_context into the input_fragment
-        - anyway there will be a hardlimit with the max_input_fragment_bytes, that prevent to increase the size of the input_fragment too much, so if we have reached the end of the document, we may only partially integrate the post_context segments to the input_fragment as long as it does not get above max_input_fragment_bytes.
-    - of course the used segments put inside the input_fragment, should not be sent again as input_fragment... they will be consumed.
 - [LATER] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
 ## references and bibliography

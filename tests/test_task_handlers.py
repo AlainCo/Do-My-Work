@@ -311,6 +311,118 @@ def test_discover_translate_fragments_excludes_fenced_blocks_from_neighbor_conte
     assert target_record.spec.post_context == "Useful after."
 
 
+def test_discover_translate_fragments_can_group_multiple_fragments_into_one_task(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    max_pre_context_bytes=10,
+                    max_post_context_bytes=0,
+                    max_total_text_bytes=18,
+                    max_input_fragment_bytes=10,
+                    temperature=0.0,
+                    system_prompt="You are a translator.",
+                    user_prompt="${pre_context}\n${input_fragment}\n${post_context}",
+                )
+            }
+        ),
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "note.md").write_text(
+        "One.\n\nTwo.\n\nThree.\n",
+        encoding="utf-8",
+    )
+
+    record = TaskRecord(
+        task_key="task:discover_translate_document_fragments:abc",
+        spec=DiscoverTranslateDocumentFragmentsTaskSpec(
+            relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = DiscoverTranslateDocumentFragmentsTaskHandler().handle(
+        record,
+        config,
+        JsonTaskRepository(config.data_dir / "tasks"),
+    )
+
+    fragment_records = [
+        created_record
+        for created_record in result.new_records
+        if created_record.spec.kind == "translate_fragment"
+    ]
+
+    assert len(fragment_records) == 2
+    assert fragment_records[0].spec.input_markdown == "One.\n\nTwo."
+    assert fragment_records[1].spec.input_markdown == "Three."
+
+
+def test_discover_translate_fragments_can_absorb_trailing_post_context_at_document_end(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    max_pre_context_bytes=0,
+                    max_post_context_bytes=5,
+                    max_total_text_bytes=14,
+                    max_input_fragment_bytes=30,
+                    temperature=0.0,
+                    system_prompt="You are a translator.",
+                    user_prompt="${pre_context}\n${input_fragment}\n${post_context}",
+                )
+            }
+        ),
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "note.md").write_text(
+        "Target.\n\nTail.\n",
+        encoding="utf-8",
+    )
+
+    record = TaskRecord(
+        task_key="task:discover_translate_document_fragments:abc",
+        spec=DiscoverTranslateDocumentFragmentsTaskSpec(
+            relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = DiscoverTranslateDocumentFragmentsTaskHandler().handle(
+        record,
+        config,
+        JsonTaskRepository(config.data_dir / "tasks"),
+    )
+
+    fragment_records = [
+        created_record
+        for created_record in result.new_records
+        if created_record.spec.kind == "translate_fragment"
+    ]
+
+    assert len(fragment_records) == 1
+    assert fragment_records[0].spec.input_markdown == "Target.\n\nTail."
+    assert fragment_records[0].spec.post_context == ""
+
+
 def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("mock timeout while translating fragment", request=request)

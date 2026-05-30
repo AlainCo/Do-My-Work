@@ -48,6 +48,8 @@ class TranslatorProfileConfig(BaseModel):
     max_retries: int = Field(default=0, ge=0)
     max_pre_context_bytes: int = Field(default=0, ge=0)
     max_post_context_bytes: int = Field(default=0, ge=0)
+    max_total_text_bytes: int = Field(default=0, ge=0)
+    max_input_fragment_bytes: int = Field(default=0, ge=0)
     temperature: float = 0.0
     system_prompt: str
     user_prompt: str
@@ -110,6 +112,7 @@ class DiscoverTranslateDocumentsTaskSpec(BaseModel):
     root: Path = Field(default=Path("."))
     profile_name: str
     profile_digest: str
+    plan_digest: str | None = None
     render_digest: str | None = None
 
 
@@ -140,6 +143,7 @@ class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     source_digest: str
     profile_name: str
     profile_digest: str
+    plan_digest: str | None = None
     render_digest: str | None = None
 
 
@@ -151,6 +155,7 @@ class TranslateFragmentTaskSpec(BaseModel):
     fragment_kind: FragmentKind
     heading_path: list[str] = Field(default_factory=list)
     text: str
+    input_markdown: str | None = None
     pre_context: str = ""
     post_context: str = ""
     fragment_digest: str
@@ -167,6 +172,7 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
     fragment_task_keys: list[str] = Field(default_factory=list)
     profile_name: str
     profile_digest: str
+    plan_digest: str | None = None
     render_digest: str | None = None
     translated_document_header: str | None = None
     translated_document_footer: str | None = None

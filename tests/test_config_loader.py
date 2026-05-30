@@ -28,6 +28,8 @@ llm:
       max_retries: 2
       max_pre_context_bytes: 120
       max_post_context_bytes: 240
+      max_total_text_bytes: 480
+      max_input_fragment_bytes: 360
       temperature: 0.1
       system_prompt: You are a technical translator.
       user_prompt: |
@@ -61,6 +63,8 @@ llm:
     assert config.llm.translator["technical"].max_retries == 2
     assert config.llm.translator["technical"].max_pre_context_bytes == 120
     assert config.llm.translator["technical"].max_post_context_bytes == 240
+    assert config.llm.translator["technical"].max_total_text_bytes == 480
+    assert config.llm.translator["technical"].max_input_fragment_bytes == 360
     assert config.llm.translator["technical"].temperature == 0.1
     assert config.llm.translator["technical"].translated_document_header == (
       "<!-- Translated automatically -->"

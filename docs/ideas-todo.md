@@ -16,7 +16,7 @@ Here I put ideas that emerge.
 - [DONE] In case of LLM technical exception (timeout) a way to retry should exist... maybe few retries (configurable in yaml), and anyway, if the command is relaunched, past failed job should be just forgotten, thus retried.
 - the time of LLM call should be displayed
 - maybe computing the average and why not variance of translation call should be computed
-- I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after... 
+- I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after...
 - [URGENT] I've not observed trace/log for failed call (timeout), there should be one.
 
 ## task scheduling
@@ -31,7 +31,7 @@ Here I put ideas that emerge.
 ## translation improvement
 
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
-- [LATER] why not add a glossary in the workspace yaml, as a list of french:english.
+- [LATER] why not add a glossary in the workspace yaml, as a list of french:english. why not translations hints. why not control it in the target folder with yaml configuration
 - [SOON] [TODISCUSS] why not increase the size of the fragment. I propose a mechanism with 2 limits
   - let's introduce a "max_total_text_bytes" that limit the total of pre,input and post.
   - and a "max_input_fragment_bytes" that is a harder limit for the input_fragment.
@@ -56,7 +56,7 @@ Here I put ideas that emerge.
 
 - [TODISCUSS] its should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
   - it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
-    Someone proposed me this idee, it seems nice and flexible:
+    Someone proposed me this idea, it seems nice and flexible:
     🎯 **Concept**
     You define a list of ordered rules.  
     Each rule has:
@@ -94,3 +94,6 @@ Here I put ideas that emerge.
     - `docs/drafts/reviewed/**/*.md` → **re‑included**  
     - `**/*.tmp.md` → **excluded**  
     - `keep/**/*.tmp.md` → **re‑included**
+- an idea could be to add customization yaml in the target folder, to control few things.
+  - the files to exclude (don't oppose with restriction at the workspace level, but add more locally)
+  - some hints to add to the translator, glossary, corrections, warnings, specific to files or folder.

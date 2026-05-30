@@ -110,11 +110,14 @@ To keep discussions useful over time, we should maintain two levels of documenta
 - `README.md` for project overview and entry points
 - documents in `docs/` for decisions, direction, architecture notes, and working agreements
 
+`docs/ideas-todo.md` complements those documents. It is the place for project-management backlog items that we want to keep visible without prematurely turning them into stable direction or active implementation scope.
+
 Recommended habit:
 
 - when we agree on a project direction, record it in `docs/`
 - when a decision changes how newcomers understand the project, reflect it in `README.md`
 - when a choice is temporary, mark it as the current step instead of presenting it as final architecture
+- when an idea is useful but deferred, capture it in `docs/ideas-todo.md` and keep the active slice documented separately
 
 ## Current Kernel Slice
 

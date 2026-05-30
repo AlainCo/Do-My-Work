@@ -16,6 +16,8 @@ Here I put ideas that emerge.
 - [DONE] In case of LLM technical exception (timeout) a way to retry should exist... maybe few retries (configurable in yaml), and anyway, if the command is relaunched, past failed job should be just forgotten, thus retried.
 - the time of LLM call should be displayed
 - maybe computing the average and why not variance of translation call should be computed
+- I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after... 
+- [URGENT] I've not observed trace/log for failed call (timeout), there should be one.
 
 ## task scheduling
 

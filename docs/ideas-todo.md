@@ -56,3 +56,41 @@ Here I put ideas that emerge.
 
 - [TODISCUSS] its should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
   - it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
+    Someone proposed me this idee, it seems nice and flexible:
+    🎯 **Concept**
+    You define a list of ordered rules.  
+    Each rule has:
+
+    - **match** — a glob pattern targeting `.md` files  
+    - **action** — `include` or `exclude`  
+    - **overrides** — more specific rules that override the parent  
+
+    The **most specific rule wins**.
+
+    🧱 **Minimal YAML**
+
+    ```yaml
+    rules:
+      - match: "docs/**/*.md"
+        action: include
+
+      - match: "docs/drafts/**/*.md"
+        action: exclude
+        overrides:
+          - match: "docs/drafts/reviewed/**/*.md"
+            action: include
+
+      - match: "**/*.tmp.md"
+        action: exclude
+        overrides:
+          - match: "keep/**/*.tmp.md"
+            action: include
+    ```
+
+    🧠 **Intended behavior**
+
+    - `docs/**/*.md` → **included**  
+    - `docs/drafts/**/*.md` → **excluded**  
+    - `docs/drafts/reviewed/**/*.md` → **re‑included**  
+    - `**/*.tmp.md` → **excluded**  
+    - `keep/**/*.tmp.md` → **re‑included**

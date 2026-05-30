@@ -7,7 +7,7 @@ llm:
       url: http://127.0.0.1:11434
       model: ministral-3:3b
       temperature: 0.0
-      timeout_seconds: 180.0
+      timeout_seconds: 240.0
       max_retries: 2
       max_pre_context_bytes: 1200
       max_post_context_bytes: 1200

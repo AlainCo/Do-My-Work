@@ -42,18 +42,26 @@ class OllamaMockChatBehavior(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class TranslatorChatBehavior:
-    system_keyword: str = "translator"
+    system_keyword_fr: str = "traducteur"
+    system_keyword_en: str = "translator"
+    
     pre_context_marker_start: str = "===BEGIN PREVIOUS CONTEXT===\n"
     pre_context_marker_end: str = "===END PREVIOUS CONTEXT===\n"
     marker_start: str = "===BEGIN SOURCE TEXT===\n"
     marker_end: str = "===END SOURCE TEXT===\n"
     post_context_marker_start: str = "===BEGIN FOLLOWING CONTEXT===\n"
     post_context_marker_end: str = "===END FOLLOWING CONTEXT===\n"
+    translation_hints_marker_start: str = "===BEGIN TRANSLATION HINTS===\n"
+    translation_hints_marker_end: str = "===END TRANSLATION HINTS===\n"
+    
     emotive_prefix: str = "Je suis emotif. "
 
     def matches(self, messages: list[MockChatMessage]) -> bool:
         for message in messages:
-            if message.role == "system" and self.system_keyword in message.content.lower():
+            if message.role == "system" and (
+                    self.system_keyword_en in message.content.lower()
+                    or self.system_keyword_fr in message.content.lower()
+                ):
                 return True
         return False
 
@@ -79,12 +87,26 @@ class TranslatorChatBehavior:
             self.post_context_marker_start,
             self.post_context_marker_end,
         )
+        
+        translation_hints = self._extract_marked_section(
+            messages,
+            self.translation_hints_marker_start,
+            self.translation_hints_marker_end,
+        )
 
         translated = source_text.upper()
-        if pre_context is None and post_context is None:
+        if pre_context is None and post_context is None and translation_hints is None:
             return translated
 
-        return f"({pre_context or ''}) {translated} ({post_context or ''})"
+        return (
+            f"{self._wrap_optional(pre_context, '(', ') ')}"
+            f"{self._wrap_optional(translation_hints, '<', '> ')}"
+            f"{translated}"
+            f"{self._wrap_optional(post_context, ' (', ')')}"
+        )
+
+    def _wrap_optional(self, value: str | None, prefix: str, suffix: str) -> str:
+        return "" if value is None else f"{prefix}{value}{suffix}"
 
     def _extract_marked_section(
         self,

@@ -138,6 +138,33 @@ def test_translator_chat_behavior_extracts_and_uppercases_source_text() -> None:
     ) == "(Contexte avant\n) BONJOUR MONDE\n (Contexte apres\n)"
 
 
+def test_translator_chat_behavior_renders_translation_hints_between_angle_brackets() -> None:
+    chat_behavior = TranslatorChatBehavior()
+
+    assert chat_behavior.render(
+        [
+            MockChatMessage(role="system", content="You are a translator."),
+            MockChatMessage(
+                role="user",
+                content=(
+                    "===BEGIN PREVIOUS CONTEXT===\n"
+                    "Contexte avant\n"
+                    "===END PREVIOUS CONTEXT===\n"
+                    "===BEGIN TRANSLATION HINTS===\n"
+                    "Indice metier\n"
+                    "===END TRANSLATION HINTS===\n"
+                    "===BEGIN SOURCE TEXT===\n"
+                    "Bonjour monde\n"
+                    "===END SOURCE TEXT===\n"
+                    "===BEGIN FOLLOWING CONTEXT===\n"
+                    "Contexte apres\n"
+                    "===END FOLLOWING CONTEXT===\n"
+                ),
+            ),
+        ]
+    ) == "(Contexte avant\n) <Indice metier\n> BONJOUR MONDE\n (Contexte apres\n)"
+
+
 def test_translator_chat_behavior_prefixes_output_when_temperature_is_high() -> None:
     chat_behavior = TranslatorChatBehavior()
 

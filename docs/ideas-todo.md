@@ -24,6 +24,7 @@ Here I put ideas that emerge.
 - why not showing the count of various task by state before scheduling a task. it can simply be don by increasing or decreasing totals (don't count), when task are created of state changed. Note taht we should only count actives task, useful for this run.
 - [URGENT] the hash of a translation task should depend on the content of the translation profile (except the url, the max_retries and the timeout), I imagine we will compute a hash of profile specification, so that all fragments that use a profile that has changed meaningfully, are retranslated next time.
 - [URGENT] What if we stored the JSON data for the tasks in a folder named according to the task type, like discover_translate_document_fragments/ etc.?
+- [URGENT] we should have a command just to clean the tasks in the workspace
 
 ## translation improvement
 

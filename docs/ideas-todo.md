@@ -62,6 +62,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] DOI URLs such as `https://doi.org/...` are now recognized in the easy case: the checker stores the DOI automatically in `references.index.yaml`, while the Markdown cross-reference continues to show any defined DOI as a clickable link without overwriting a manual value.
 - [DONE] HTML URL checks now extract a bounded `title` and a short plain-text preview excerpt, persist them in `references.index.yaml`, and render them in `references.index.md`. The current implementation prefers the raw HTML `title` and uses `trafilatura` for the preview text.
 - [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
+- [DONE]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
 
 ## managing LLM calls
 
@@ -78,7 +79,7 @@ Use the following markers when they help clarify priority or outcome:
   - evaluate whether a dedicated extraction library is warranted for cleaner article text
   - if control becomes necessary, add an option like `--preview-urls`
   - if control becomes necessary, add an option like `--preview-urls-lines=NNN`
-- [LATER]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
+
 - [LATER] [TODISCUSS] why not scrap PDF pages
   - feasibility is to be discussed
 

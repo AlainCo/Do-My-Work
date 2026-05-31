@@ -70,3 +70,11 @@ Use the following markers when they help clarify priority or outcome:
 - [SOON] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 
 ## files copy
+
+## spurious file
+
+- [SOON] Making a report with spurious files
+  - It is too dangerous to suppress generated files that no more are to be generated because the source have been deleted or renamed... it may be manually added files... however it should be useful to make a report at the root of the output, with the files that are in the output, but have no reason to be generated from the input. We only consider translated documents and copied resources (.index.md and .references.md will be managed manually)
+  - the way to detect them is to list the files in the output, and see if it could be a file to translate or a resource to copy in the input.
+  - the do-my-work.yaml file in the input should be used like for translation and copy
+  - we should add yaml configuration section for let's say "spurious_detection" in workspace and "spurious" in do-my-work.yaml , to manage the files that may be checked or not... the idea is that if some folder or files in the output are managed independently of do-my-work, ther will me marked as ignored/excluded, and  they will not be reported

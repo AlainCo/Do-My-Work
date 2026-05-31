@@ -42,6 +42,12 @@ class ChatRequest(BaseModel):
     stream: bool = False
     options: RequestOptions | None = None
 
+
+class OpenAiChatCompletionsRequest(BaseModel):
+    model: str
+    messages: list[MessagePayload]
+    temperature: float = 0.0
+
 class RequestLoggerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         body = await request.body()
@@ -111,6 +117,33 @@ def create_app(behavior: OllamaMockBehavior | None = None) -> "FastAPI":
             stream=request.stream,
             temperature=request.options.temperature if request.options else 0.0,
         )
+
+    @app.post("/v1/chat/completions")
+    def openai_chat_completions(request: OpenAiChatCompletionsRequest) -> dict[str, object]:
+        messages = [
+            MockChatMessage(role=message.role, content=message.content)
+            for message in request.messages
+        ]
+        response = active_behavior.chat(
+            model=request.model,
+            messages=messages,
+            stream=False,
+            temperature=request.temperature,
+        )
+        assistant_message = response["message"]
+        return {
+            "id": "chatcmpl-mock",
+            "object": "chat.completion",
+            "created": 0,
+            "model": request.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": assistant_message,
+                    "finish_reason": "stop",
+                }
+            ],
+        }
 
     return app
 

@@ -7,6 +7,11 @@ This note records how the project should host a mock Ollama server for local dev
 The purpose is not to ship a fake Ollama implementation as part of the product.
 The purpose is to test our HTTP integration layer against a realistic server surface without requiring a local Ollama install.
 
+Even though the file keeps the historical Ollama name, the same mock server now supports two provider-facing modes:
+
+- Ollama-style chat via `POST /api/chat`
+- OpenAI-style chat completions via `POST /v1/chat/completions`
+
 ## Position In The Repository
 
 The separation should stay explicit.
@@ -54,7 +59,7 @@ Responsibilities:
 
 - map requests to behavior calls
 - validate request shapes
-- return Ollama-like JSON payloads
+- return provider-appropriate JSON payloads
 
 ## Installation
 
@@ -100,6 +105,22 @@ Or with Uvicorn factory mode:
 
 The default port matches the usual Ollama port so the future client can point to a remote or mock server with minimal configuration changes.
 
+With the current provider-aware translator profiles, that means the same local mock can be used in two YAML shapes:
+
+```yaml
+llm:
+	translator:
+		technical-ollama:
+			api: ollama
+			url: http://127.0.0.1:11434
+			model: ollama-mock
+
+		technical-openai:
+			api: openai
+			url: http://127.0.0.1:11434/v1
+			model: ollama-mock
+```
+
 ## Current Scope
 
 The first mock surface is intentionally small.
@@ -110,5 +131,6 @@ Implemented endpoint targets:
 - `GET /api/tags`
 - `POST /api/generate`
 - `POST /api/chat`
+- `POST /v1/chat/completions`
 
-That is enough to start validating the network adapter and the request and response plumbing.
+That is enough to start validating both provider adapters and the request and response plumbing.

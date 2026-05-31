@@ -7,6 +7,8 @@ This note explains what Ollama means for this repository, how it relates to the 
 In our project, Ollama is the local LLM server used by translation profiles under `llm.translator` in `workspace.yaml`.
 Do My Work sends translation requests to that HTTP server.
 
+Internally, the application no longer treats this layer as Ollama-only: the translation client code is provider-aware, and the profile `api` field selects the concrete adapter.
+
 The important point is that the repository does not hard-code one model or one prompt.
 The workflow is configurable through YAML:
 
@@ -52,6 +54,9 @@ Use this when:
 The mock output is intentionally ugly and unrealistic.
 That is normal.
 Its purpose is only to test that the application can talk to an Ollama-like server and complete the workflow.
+
+The same mock server now also exposes an OpenAI-compatible `POST /v1/chat/completions` endpoint.
+That lets provider-specific client tests reuse the same deterministic behavior layer.
 
 In this repository, the checked-in example config currently points to `ollama-mock`, which makes sense for development and enterprise-restricted environments.
 

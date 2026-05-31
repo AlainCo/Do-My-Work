@@ -71,7 +71,7 @@ from do_my_work.infrastructure.markdown_reference_report import (
     render_markdown_reference_report,
     render_tree_markdown_reference_report,
 )
-from do_my_work.infrastructure.ollama_client import (
+from do_my_work.infrastructure.llm_client import (
     AbstractLlmClient,
     LlmCallTimingSummary,
     UnsupportedLlmProviderError,

@@ -80,7 +80,7 @@ def test_workflow_engine_logs_when_failed_translation_is_retried(
     input_dir.mkdir(parents=True)
     (input_dir / "note.md").write_text("# Intro\n\nAlpha beta.\n", encoding="utf-8")
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     call_count = {"value": 0}
 
@@ -92,7 +92,7 @@ def test_workflow_engine_logs_when_failed_translation_is_retried(
         return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         flaky_translate_fragment,
     )
@@ -153,14 +153,14 @@ def test_workflow_engine_logs_timeout_failure_details(
     input_dir.mkdir(parents=True)
     (input_dir / "note.md").write_text("# Intro\n\nAlpha beta.\n", encoding="utf-8")
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     def timeout_translate_fragment(self, config, profile_name, parameters):
         del self, config, profile_name, parameters
         raise httpx.ReadTimeout("temporary timeout")
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         timeout_translate_fragment,
     )
@@ -215,7 +215,7 @@ def test_workflow_engine_logs_http_status_code_when_failed_translation_is_retrie
     input_dir.mkdir(parents=True)
     (input_dir / "note.md").write_text("# Intro\n\nAlpha beta.\n", encoding="utf-8")
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     call_count = {"value": 0}
 
@@ -237,7 +237,7 @@ def test_workflow_engine_logs_http_status_code_when_failed_translation_is_retrie
         return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         flaky_translate_fragment,
     )

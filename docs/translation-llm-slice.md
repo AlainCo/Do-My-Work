@@ -15,7 +15,7 @@ Before adding new workflow task kinds, we need a stable answer for:
 
 - how translator profiles are configured
 - how prompts are rendered
-- how the application talks to an Ollama-compatible HTTP endpoint
+- how the application talks to a provider-specific HTTP endpoint
 - how the same code can target a local server, a mock server, or a remote server
 
 This makes the client and config slice a good prerequisite.
@@ -43,6 +43,7 @@ Example:
 llm:
   translator:
     technical:
+      api: ollama
       url: http://127.0.0.1:11434
       model: qwen2.5:7b
       credential:
@@ -66,9 +67,10 @@ llm:
         ${post_context}
 
     emotional:
-      url: http://127.0.0.1:11434
-      model: qwen2.5:7b
-      credential:
+      api: openai
+      url: https://api.openai.com/v1
+      credential: ${OPENAI_API_KEY}
+      model: gpt-4.1-mini
       timeout_seconds: 180.0
       max_retries: 2
       max_pre_context_bytes: 0
@@ -89,7 +91,15 @@ llm:
         ${post_context}
 ```
 
-This keeps the configuration explicit without becoming abstract too early.
+The key point is that the profile now declares the provider explicitly through `api`.
+An Ollama profile targets `/api/chat`, while an OpenAI profile targets `/chat/completions` from the configured base URL.
+
+For local development, the project mock server can exercise both modes:
+
+- `api: ollama` with `url: http://127.0.0.1:11434`
+- `api: openai` with `url: http://127.0.0.1:11434/v1`
+
+This keeps one deterministic mock behavior layer while validating both HTTP adapters.
 
 ## Prompt Templates
 
@@ -111,8 +121,8 @@ The initial client should be able to:
 
 1. load one named translator profile
 2. render the system and user prompts from named parameters
-3. call `/api/chat` on the configured Ollama-compatible server
-4. pass the configured model, timeout, retry policy, optional neighbor context, and temperature
+3. select the concrete HTTP adapter from the configured `api` field
+4. call the provider-specific chat endpoint with the configured model, timeout, retry policy, optional neighbor context, and temperature
 5. optionally send a bearer credential when configured
 6. return the assistant message content as the translated fragment text
 
@@ -136,7 +146,7 @@ This preserves the same task-expansion and merge pattern, without keeping the ol
 The current scope for this slice is now implemented for a first teaching path:
 
 - typed translator profile configuration under `WorkspaceConfig`
-- an Ollama-compatible HTTP client adapter
+- a provider-aware HTTP client layer with concrete Ollama and OpenAI adapters
 - prompt rendering with named placeholders
 - a first fragment translation workflow command using the `technical` profile
 - focused tests for configuration loading, request construction, and translation workflow behavior

@@ -154,6 +154,33 @@ Translation review behavior:
 - the chunks are the same translation units that were sent to the model, which may contain more than one atomic Markdown fragment when chunk grouping is enabled
 - `workspace.yaml` can define `translation_review.translated_first: true` when you want the translated column shown before the original column
 
+Translator provider configuration:
+
+- each profile under `llm.translator` can declare `api: ollama` or `api: openai`
+- `api` defaults to `ollama` when omitted
+- both providers reuse the same prompt templating fields: `system_prompt`, `user_prompt`, `temperature`, `timeout_seconds`, and `max_retries`
+- internally, the translation HTTP adapters now live behind one provider-neutral LLM client layer rather than an Ollama-only module name
+
+Example profiles:
+
+```yaml
+llm:
+  translator:
+    technical-local:
+      api: ollama
+      url: http://127.0.0.1:11434
+      model: ollama-mock
+      system_prompt: You are a professional translator from french to english.
+      user_prompt: ${input_fragment}
+    technical-openai:
+      api: openai
+      url: https://api.openai.com/v1
+      credential: ${OPENAI_API_KEY}
+      model: gpt-4.1-mini
+      system_prompt: You are a professional translator from french to english.
+      user_prompt: ${input_fragment}
+```
+
 ### `reference-index-tree`
 
 Use this command to generate Markdown reference reports from the selected input tree.

@@ -32,6 +32,7 @@ resource_selection:
 llm:
   translator:
     technical:
+      api: ollama
       url: http://127.0.0.1:11434
       model: ministral-3:3b
       temperature: 0.0

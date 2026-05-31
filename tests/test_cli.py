@@ -794,10 +794,10 @@ def test_translate_document_tree_command_translates_markdown_fragments(
         encoding="utf-8",
     )
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: (
             self._record_attempt_duration(1.0),
@@ -862,10 +862,10 @@ def test_translate_document_tree_command_writes_review_html_when_requested(
         encoding="utf-8",
     )
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: (
             self._record_attempt_duration(1.0),
@@ -928,7 +928,7 @@ def test_translate_document_tree_command_adds_review_on_later_run_without_retran
         encoding="utf-8",
     )
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     translation_call_count = 0
 
@@ -939,7 +939,7 @@ def test_translate_document_tree_command_adds_review_on_later_run_without_retran
         return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         fake_translate_fragment,
     )
@@ -1014,7 +1014,7 @@ def test_translate_document_tree_command_reorders_review_columns_without_retrans
         encoding="utf-8",
     )
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     translation_call_count = 0
 
@@ -1025,7 +1025,7 @@ def test_translate_document_tree_command_reorders_review_columns_without_retrans
         return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         fake_translate_fragment,
     )
@@ -1128,7 +1128,7 @@ def test_translate_document_tree_command_rerenders_local_header_footer_without_r
         encoding="utf-8",
     )
 
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     translation_call_count = 0
 
@@ -1139,7 +1139,7 @@ def test_translate_document_tree_command_rerenders_local_header_footer_without_r
         return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         fake_translate_fragment,
     )

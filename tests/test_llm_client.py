@@ -4,12 +4,14 @@ import httpx
 import pytest
 
 from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig, WorkspaceConfig
-from do_my_work.infrastructure.ollama_client import (
+from do_my_work.infrastructure.llm_client import (
     AbstractLlmClient,
     LlmCallTimingSummary,
+    LlmChatMessage,
+    OpenAiLlmClient,
+    OpenAiLlmResponseError,
     OllamaLlmClient,
-    OllamaChatClient,
-    OllamaResponseError,
+    OllamaLlmResponseError,
     PromptTemplateParameterError,
     TranslatorProfileNotFoundError,
     UnsupportedLlmProviderError,
@@ -55,7 +57,7 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint(c
         )
     )
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
-    client = OllamaChatClient(http_client=http_client)
+    client = OllamaLlmClient(http_client=http_client)
 
     with caplog.at_level("INFO"):
         result = client.translate_fragment(
@@ -102,9 +104,154 @@ def test_build_llm_client_returns_ollama_client_for_ollama_provider() -> None:
     client.close()
 
 
+def test_render_translator_request_uses_provider_neutral_message_type() -> None:
+    config = WorkspaceConfig(
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="mock-llama",
+                    system_prompt="You are a translator.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        )
+    )
+
+    request = OllamaLlmClient(
+        http_client=httpx.Client(transport=httpx.MockTransport(_unused))
+    ).render_translator_request(
+        config=config,
+        profile_name="technical",
+        parameters={"input_fragment": "Bonjour monde"},
+    )
+
+    assert request.messages == [
+        LlmChatMessage(role="system", content="You are a translator."),
+        LlmChatMessage(role="user", content="Bonjour monde"),
+    ]
+
+
+def test_build_llm_client_returns_openai_client_for_openai_provider() -> None:
+    client = build_llm_client("openai")
+
+    assert isinstance(client, AbstractLlmClient)
+    assert isinstance(client, OpenAiLlmClient)
+    client.close()
+
+
 def test_build_llm_client_raises_for_unsupported_provider() -> None:
-    with pytest.raises(UnsupportedLlmProviderError, match="openai"):
-        build_llm_client("openai")
+    with pytest.raises(UnsupportedLlmProviderError, match="anthropic"):
+        build_llm_client("anthropic")
+
+
+def test_openai_client_renders_translator_prompts_and_calls_chat_completions_endpoint(
+    caplog,
+) -> None:
+    captured_request: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_request["url"] = str(request.url)
+        captured_request["authorization"] = request.headers.get("Authorization")
+        captured_request["timeout"] = request.extensions["timeout"]
+        captured_request["payload"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "BONJOUR OPENAI",
+                        }
+                    }
+                ]
+            },
+        )
+
+    config = WorkspaceConfig(
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    api="openai",
+                    url="https://api.openai.example/v1",
+                    model="gpt-4.1-mini",
+                    credential="secret-token",
+                    timeout_seconds=42.5,
+                    temperature=0.3,
+                    system_prompt="You are a translator.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${input_fragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        )
+    )
+    client = OpenAiLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    with caplog.at_level("INFO"):
+        result = client.translate_fragment(
+            config=config,
+            profile_name="technical",
+            parameters={"input_fragment": "Bonjour monde"},
+        )
+
+    assert result == "BONJOUR OPENAI"
+    assert captured_request["url"] == "https://api.openai.example/v1/chat/completions"
+    assert captured_request["authorization"] == "Bearer secret-token"
+    assert captured_request["timeout"] == {
+        "connect": 42.5,
+        "read": 42.5,
+        "write": 42.5,
+        "pool": 42.5,
+    }
+    assert captured_request["payload"] == {
+        "model": "gpt-4.1-mini",
+        "messages": [
+            {"role": "system", "content": "You are a translator."},
+            {
+                "role": "user",
+                "content": (
+                    "===BEGIN SOURCE TEXT===\n"
+                    "Bonjour monde\n"
+                    "===END SOURCE TEXT===\n"
+                ),
+            },
+        ],
+        "temperature": 0.3,
+    }
+    assert "LLM call completed:" in caplog.text
+    assert "profile=technical" in caplog.text
+
+
+def test_openai_client_raises_when_response_has_no_choice_message_content() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(200, json={"choices": [{}]})
+
+    config = WorkspaceConfig(
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    api="openai",
+                    url="https://api.openai.example/v1",
+                    model="gpt-4.1-mini",
+                    system_prompt="You are a translator.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        )
+    )
+    client = OpenAiLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    with pytest.raises(OpenAiLlmResponseError, match="Missing OpenAI chat completion"):
+        client.translate_fragment(
+            config=config,
+            profile_name="technical",
+            parameters={"input_fragment": "Bonjour monde"},
+        )
 
 
 def test_ollama_chat_client_retries_timeout_and_eventually_succeeds(caplog) -> None:
@@ -133,7 +280,7 @@ def test_ollama_chat_client_retries_timeout_and_eventually_succeeds(caplog) -> N
             }
         )
     )
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
     with caplog.at_level("INFO"):
         result = client.translate_fragment(
@@ -151,7 +298,7 @@ def test_ollama_chat_client_retries_timeout_and_eventually_succeeds(caplog) -> N
 
 
 def test_ollama_chat_client_computes_average_and_variance_from_attempt_durations() -> None:
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
 
     client._record_attempt_duration(1.0)
     client._record_attempt_duration(3.0)
@@ -189,7 +336,7 @@ def test_ollama_chat_client_retries_server_error_and_eventually_succeeds() -> No
             }
         )
     )
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
     result = client.translate_fragment(
         config=config,
@@ -221,7 +368,7 @@ def test_ollama_chat_client_does_not_retry_client_error() -> None:
             }
         )
     )
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
     with pytest.raises(httpx.HTTPStatusError, match="400 Bad Request"):
         client.translate_fragment(
@@ -234,7 +381,7 @@ def test_ollama_chat_client_does_not_retry_client_error() -> None:
 
 
 def test_ollama_chat_client_raises_when_translator_profile_is_missing() -> None:
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
 
     with pytest.raises(TranslatorProfileNotFoundError, match="technical"):
         client.translate_fragment(
@@ -257,7 +404,7 @@ def test_ollama_chat_client_raises_when_template_parameter_is_missing() -> None:
             }
         )
     )
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(_unused)))
 
     with pytest.raises(PromptTemplateParameterError, match="language"):
         client.translate_fragment(
@@ -284,9 +431,9 @@ def test_ollama_chat_client_raises_when_response_has_no_message_content() -> Non
             }
         )
     )
-    client = OllamaChatClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = OllamaLlmClient(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-    with pytest.raises(OllamaResponseError, match="Missing Ollama chat response content"):
+    with pytest.raises(OllamaLlmResponseError, match="Missing Ollama chat response content"):
         client.translate_fragment(
             config=config,
             profile_name="technical",

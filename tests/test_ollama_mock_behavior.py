@@ -220,3 +220,48 @@ def test_create_app_explains_how_to_install_fastapi_when_missing() -> None:
     app = create_app()
 
     assert app.title == "FastAPI"
+
+
+def test_create_app_exposes_openai_chat_completions_endpoint() -> None:
+    if importlib.util.find_spec("fastapi") is None:
+        pytest.skip("FastAPI is not installed")
+
+    fastapi_testclient = pytest.importorskip("fastapi.testclient")
+    client = fastapi_testclient.TestClient(create_app())
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "mock-llama",
+            "messages": [
+                {"role": "system", "content": "You are a translator."},
+                {
+                    "role": "user",
+                    "content": (
+                        "===BEGIN SOURCE TEXT===\n"
+                        "Bonjour monde\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                },
+            ],
+            "temperature": 0.0,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": "chatcmpl-mock",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "mock-llama",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "BONJOUR MONDE\n",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+    }

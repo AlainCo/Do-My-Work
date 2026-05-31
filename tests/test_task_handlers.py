@@ -38,7 +38,7 @@ from do_my_work.domain.models import (
     WorkspaceConfig,
 )
 from do_my_work.infrastructure.json_workflow_store import JsonTaskRepository
-from do_my_work.infrastructure.ollama_client import OllamaChatClient
+from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
 
 def _escape_pdf_text(value: str) -> str:
@@ -1274,7 +1274,7 @@ def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Pa
         ),
     )
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
-    llm_client = OllamaChatClient(http_client=http_client)
+    llm_client = OllamaLlmClient(http_client=http_client)
     record = TaskRecord(
         task_key="task:translate_fragment:abc",
         spec=TranslateFragmentTaskSpec(
@@ -1552,7 +1552,7 @@ def test_translate_fragment_handler_marks_timeout_as_failed(tmp_path: Path) -> N
         ),
     )
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
-    llm_client = OllamaChatClient(http_client=http_client)
+    llm_client = OllamaLlmClient(http_client=http_client)
     record = TaskRecord(
         task_key="task:translate_fragment:timeout",
         spec=TranslateFragmentTaskSpec(
@@ -1598,7 +1598,7 @@ def test_translate_fragment_handler_marks_http_status_error_as_failed(
         ),
     )
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
-    llm_client = OllamaChatClient(http_client=http_client)
+    llm_client = OllamaLlmClient(http_client=http_client)
     record = TaskRecord(
         task_key="task:translate_fragment:http-status",
         spec=TranslateFragmentTaskSpec(
@@ -1646,7 +1646,7 @@ def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path
         ),
     )
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
-    llm_client = OllamaChatClient(http_client=http_client)
+    llm_client = OllamaLlmClient(http_client=http_client)
     record = TaskRecord(
         task_key="task:translate_fragment:request-error",
         spec=TranslateFragmentTaskSpec(
@@ -1669,9 +1669,36 @@ def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path
     assert result.updated_record.outcome.error_category == "request_error"
 
 
-def test_translate_fragment_handler_marks_unsupported_provider_as_failed(
+def test_translate_fragment_handler_uses_openai_provider_client(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    class FakeOpenAiClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict[str, object]]] = []
+
+        def translate_fragment(self, config, profile_name, parameters):
+            del config
+            self.calls.append((profile_name, parameters))
+            return "BONJOUR MONDE."
+
+        def get_attempt_durations(self):
+            return []
+
+        def close(self) -> None:
+            return None
+
+    fake_client = FakeOpenAiClient()
+
+    def fake_build_llm_client(api: str):
+        assert api == "openai"
+        return fake_client
+
+    monkeypatch.setattr(
+        "do_my_work.application.task_handlers.build_llm_client",
+        fake_build_llm_client,
+    )
+
     config = WorkspaceConfig(
         input_dir=tmp_path / "input",
         output_dir=tmp_path / "output",
@@ -1690,13 +1717,13 @@ def test_translate_fragment_handler_marks_unsupported_provider_as_failed(
         ),
     )
     record = TaskRecord(
-        task_key="task:translate_fragment:unsupported-provider",
+        task_key="task:translate_fragment:openai-provider",
         spec=TranslateFragmentTaskSpec(
             document_relative_path=Path("note.md"),
             fragment_kind="paragraph",
             heading_path=["Intro"],
             text="Bonjour monde.",
-            fragment_digest="sha256:frag-unsupported-provider",
+            fragment_digest="sha256:frag-openai-provider",
             profile_name="technical",
             profile_digest="sha256:profile",
         ),
@@ -1704,11 +1731,24 @@ def test_translate_fragment_handler_marks_unsupported_provider_as_failed(
 
     result = TranslateFragmentTaskHandler().handle(record, config)
 
-    assert result.updated_record.status == TaskStatus.FAILED
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
     assert result.updated_record.outcome is not None
-    assert result.updated_record.outcome.message == "LLM translation configuration failed."
-    assert result.updated_record.outcome.error == "Unsupported LLM API provider: openai"
-    assert result.updated_record.outcome.error_category == "configuration"
+    assert result.updated_record.outcome.message == "Fragment translated."
+    assert result.updated_record.outcome.result == TranslatedFragmentResult(
+        translated_text="BONJOUR MONDE.",
+        length=14,
+    )
+    assert fake_client.calls == [
+        (
+            "technical",
+            {
+                "input_fragment": "Bonjour monde.",
+                "pre_context": "",
+                "post_context": "",
+                "translation_hints": "",
+            },
+        )
+    ]
 
 
 def test_merge_translated_fragments_handler_writes_translated_document(tmp_path: Path) -> None:

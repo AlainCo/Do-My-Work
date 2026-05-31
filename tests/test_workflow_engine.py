@@ -547,10 +547,10 @@ def test_workflow_engine_applies_local_translation_profile_and_exclusion(
     )
 
     from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: (
             f"[{profile_name}]"
@@ -655,10 +655,10 @@ def test_workflow_engine_recreates_translation_tasks_when_local_hints_change(
     )
 
     from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: (
             self._record_attempt_duration(1.0),
@@ -731,7 +731,7 @@ def test_workflow_engine_rerenders_translation_when_local_header_footer_change(
     )
 
     from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     translate_call_count = 0
 
@@ -741,7 +741,7 @@ def test_workflow_engine_rerenders_translation_when_local_header_footer_change(
         self._record_attempt_duration(1.0)
         return str(parameters["input_fragment"]).upper()
 
-    monkeypatch.setattr(OllamaChatClient, "translate_fragment", translate_fragment)
+    monkeypatch.setattr(OllamaLlmClient, "translate_fragment", translate_fragment)
 
     config = WorkspaceConfig(
         input_dir=input_dir,
@@ -814,10 +814,10 @@ def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     )
 
     from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: (
             self._record_attempt_duration(1.0),
@@ -907,10 +907,10 @@ def test_workflow_engine_applies_workspace_file_selection_to_translation(
         LlmConfig,
         TranslatorProfileConfig,
     )
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
     )
@@ -977,10 +977,10 @@ def test_workflow_engine_applies_double_star_root_pattern_to_root_markdown_trans
         LlmConfig,
         TranslatorProfileConfig,
     )
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
     )
@@ -1045,10 +1045,10 @@ def test_workflow_engine_translates_selected_txt_documents(
         LlmConfig,
         TranslatorProfileConfig,
     )
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
     )
@@ -1109,7 +1109,7 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
     )
 
     from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     call_count = {"value": 0}
 
@@ -1121,7 +1121,7 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
         return str(parameters["input_fragment"]).upper()
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         flaky_translate_fragment,
     )
@@ -1184,10 +1184,10 @@ def test_workflow_engine_rerenders_translated_document_when_header_changes(
     )
 
     from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
-    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
 
     monkeypatch.setattr(
-        OllamaChatClient,
+        OllamaLlmClient,
         "translate_fragment",
         lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
     )

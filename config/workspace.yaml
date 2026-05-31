@@ -1,6 +1,8 @@
 input_dir: work/input
 output_dir: work/output
 data_dir: work/data
+reference_index:
+  max_pdf_bytes: 8388608
 file_selection:
   default_action: exclude
   rules:

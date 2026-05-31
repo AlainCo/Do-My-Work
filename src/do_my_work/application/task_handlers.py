@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from hashlib import sha256
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -534,7 +535,6 @@ class CheckReferenceUrlTaskHandler:
         return self._owned_http_client
 
     def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
-        del config
         spec = record.spec
         if not isinstance(spec, CheckReferenceUrlTaskSpec):
             raise TypeError("URL checker requires a CheckReferenceUrlTaskSpec")
@@ -548,7 +548,26 @@ class CheckReferenceUrlTaskHandler:
                 timeout=20.0,
                 headers={"Accept": "text/html,*/*", "Range": f"bytes=0-{_HTML_PREVIEW_BYTE_LIMIT - 1}"},
             ) as response:
-                html_title, html_excerpt, html_doi = _extract_html_preview(response)
+                html_title = None
+                html_excerpt = None
+                html_doi = ""
+                pdf_title = None
+                pdf_author = None
+                pdf_subject = None
+                pdf_preview_status = None
+                pdf_preview_max_bytes = None
+                pdf_excerpt = None
+                if not response.is_error and _response_looks_like_pdf(response, spec.url):
+                    (
+                        pdf_title,
+                        pdf_author,
+                        pdf_subject,
+                        pdf_preview_status,
+                        pdf_preview_max_bytes,
+                        pdf_excerpt,
+                    ) = _extract_pdf_preview(client, spec.url, config.reference_index.max_pdf_bytes)
+                else:
+                    html_title, html_excerpt, html_doi = _extract_html_preview(response)
                 result = ReferenceUrlCheckResult(
                     url=spec.url,
                     checked_at=_build_checked_at_timestamp(),
@@ -563,6 +582,12 @@ class CheckReferenceUrlTaskHandler:
                     reason_phrase=response.reason_phrase or None,
                     html_title=html_title,
                     html_excerpt=html_excerpt,
+                    pdf_title=pdf_title,
+                    pdf_author=pdf_author,
+                    pdf_subject=pdf_subject,
+                    pdf_preview_status=pdf_preview_status,
+                    pdf_preview_max_bytes=pdf_preview_max_bytes,
+                    pdf_excerpt=pdf_excerpt,
                 )
                 if response.is_error:
                     return TaskHandlerResult(
@@ -1260,6 +1285,12 @@ def _merge_reference_index_sidecar(
                 updated_entry.reason_phrase = result.reason_phrase
                 updated_entry.html_title = result.html_title
                 updated_entry.html_excerpt = result.html_excerpt
+                updated_entry.pdf_title = result.pdf_title
+                updated_entry.pdf_author = result.pdf_author
+                updated_entry.pdf_subject = result.pdf_subject
+                updated_entry.pdf_preview_status = result.pdf_preview_status
+                updated_entry.pdf_preview_max_bytes = result.pdf_preview_max_bytes
+                updated_entry.pdf_excerpt = result.pdf_excerpt
 
         merged_entries.append(updated_entry)
 
@@ -1270,8 +1301,6 @@ _HTML_PREVIEW_BYTE_LIMIT = 64 * 1024
 _HTML_PREVIEW_TEXT_WIDTH = 100
 _HTML_PREVIEW_MAX_LINES = 3
 _HTML_PREVIEW_MAX_TEXT_CHARS = 600
-
-
 def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | None, str]:
     content_type = (response.headers.get("content-type") or "").lower()
     if "html" not in content_type:
@@ -1289,23 +1318,125 @@ def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | N
     return title, excerpt, doi
 
 
+def _response_looks_like_pdf(response: httpx.Response, request_url: str) -> bool:
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "application/pdf" in content_type:
+        return True
+    if content_type and "html" in content_type:
+        return False
+
+    resolved_filename = (_resolve_reference_url_filename(request_url, response) or "").lower()
+    if resolved_filename.endswith(".pdf"):
+        return True
+
+    normalized_url = str(response.url).split("?", 1)[0].split("#", 1)[0].lower()
+    return normalized_url.endswith(".pdf")
+
+
+def _extract_pdf_preview(
+    client: httpx.Client,
+    url: str,
+    max_pdf_bytes: int,
+) -> tuple[str | None, str | None, str | None, str | None, int | None, str | None]:
+    try:
+        with client.stream(
+            "GET",
+            url,
+            follow_redirects=True,
+            timeout=20.0,
+            headers={"Accept": "application/pdf,*/*"},
+        ) as response:
+            if response.is_error or not _response_looks_like_pdf(response, url):
+                return None, None, None, None, None, None
+            size_hint = _extract_response_size_hint(response)
+            if size_hint is not None and size_hint > max_pdf_bytes:
+                return None, None, None, "skipped_due_to_size_limit", max_pdf_bytes, None
+            payload, truncated = _read_limited_response_bytes_with_overflow(response, max_pdf_bytes)
+    except httpx.RequestError:
+        return None, None, None, None, None, None
+
+    if not payload:
+        return None, None, None, None, None, None
+
+    if truncated:
+        return None, None, None, "skipped_due_to_size_limit", max_pdf_bytes, None
+
+    pdf_title, pdf_author, pdf_subject, pdf_excerpt = _extract_pdf_preview_from_bytes(payload)
+    return pdf_title, pdf_author, pdf_subject, None, None, pdf_excerpt
+
+
+def _extract_pdf_preview_from_bytes(
+    payload: bytes,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(BytesIO(payload))
+    except Exception:
+        return None, None, None, None
+
+    metadata = reader.metadata
+    pdf_title = _normalize_pdf_metadata_value(getattr(metadata, "title", None))
+    pdf_author = _normalize_pdf_metadata_value(getattr(metadata, "author", None))
+    pdf_subject = _normalize_pdf_metadata_value(getattr(metadata, "subject", None))
+
+    pdf_excerpt = None
+    if reader.pages:
+        try:
+            pdf_excerpt = _format_pdf_excerpt(reader.pages[0].extract_text())
+        except Exception:
+            pdf_excerpt = None
+
+    return pdf_title, pdf_author, pdf_subject, pdf_excerpt
+
+
 def _read_limited_response_bytes(response: httpx.Response, limit: int) -> bytes:
+    payload, _ = _read_limited_response_bytes_with_overflow(response, limit)
+    return payload
+
+
+def _read_limited_response_bytes_with_overflow(
+    response: httpx.Response,
+    limit: int,
+) -> tuple[bytes, bool]:
     buffer = bytearray()
+    truncated = False
 
     for chunk in response.iter_bytes():
         if not chunk:
             continue
         remaining = limit - len(buffer)
         if remaining <= 0:
+            truncated = True
             break
-        buffer.extend(chunk[:remaining])
+        if len(chunk) > remaining:
+            buffer.extend(chunk[:remaining])
+            truncated = True
+            break
+        buffer.extend(chunk)
         if len(buffer) >= limit:
-            break
+            continue
 
-    return bytes(buffer)
+    return bytes(buffer), truncated
 
 
-def _format_html_excerpt(text: str) -> str | None:
+def _extract_response_size_hint(response: httpx.Response) -> int | None:
+    content_range = response.headers.get("content-range")
+    if content_range:
+        match = re.match(r"^bytes\s+\d+-\d+/(?P<total>\d+|\*)$", content_range.strip())
+        if match is not None and match.group("total") != "*":
+            return int(match.group("total"))
+
+    content_length = response.headers.get("content-length")
+    if content_length is None:
+        return None
+    try:
+        return int(content_length)
+    except ValueError:
+        return None
+
+
+def _format_preview_excerpt(text: str) -> str | None:
     normalized = " ".join(text.split())
     if not normalized:
         return None
@@ -1315,6 +1446,12 @@ def _format_html_excerpt(text: str) -> str | None:
     if not wrapped:
         return None
     return "\n".join(wrapped[:_HTML_PREVIEW_MAX_LINES])
+
+
+def _format_pdf_excerpt(text: str | None) -> str | None:
+    if text is None:
+        return None
+    return _format_preview_excerpt(text)
 
 
 def _extract_html_excerpt(html: str, url: str) -> str | None:
@@ -1328,7 +1465,7 @@ def _extract_html_excerpt(html: str, url: str) -> str | None:
     )
     if extracted_text is None:
         return None
-    return _format_html_excerpt(extracted_text)
+    return _format_preview_excerpt(extracted_text)
 
 
 def _extract_html_title(html: str, url: str) -> str | None:
@@ -1362,6 +1499,13 @@ def _extract_html_title_fallback(html: str) -> str | None:
     if match is None:
         return None
     normalized = " ".join(match.group(1).split()).strip()
+    return normalized or None
+
+
+def _normalize_pdf_metadata_value(value: object | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(str(value).split()).strip()
     return normalized or None
 
 

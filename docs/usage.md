@@ -181,6 +181,7 @@ Main options:
 Notes:
 
 - this command indexes selected Markdown source documents
+- `workspace.yaml` can define `reference_index.max_pdf_bytes` to cap how much PDF content the URL checker is allowed to download and inspect for metadata and first-page text
 - generated reference reports are not re-indexed as new inputs when `--report-to-input` is used
 - local `do-my-work.yaml` files can exclude files through `reference_index` rules
 - when `--check-urls` is enabled, the root `references.index.md` report adds the HTTP status, content type, and a probable filename for each checked URL
@@ -191,6 +192,7 @@ Notes:
 - when `doi` is set in `references.index.yaml`, whether manually or automatically, the Markdown report shows it as a clickable DOI link
 - when a checked URL goes through one or more HTTP redirects, the checker stores the last observed `Location` target in `references.index.yaml` and shows it in the Markdown cross-reference
 - for successful HTML responses, the checker now stores a bounded HTML title and a short plain-text preview excerpt in `references.index.yaml` and shows them in `references.index.md`
+- for successful PDF responses, the checker now tries to store PDF metadata such as title, author, and subject, plus a bounded plain-text excerpt from the first page when the PDF contains embedded text, but only up to `reference_index.max_pdf_bytes`
 - proxy configuration follows the usual environment variables such as `http_proxy` and `https_proxy`
 - HTTPS certificate validation is currently disabled for URL checks so the feature still works on machines without a configured trust store
 - URL check errors such as TLS failures, timeouts, or HTTP error codes are reported in the cross-reference as normal results and do not make the workflow fail

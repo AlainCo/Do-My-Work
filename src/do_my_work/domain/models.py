@@ -20,6 +20,9 @@ class WorkspaceConfig(BaseModel):
     input_dir: Path = Field(default=Path("work/input"))
     output_dir: Path = Field(default=Path("work/output"))
     data_dir: Path = Field(default=Path("work/data"))
+    reference_index: "ReferenceIndexConfig" = Field(
+        default_factory=lambda: ReferenceIndexConfig()
+    )
     file_selection: "FileSelectionConfig" = Field(default_factory=lambda: FileSelectionConfig())
     resource_selection: "FileSelectionConfig" = Field(
         default_factory=lambda: FileSelectionConfig(default_action="exclude")
@@ -42,6 +45,12 @@ class FileSelectionConfig(BaseModel):
 
     default_action: Literal["include", "exclude"] = "include"
     rules: list[FileSelectionRule] = Field(default_factory=list)
+
+
+class ReferenceIndexConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_pdf_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
 
 
 class LocalTranslationRule(BaseModel):
@@ -185,6 +194,12 @@ class ReferenceUrlCheckResult(BaseModel):
     reason_phrase: str | None = None
     html_title: str | None = None
     html_excerpt: str | None = None
+    pdf_title: str | None = None
+    pdf_author: str | None = None
+    pdf_subject: str | None = None
+    pdf_preview_status: str | None = None
+    pdf_preview_max_bytes: int | None = None
+    pdf_excerpt: str | None = None
 
 
 class ReferenceUrlOccurrence(BaseModel):
@@ -212,6 +227,12 @@ class ReferenceUrlIndexEntry(BaseModel):
     reason_phrase: str | None = None
     html_title: str | None = None
     html_excerpt: str | None = None
+    pdf_title: str | None = None
+    pdf_author: str | None = None
+    pdf_subject: str | None = None
+    pdf_preview_status: str | None = None
+    pdf_preview_max_bytes: int | None = None
+    pdf_excerpt: str | None = None
     references: list[ReferenceUrlOccurrence] = Field(default_factory=list)
 
 

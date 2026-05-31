@@ -161,6 +161,18 @@ def _render_url_check_lines(entry: ReferenceUrlIndexEntry) -> list[str]:
         lines.append(f"- DOI: [{normalized_doi}]({_build_doi_link(normalized_doi)})")
     if entry.html_title:
         lines.append(f"- HTML Title: {entry.html_title}")
+    if entry.pdf_title:
+        lines.append(f"- PDF Title: {entry.pdf_title}")
+    if entry.pdf_author:
+        lines.append(f"- PDF Author: {entry.pdf_author}")
+    if entry.pdf_subject:
+        lines.append(f"- PDF Subject: {entry.pdf_subject}")
+    if entry.pdf_preview_status == "skipped_due_to_size_limit":
+        limit_text = _format_byte_count(entry.pdf_preview_max_bytes)
+        if limit_text is None:
+            lines.append("- PDF Preview: skipped due to size limit")
+        else:
+            lines.append(f"- PDF Preview: skipped due to size limit (max {limit_text})")
     if entry.content_type:
         lines.append(f"- Content-Type: {entry.content_type}")
     if entry.filename:
@@ -173,6 +185,10 @@ def _render_url_check_lines(entry: ReferenceUrlIndexEntry) -> list[str]:
         lines.append("```text")
         lines.extend(entry.html_excerpt.splitlines())
         lines.append("```")
+    if entry.pdf_excerpt:
+        lines.append("```text")
+        lines.extend(entry.pdf_excerpt.splitlines())
+        lines.append("```")
 
     return lines
 
@@ -182,6 +198,19 @@ def _build_doi_link(doi: str) -> str:
     if normalized.lower().startswith("https://doi.org/"):
         return normalized
     return f"https://doi.org/{normalized}"
+
+
+def _format_byte_count(size: int | None) -> str | None:
+    if size is None or size <= 0:
+        return None
+    units = [(1024 * 1024 * 1024, "GiB"), (1024 * 1024, "MiB"), (1024, "KiB")]
+    for unit_size, suffix in units:
+        if size >= unit_size:
+            value = size / unit_size
+            if value.is_integer():
+                return f"{int(value)} {suffix}"
+            return f"{value:.1f} {suffix}"
+    return f"{size} B"
 
 
 def build_reference_report_relative_path(relative_path: Path) -> Path:

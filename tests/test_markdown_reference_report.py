@@ -151,6 +151,12 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
                 final_url="https://cdn.example.org/report.pdf",
                 content_type="application/pdf",
                 filename="report.pdf",
+                pdf_title="Example PDF",
+                pdf_author="Alice Example",
+                pdf_subject="Reference preview",
+                pdf_preview_status="skipped_due_to_size_limit",
+                pdf_preview_max_bytes=8 * 1024 * 1024,
+                pdf_excerpt="First PDF line.\nSecond PDF line.",
             )
         },
     )
@@ -164,10 +170,18 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
         "- Status: 200 OK\n"
         "- Last checked: 2026-05-31T10:00:00Z\n"
         "- DOI: [10.1000/report](https://doi.org/10.1000/report)\n"
+        "- PDF Title: Example PDF\n"
+        "- PDF Author: Alice Example\n"
+        "- PDF Subject: Reference preview\n"
+        "- PDF Preview: skipped due to size limit (max 8 MiB)\n"
         "- Content-Type: application/pdf\n"
         "- Filename: report.pdf\n"
         "- Redirect location: https://example.org/files/report.pdf?download=1\n"
-        "- Final URL: https://cdn.example.org/report.pdf\n\n"
+        "- Final URL: https://cdn.example.org/report.pdf\n"
+        "```text\n"
+        "First PDF line.\n"
+        "Second PDF line.\n"
+        "```\n\n"
         "References:\n"
         "- alpha.md [Sources] Bob\n"
     )

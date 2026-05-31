@@ -10,6 +10,8 @@ def test_load_workspace_config_reads_translator_profiles(tmp_path: Path) -> None
 input_dir: inbound
 output_dir: outbound
 data_dir: state
+reference_index:
+  max_pdf_bytes: 123456
 file_selection:
   default_action: exclude
   rules:
@@ -64,6 +66,7 @@ llm:
     config = load_workspace_config(config_file)
 
     assert config.input_dir == Path("inbound")
+    assert config.reference_index.max_pdf_bytes == 123456
     assert config.file_selection.default_action == "exclude"
     assert [rule.match for rule in config.file_selection.rules] == [
       "docs/**/*.md",

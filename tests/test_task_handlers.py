@@ -41,6 +41,62 @@ from do_my_work.infrastructure.json_workflow_store import JsonTaskRepository
 from do_my_work.infrastructure.ollama_client import OllamaChatClient
 
 
+def _escape_pdf_text(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _build_test_pdf_bytes(
+    *,
+    title: str = "Example PDF",
+    author: str = "Alice Example",
+    subject: str = "Reference preview",
+    first_page_text: str = "First page preview text for the PDF reference checker.",
+) -> bytes:
+    content_stream = "\n".join(
+        [
+            "BT",
+            "/F1 12 Tf",
+            "72 100 Td",
+            f"({_escape_pdf_text(first_page_text)}) Tj",
+            "ET",
+        ]
+    )
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        (
+            f"<< /Length {len(content_stream.encode('latin-1'))} >>\n"
+            f"stream\n{content_stream}\nendstream"
+        ),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        (
+            f"<< /Title ({_escape_pdf_text(title)}) "
+            f"/Author ({_escape_pdf_text(author)}) "
+            f"/Subject ({_escape_pdf_text(subject)}) >>"
+        ),
+    ]
+
+    payload = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(payload))
+        payload.extend(f"{index} 0 obj\n{obj}\nendobj\n".encode("latin-1"))
+
+    xref_offset = len(payload)
+    payload.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    payload.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        payload.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    payload.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R /Info 6 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode("ascii")
+    )
+    return bytes(payload)
+
+
 def test_index_markdown_references_handler_writes_reference_report(tmp_path: Path) -> None:
     config = WorkspaceConfig(
         input_dir=tmp_path / "input",
@@ -181,6 +237,83 @@ def test_check_reference_url_handler_records_http_metadata() -> None:
     assert result.updated_record.outcome.result.content_type == "application/pdf"
     assert result.updated_record.outcome.result.filename == "report.pdf"
     assert result.updated_record.outcome.result.reason_phrase == "OK"
+
+
+def test_check_reference_url_handler_extracts_pdf_metadata_and_excerpt() -> None:
+    pdf_bytes = _build_test_pdf_bytes()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/pdf",
+                "content-disposition": 'attachment; filename="report.pdf"',
+            },
+            content=pdf_bytes,
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/files/report.pdf"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/files/report.pdf"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.pdf_title == "Example PDF"
+    assert result.updated_record.outcome.result.pdf_author == "Alice Example"
+    assert result.updated_record.outcome.result.pdf_subject == "Reference preview"
+    assert result.updated_record.outcome.result.pdf_excerpt is not None
+    assert "First page preview text for the PDF reference checker." in (
+        result.updated_record.outcome.result.pdf_excerpt
+    )
+
+
+def test_check_reference_url_handler_skips_pdf_preview_when_pdf_exceeds_configured_limit() -> None:
+    pdf_bytes = _build_test_pdf_bytes(first_page_text="A" * 1024)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/pdf",
+                "content-disposition": 'attachment; filename="report.pdf"',
+                "content-length": str(len(pdf_bytes)),
+            },
+            content=pdf_bytes,
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/files/report.pdf"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/files/report.pdf"),
+    )
+    config = WorkspaceConfig()
+    config.reference_index.max_pdf_bytes = 128
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        config,
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.content_type == "application/pdf"
+    assert result.updated_record.outcome.result.pdf_title is None
+    assert result.updated_record.outcome.result.pdf_author is None
+    assert result.updated_record.outcome.result.pdf_subject is None
+    assert result.updated_record.outcome.result.pdf_preview_status == "skipped_due_to_size_limit"
+    assert result.updated_record.outcome.result.pdf_preview_max_bytes == 128
+    assert result.updated_record.outcome.result.pdf_excerpt is None
 
 
 def test_check_reference_url_handler_records_redirect_location() -> None:

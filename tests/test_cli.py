@@ -35,6 +35,277 @@ def test_translate_document_tree_help_mentions_with_review_option() -> None:
     assert "--with-review" in result.stdout
 
 
+def test_translate_document_tree_command_reports_missing_config_file_cleanly(tmp_path: Path) -> None:
+    missing_config = tmp_path / "missing-workspace.yaml"
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(missing_config),
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert f"Error: Config file not found: {missing_config}" in output
+    assert "Traceback" not in output
+
+
+def test_translate_document_tree_command_reports_invalid_config_cleanly(tmp_path: Path) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        (
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: You are a translator.\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert f"Error: Invalid configuration in {config_file}:" in output
+    assert "llm.translator.technical.user_prompt: Field required" in output
+    assert "Traceback" not in output
+
+
+def test_translate_document_tree_command_reports_unknown_translator_profile_cleanly(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text("# Intro\n", encoding="utf-8")
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: You are a translator.\n"
+            "      user_prompt: ${input_fragment}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+            "--translator-profile",
+            "missing-profile",
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert "Invalid value for --translator-profile: Unknown translator profile:" in output
+    assert "missing-profile" in output
+    assert "Traceback" not in output
+
+
+def test_translate_document_tree_command_reports_missing_input_root_cleanly(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: You are a translator.\n"
+            "      user_prompt: ${input_fragment}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+            "--root",
+            "missing-subtree",
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert f"Error: Input root does not exist: {input_dir / 'missing-subtree'}" in output
+    assert "Traceback" not in output
+
+
+def test_spurious_file_report_command_reports_missing_input_root_cleanly(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "spurious-file-report",
+            "--config",
+            str(config_file),
+            "--root",
+            "missing-subtree",
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert f"Error: Input root does not exist: {input_dir / 'missing-subtree'}" in output
+    assert "Traceback" not in output
+
+
+def test_translate_document_tree_command_reports_invalid_local_workflow_config_cleanly(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text("# Intro\n", encoding="utf-8")
+    (input_dir / "docs" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"*.md\"\n"
+        "      hints: 123\n",
+        encoding="utf-8",
+    )
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: You are a translator.\n"
+            "      user_prompt: ${input_fragment}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert f"Error: Invalid configuration in {input_dir / 'docs' / 'do-my-work.yaml'}:" in output
+    assert "translation.rules.0.hints: Input should be a valid string" in output
+    assert "Traceback" not in output
+
+
+def test_translate_document_tree_command_exits_nonzero_when_local_profile_override_is_missing(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text("# Intro\n", encoding="utf-8")
+    (input_dir / "docs" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"*.md\"\n"
+        "      profile: missing-profile\n",
+        encoding="utf-8",
+    )
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: You are a translator.\n"
+            "      user_prompt: ${input_fragment}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 1
+    assert "Workflow run completed:" in output
+    assert "failed=1" in output
+    assert "Error: Workflow failed. See summary above." in output
+    assert "Traceback" not in output
+
+
 def test_clean_tasks_command_removes_persisted_task_files(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     task_dir = data_dir / "tasks" / "translate_fragment"

@@ -6,7 +6,7 @@ import typer
 
 from do_my_work.application.batch_runner import BatchRunner
 from do_my_work.domain.models import RunRequest, WorkspaceConfig, WorkflowRunSummary
-from do_my_work.infrastructure.config_loader import load_workspace_config
+from do_my_work.infrastructure.config_loader import ConfigLoadError, load_workspace_config
 from do_my_work.infrastructure.json_workflow_store import JsonRunRepository
 from do_my_work.shared.logging_config import configure_logging
 
@@ -37,6 +37,35 @@ def _resolve_workspace_config(
     return workspace_config.model_copy(update=overrides)
 
 
+def _fail_command(message: str, exit_code: int = 2) -> None:
+    typer.secho(f"Error: {message}", err=True, fg=typer.colors.RED)
+    raise typer.Exit(code=exit_code)
+
+
+def _run_handled_command(action) -> None:
+    try:
+        action()
+    except ConfigLoadError as exc:
+        _fail_command(exc.message)
+    except FileNotFoundError as exc:
+        missing_path = exc.filename or str(exc)
+        _fail_command(f"Path not found: {missing_path}")
+
+
+def _require_translator_profile(workspace_config: WorkspaceConfig, profile_name: str) -> None:
+    if profile_name not in workspace_config.llm.translator:
+        raise typer.BadParameter(
+            f"Unknown translator profile: {profile_name}",
+            param_hint="--translator-profile",
+        )
+
+
+def _require_existing_input_root(workspace_config: WorkspaceConfig, root: Path) -> None:
+    input_root = workspace_config.input_dir / root
+    if not input_root.exists():
+        _fail_command(f"Input root does not exist: {input_root}")
+
+
 def _echo_run_summary(run_result) -> None:
     typer.echo(f"Workflow run completed: {run_result.run_id}")
     typer.echo(f"Tasks executed: {run_result.summary.executed_task_count}")
@@ -57,6 +86,11 @@ def _echo_run_summary(run_result) -> None:
         f"avg_seconds={run_result.summary.llm_call_average_seconds:.3f} "
         f"variance_seconds={run_result.summary.llm_call_variance_seconds:.3f}"
     )
+
+
+def _ensure_successful_run(run_result) -> None:
+    if run_result.status != "succeeded":
+        _fail_command("Workflow failed. See summary above.", exit_code=1)
 
 
 def _format_delta(old_value: int | float, new_value: int | float, precision: int = 0) -> str:
@@ -199,21 +233,17 @@ def reference_index_tree(
     ] = False,
 ) -> None:
     """Index Markdown references from the requested input subtree."""
-    configure_logging()
-    workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
-    if report_to_input:
-        workspace_config = workspace_config.model_copy(
-            update={"output_dir": workspace_config.input_dir}
+    _run_handled_command(
+        lambda: _reference_index_tree_impl(
+            config,
+            input_dir,
+            output_dir,
+            data_dir,
+            root,
+            report_to_input,
+            check_urls,
         )
-    typer.echo(f"Input directory: {workspace_config.input_dir}")
-    typer.echo(f"Output directory: {workspace_config.output_dir}")
-    typer.echo(f"Data directory: {workspace_config.data_dir}")
-    run_result = BatchRunner().run_reference_index_tree(
-        workspace_config,
-        root=root,
-        check_urls=check_urls,
     )
-    _echo_run_summary(run_result)
 
 
 @app.command("copy-resource-tree")
@@ -237,13 +267,55 @@ def copy_resource_tree(
     ] = Path("."),
 ) -> None:
     """Copy selected non-generated resources from the input tree to the output tree."""
+    _run_handled_command(
+        lambda: _copy_resource_tree_impl(config, input_dir, output_dir, data_dir, root)
+    )
+
+
+def _reference_index_tree_impl(
+    config: Path | None,
+    input_dir: Path | None,
+    output_dir: Path | None,
+    data_dir: Path | None,
+    root: Path,
+    report_to_input: bool,
+    check_urls: bool,
+) -> None:
     configure_logging()
     workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    _require_existing_input_root(workspace_config, root)
+    if report_to_input:
+        workspace_config = workspace_config.model_copy(
+            update={"output_dir": workspace_config.input_dir}
+        )
+    typer.echo(f"Input directory: {workspace_config.input_dir}")
+    typer.echo(f"Output directory: {workspace_config.output_dir}")
+    typer.echo(f"Data directory: {workspace_config.data_dir}")
+    run_result = BatchRunner().run_reference_index_tree(
+        workspace_config,
+        root=root,
+        check_urls=check_urls,
+    )
+    _echo_run_summary(run_result)
+    _ensure_successful_run(run_result)
+
+
+def _copy_resource_tree_impl(
+    config: Path | None,
+    input_dir: Path | None,
+    output_dir: Path | None,
+    data_dir: Path | None,
+    root: Path,
+) -> None:
+    configure_logging()
+    workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    _require_existing_input_root(workspace_config, root)
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
     run_result = BatchRunner().run_copy_resource_tree(workspace_config, root=root)
     _echo_run_summary(run_result)
+    _ensure_successful_run(run_result)
 
 
 @app.command("translate-document-tree")
@@ -278,8 +350,32 @@ def translate_document_tree(
     ] = False,
 ) -> None:
     """Translate Markdown documents through fragment tasks using a named LLM profile."""
+    _run_handled_command(
+        lambda: _translate_document_tree_impl(
+            config,
+            input_dir,
+            output_dir,
+            data_dir,
+            root,
+            translator_profile,
+            with_review,
+        )
+    )
+
+
+def _translate_document_tree_impl(
+    config: Path | None,
+    input_dir: Path | None,
+    output_dir: Path | None,
+    data_dir: Path | None,
+    root: Path,
+    translator_profile: str,
+    with_review: bool,
+) -> None:
     configure_logging()
     workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    _require_existing_input_root(workspace_config, root)
+    _require_translator_profile(workspace_config, translator_profile)
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
@@ -290,6 +386,7 @@ def translate_document_tree(
         with_review=with_review,
     )
     _echo_run_summary(run_result)
+    _ensure_successful_run(run_result)
 
 
 @app.command("spurious-file-report")
@@ -317,8 +414,29 @@ def spurious_file_report(
     ] = False,
 ) -> None:
     """Write a Markdown report listing output files that are not expected from translation or resource copy."""
+    _run_handled_command(
+        lambda: _spurious_file_report_impl(
+            config,
+            input_dir,
+            output_dir,
+            data_dir,
+            root,
+            report_to_input,
+        )
+    )
+
+
+def _spurious_file_report_impl(
+    config: Path | None,
+    input_dir: Path | None,
+    output_dir: Path | None,
+    data_dir: Path | None,
+    root: Path,
+    report_to_input: bool,
+) -> None:
     configure_logging()
     workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    _require_existing_input_root(workspace_config, root)
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
@@ -343,6 +461,13 @@ def clean_tasks(
     ] = None,
 ) -> None:
     """Remove persisted workflow task JSON data from the workspace data directory."""
+    _run_handled_command(lambda: _clean_tasks_impl(config, data_dir))
+
+
+def _clean_tasks_impl(
+    config: Path | None,
+    data_dir: Path | None,
+) -> None:
     configure_logging()
     workspace_config = _resolve_workspace_config(config=config, data_dir=data_dir)
     typer.echo(f"Data directory: {workspace_config.data_dir}")
@@ -376,6 +501,18 @@ def compare_runs(
     ] = None,
 ) -> None:
     """Compare two persisted workflow runs using their saved summaries."""
+    _run_handled_command(
+        lambda: _compare_runs_impl(config, data_dir, older_run_id, newer_run_id, request_kind)
+    )
+
+
+def _compare_runs_impl(
+    config: Path | None,
+    data_dir: Path | None,
+    older_run_id: str | None,
+    newer_run_id: str | None,
+    request_kind: Literal["reference_index_tree", "copy_resource_tree", "translate_document_tree"] | None,
+) -> None:
     configure_logging()
     workspace_config = _resolve_workspace_config(config=config, data_dir=data_dir)
     typer.echo(f"Data directory: {workspace_config.data_dir}")

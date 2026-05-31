@@ -1,4 +1,4 @@
-# Do My Work
+# Do My Work - a tool designed to make projects speak globally.
 
 Do My Work is a batch CLI for repository-scale content workflows.
 It was built first to help translate a repository of French Markdown articles into English, then grew to cover the practical problems around that job: keeping references visible, copying supporting resources, and spotting missing or unexpected output files.

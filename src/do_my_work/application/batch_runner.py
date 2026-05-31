@@ -70,6 +70,7 @@ class BatchRunner:
         self,
         config: WorkspaceConfig,
         root: Path = Path("."),
+        report_dir: Path | None = None,
     ) -> SpuriousFileReportResult:
         self._logger.info(
             "Running spurious output file report with root=%s input=%s output=%s data=%s",
@@ -78,7 +79,7 @@ class BatchRunner:
             config.output_dir,
             config.data_dir,
         )
-        return SpuriousFileReporter().build_report(config, root=root)
+        return SpuriousFileReporter().build_report(config, root=root, report_dir=report_dir)
 
     def clean_tasks(self, config: WorkspaceConfig) -> int:
         tasks_dir = config.data_dir / "tasks"

@@ -47,6 +47,7 @@ class SpuriousFileReporter:
         self,
         config: WorkspaceConfig,
         root: Path = Path("."),
+        report_dir: Path | None = None,
     ) -> SpuriousFileReportResult:
         input_root = config.input_dir / root
         if not input_root.exists():
@@ -101,7 +102,8 @@ class SpuriousFileReporter:
         missing_resource_files = sorted(expected_resource_outputs - existing_output_files)
         missing_files = sorted(set(missing_translated_files) | set(missing_resource_files))
 
-        report_path = config.output_dir / build_spurious_file_report_path()
+        destination_dir = config.output_dir if report_dir is None else report_dir
+        report_path = destination_dir / build_spurious_file_report_path()
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(
             render_spurious_file_report(

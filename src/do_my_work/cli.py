@@ -189,10 +189,18 @@ def reference_index_tree(
         Path,
         typer.Option(help="Relative subtree under the input directory to process."),
     ] = Path("."),
+    report_to_input: Annotated[
+        bool,
+        typer.Option("--report-to-input", help="Write generated reports into the input tree instead of the output tree."),
+    ] = False,
 ) -> None:
     """Index Markdown references from the requested input subtree."""
     configure_logging()
     workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    if report_to_input:
+        workspace_config = workspace_config.model_copy(
+            update={"output_dir": workspace_config.input_dir}
+        )
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
@@ -287,6 +295,10 @@ def spurious_file_report(
         Path,
         typer.Option(help="Relative subtree under the input directory to compare against the output tree."),
     ] = Path("."),
+    report_to_input: Annotated[
+        bool,
+        typer.Option("--report-to-input", help="Write the generated report into the input tree instead of the output tree."),
+    ] = False,
 ) -> None:
     """Write a Markdown report listing output files that are not expected from translation or resource copy."""
     configure_logging()
@@ -294,7 +306,11 @@ def spurious_file_report(
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
-    report_result = BatchRunner().run_spurious_file_report(workspace_config, root=root)
+    report_result = BatchRunner().run_spurious_file_report(
+        workspace_config,
+        root=root,
+        report_dir=workspace_config.input_dir if report_to_input else None,
+    )
     typer.echo(f"Report path: {report_result.report_path}")
     typer.echo(f"Checked output files: {report_result.checked_file_count}")
     typer.echo(f"Ignored output files: {report_result.ignored_file_count}")

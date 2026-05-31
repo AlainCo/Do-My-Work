@@ -104,6 +104,50 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
     )
 
 
+def test_reference_index_tree_command_writes_reports_in_input_when_requested(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "reference-index-tree",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--data-dir",
+            str(data_dir),
+            "--report-to-input",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Output directory: {input_dir}" in result.stdout
+    assert (input_dir / "note.references.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Index\n\n"
+        "Source: note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+    )
+    assert (input_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## note.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/bob\n\n"
+        "- note.md [Sources] Bob\n"
+    )
+    assert not (output_dir / "note.references.md").exists()
+    assert not (output_dir / "references.index.md").exists()
+
+
 def test_copy_resource_tree_command_copies_selected_files(tmp_path: Path) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
@@ -232,6 +276,44 @@ def test_spurious_file_report_command_writes_markdown_report(tmp_path: Path) -> 
         "## Missing Files\n\n"
         "None.\n"
     )
+
+
+def test_spurious_file_report_command_writes_report_in_input_when_requested(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = output_dir / "work" / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text("# Intro\n", encoding="utf-8")
+    (output_dir / "note.md").write_text("translated", encoding="utf-8")
+    data_dir.mkdir(parents=True)
+
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "spurious-file-report",
+            "--config",
+            str(config_file),
+            "--report-to-input",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Report path: {input_dir / 'spurious-files.md'}" in result.stdout
+    assert "Spurious output files: 0" in result.stdout
+    assert "Missing output files: 0" in result.stdout
+    assert (input_dir / "spurious-files.md").exists()
+    assert not (output_dir / "spurious-files.md").exists()
 
 
 def test_translate_document_tree_command_translates_markdown_fragments(

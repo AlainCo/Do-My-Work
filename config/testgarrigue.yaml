@@ -12,6 +12,8 @@ file_selection:
   rules:
     - match: "**/*.md"
       action: include
+    - match: "README.md"
+      action: include
     - match: "**/*.review.html"
       action: exclude
     - match: "**/*.index.md"

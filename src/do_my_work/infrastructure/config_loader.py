@@ -15,6 +15,15 @@ class ConfigLoadError(ValueError):
         self.message = message
 
 
+def _format_yaml_error(path: Path, exc: yaml.YAMLError) -> str:
+    if exc.problem_mark is not None:
+        line_number = exc.problem_mark.line + 1
+        column_number = exc.problem_mark.column + 1
+        problem = exc.problem or str(exc)
+        return f"Invalid YAML in {path} at line {line_number}, column {column_number}: {problem}"
+    return f"Invalid YAML in {path}: {exc}"
+
+
 def _format_validation_error(exc: ValidationError) -> str:
     details: list[str] = []
     for error in exc.errors():
@@ -30,7 +39,7 @@ def _load_yaml_file(path: Path) -> dict:
     except FileNotFoundError as exc:
         raise ConfigLoadError(path, f"Config file not found: {path}") from exc
     except yaml.YAMLError as exc:
-        raise ConfigLoadError(path, f"Invalid YAML in {path}: {exc}") from exc
+        raise ConfigLoadError(path, _format_yaml_error(path, exc)) from exc
 
 
 def load_workspace_config(path: Path) -> WorkspaceConfig:

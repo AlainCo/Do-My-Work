@@ -2259,6 +2259,8 @@ def _is_explicitly_included_path(relative_path: Path, selection) -> bool:
 def _path_matches_rule(relative_path: Path, pattern: str) -> bool:
     relative_posix_path = PurePosixPath(relative_path.as_posix())
     candidate_patterns = [pattern]
+    if candidate_patterns[-1].startswith("**/"):
+        candidate_patterns.append(candidate_patterns[-1][3:])
     while "/**/" in candidate_patterns[-1]:
         candidate_patterns.append(candidate_patterns[-1].replace("/**/", "/", 1))
 

@@ -957,6 +957,70 @@ def test_workflow_engine_applies_workspace_file_selection_to_translation(
     assert not (output_dir / "docs" / "skip.tmp.md").exists()
 
 
+def test_workflow_engine_applies_double_star_root_pattern_to_root_markdown_translation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "README.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import (
+        FileSelectionConfig,
+        FileSelectionRule,
+        LlmConfig,
+        TranslatorProfileConfig,
+    )
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: str(parameters["input_fragment"]).upper(),
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        file_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[FileSelectionRule(match="**/*.md", action="include")],
+        ),
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translatoir from french to english.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${input_fragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        ),
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert run_request.status == "succeeded"
+    assert (output_dir / "README.md").exists()
+
+
 def test_workflow_engine_translates_selected_txt_documents(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

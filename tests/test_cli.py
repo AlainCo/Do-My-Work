@@ -254,6 +254,59 @@ def test_translate_document_tree_command_reports_invalid_local_workflow_config_c
     assert "Traceback" not in output
 
 
+def test_translate_document_tree_command_reports_invalid_local_workflow_yaml_cleanly(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text("# Intro\n", encoding="utf-8")
+    (input_dir / "docs" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"README.md\"\n"
+        "      profile: technical\n"
+        "      translated_document_header:|\n"
+        "        # Broken block scalar\n",
+        encoding="utf-8",
+    )
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: You are a translator.\n"
+            "      user_prompt: ${input_fragment}\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 2
+    assert f"Error: Invalid YAML in {input_dir / 'docs' / 'do-my-work.yaml'} at line 7, column 9:" in output
+    assert "could not find expected ':'" in output
+    assert "Traceback" not in output
+
+
 def test_translate_document_tree_command_exits_nonzero_when_local_profile_override_is_missing(
     tmp_path: Path,
 ) -> None:

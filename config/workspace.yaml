@@ -12,15 +12,11 @@ file_selection:
   rules:
     - match: "**/*.txt"
       action: include
-    - match: "**/test*.md"
+    - match: "**/*.md"
       action: include
     - match: "**/*.references.md"
       action: exclude
     - match: "**/*.index.md"
-      action: exclude
-    - match: "**/*index.md"
-      action: exclude
-    - match: "**/*3.md"
       action: exclude
 resource_selection:
   default_action: exclude

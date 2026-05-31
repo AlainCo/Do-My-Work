@@ -3,6 +3,8 @@ from typing import Annotated
 from typing import Literal
 
 import typer
+import yaml
+from pydantic import ValidationError
 
 from do_my_work.application.batch_runner import BatchRunner
 from do_my_work.domain.models import RunRequest, WorkspaceConfig, WorkflowRunSummary
@@ -47,6 +49,10 @@ def _run_handled_command(action) -> None:
         action()
     except ConfigLoadError as exc:
         _fail_command(exc.message)
+    except yaml.YAMLError as exc:
+        _fail_command(f"Invalid YAML: {exc}")
+    except ValidationError as exc:
+        _fail_command(f"Invalid configuration: {exc}")
     except FileNotFoundError as exc:
         missing_path = exc.filename or str(exc)
         _fail_command(f"Path not found: {missing_path}")

@@ -143,7 +143,9 @@ chmod +x scripts/start-llamacpp.sh
 
 ## YAML Configuration
 
-Use an OpenAI-style translator profile in config/workspace.yaml.
+For this repository, prefer the dedicated example profile in `config/garriguellamacpp.yaml`.
+
+It already uses the OpenAI-compatible mode expected by `llama-server`.
 
 Example:
 
@@ -191,16 +193,18 @@ Important details:
 2. keep the server window open
 3. run the CLI with config/workspace.yaml
 
+In practice, use `config/garriguellamacpp.yaml` for the checked-in `llama.cpp` example.
+
 Example:
 
 ```powershell
-do-my-work translate-document-tree --config config/workspace.yaml
+do-my-work translate-document-tree --config config/garriguellamacpp.yaml
 ```
 
 If you also want the side-by-side HTML output for manual review:
 
 ```powershell
-do-my-work translate-document-tree --config config/workspace.yaml --with-review
+do-my-work translate-document-tree --config config/garriguellamacpp.yaml --with-review
 ```
 
 ## Troubleshooting

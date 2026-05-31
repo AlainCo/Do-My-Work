@@ -94,10 +94,11 @@ Inspect the CLI surface:
 do-my-work --help
 ```
 
-Use the shared workspace config:
+Use one of the checked-in runtime configs:
 
 ```powershell
-do-my-work translate-document-tree --config config/workspace.yaml
+do-my-work translate-document-tree --config config/garrigueollama.yaml
+do-my-work translate-document-tree --config config/garriguellamacpp.yaml
 ```
 
 Add `--with-review` when you also want a side-by-side HTML review document for each translated output.

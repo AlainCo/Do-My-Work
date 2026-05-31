@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ -d "${LLAMA_HOME}" ]; then
-  echo "Using llama server from LLAMA_HOME: ${LLAMA_HOME}"
+LLAMA_HOME_DIR="${LLAMA_HOME:-}"
+
+if [ -n "${LLAMA_HOME_DIR}" ] && [ -d "${LLAMA_HOME_DIR}" ]; then
+  echo "Using llama server from LLAMA_HOME: ${LLAMA_HOME_DIR}"
 else
   echo "LLAMA_HOME is not set or does not point to a valid directory. Please set LLAMA_HOME to the path of your llama server installation."
   exit 1
@@ -13,7 +15,7 @@ CTX_SIZE="8192"
 MODEL="Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
 
 APP_OPTS=(
-  -m "${HERE}/model/${MODEL}"
+  -m "${LLAMA_HOME_DIR}/model/${MODEL}"
   --ctx-size "${CTX_SIZE}"
 )
 
@@ -33,7 +35,7 @@ PERF_OPTS=(
   --mlock
 )
 
-exec "${LLAMA_HOME}/llama-server" \
+exec "${LLAMA_HOME_DIR}/llama-server" \
   "${APP_OPTS[@]}" \
   "${NET_OPTS[@]}" \
   "${PERF_OPTS[@]}" \

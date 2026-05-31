@@ -4,7 +4,7 @@
 
 This note explains what Ollama means for this repository, how it relates to the translation workflow, and what to do on a machine where the real Ollama runtime is unavailable.
 
-In our project, Ollama is the local LLM server used by translation profiles under `llm.translator` in `workspace.yaml`.
+In our project, Ollama is the local LLM server used by translation profiles under `llm.translator` in the selected YAML config.
 Do My Work sends translation requests to that HTTP server.
 
 Internally, the application no longer treats this layer as Ollama-only: the translation client code is provider-aware, and the profile `api` field selects the concrete adapter.
@@ -69,7 +69,7 @@ If your machine is allowed to use the real runtime, use the official installatio
 That page is the right reference for current installers and platform-specific instructions.
 
 After installation, you normally start the Ollama server and make sure your configured model is available.
-The exact model name remains your project choice through `workspace.yaml`.
+The exact model name remains your project choice through the selected config, for example `config/garrigueollama.yaml`.
 
 ## Launching The Mock Server
 
@@ -134,7 +134,7 @@ Use these scripts only on a machine where the real Ollama runtime is installed a
 For someone discovering the project, the simplest path is:
 
 1. start the mock server
-2. use the example `config/workspace.yaml`
+2. use `config/garrigueollama.yaml` for a real Ollama runtime, or another local config if you want to target the mock instead
 3. run the CLI workflows against the mock
 4. switch to a real Ollama profile only when you actually need model-based translation behavior
 

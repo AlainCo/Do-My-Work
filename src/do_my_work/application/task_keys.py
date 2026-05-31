@@ -138,6 +138,7 @@ def make_merge_reference_indexes_task_key(
 def make_translator_profile_digest(profile: TranslatorProfileConfig) -> str:
     payload = "|".join(
         [
+            profile.api,
             profile.model,
             str(profile.temperature),
             profile.system_prompt,

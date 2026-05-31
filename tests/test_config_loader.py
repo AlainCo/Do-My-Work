@@ -89,6 +89,7 @@ llm:
     assert [rule.match for rule in config.spurious_detection.rules] == [
       "manual/**/*",
     ]
+    assert config.llm.translator["technical"].api == "ollama"
     assert config.llm.translator["technical"].url == "http://mock.example:11434"
     assert config.llm.translator["technical"].timeout_seconds == 240
     assert config.llm.translator["technical"].max_retries == 2

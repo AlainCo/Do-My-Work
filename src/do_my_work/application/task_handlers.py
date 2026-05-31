@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+from statistics import pvariance
 import textwrap
 from urllib.parse import unquote, urljoin, urlsplit
 
@@ -70,7 +71,12 @@ from do_my_work.infrastructure.markdown_reference_report import (
     render_markdown_reference_report,
     render_tree_markdown_reference_report,
 )
-from do_my_work.infrastructure.ollama_client import OllamaChatClient
+from do_my_work.infrastructure.ollama_client import (
+    AbstractLlmClient,
+    LlmCallTimingSummary,
+    UnsupportedLlmProviderError,
+    build_llm_client,
+)
 from do_my_work.infrastructure.reference_index_sidecar import (
     load_reference_index_sidecar,
     write_reference_index_sidecar,
@@ -1032,28 +1038,43 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
         )
         return TaskHandlerResult(updated_record=updated_record, new_records=discovered_records)
 class TranslateFragmentTaskHandler:
-    def __init__(self, llm_client: OllamaChatClient | None = None) -> None:
+    def __init__(self, llm_client: AbstractLlmClient | None = None) -> None:
         self._llm_client = llm_client
-        self._owned_llm_client: OllamaChatClient | None = None
+        self._owned_llm_clients: dict[str, AbstractLlmClient] = {}
 
     def close(self) -> None:
-        if self._owned_llm_client is None:
-            return
-        self._owned_llm_client.close()
-        self._owned_llm_client = None
+        for llm_client in self._owned_llm_clients.values():
+            llm_client.close()
+        self._owned_llm_clients.clear()
 
     def get_llm_timing_summary(self):
-        llm_client = self._llm_client or self._owned_llm_client
-        if llm_client is None:
+        llm_clients: list[AbstractLlmClient] = list(self._owned_llm_clients.values())
+        if self._llm_client is not None:
+            llm_clients.insert(0, self._llm_client)
+        if not llm_clients:
             return None
-        return llm_client.get_timing_summary()
+        all_attempt_durations: list[float] = []
+        for llm_client in llm_clients:
+            all_attempt_durations.extend(llm_client.get_attempt_durations())
+        if not all_attempt_durations:
+            return None
+        average_elapsed_seconds = sum(all_attempt_durations) / len(all_attempt_durations)
+        variance_elapsed_seconds = pvariance(all_attempt_durations)
+        return LlmCallTimingSummary(
+            attempt_count=len(all_attempt_durations),
+            average_elapsed_seconds=average_elapsed_seconds,
+            variance_elapsed_seconds=variance_elapsed_seconds,
+        )
 
-    def _get_llm_client(self) -> OllamaChatClient:
+    def _get_llm_client(self, config: WorkspaceConfig, profile_name: str) -> AbstractLlmClient:
         if self._llm_client is not None:
             return self._llm_client
-        if self._owned_llm_client is None:
-            self._owned_llm_client = OllamaChatClient()
-        return self._owned_llm_client
+        profile = config.llm.translator.get(profile_name)
+        if profile is None:
+            raise KeyError(f"Unknown translator profile: {profile_name}")
+        if profile.api not in self._owned_llm_clients:
+            self._owned_llm_clients[profile.api] = build_llm_client(profile.api)
+        return self._owned_llm_clients[profile.api]
 
     def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
         spec = record.spec
@@ -1068,8 +1089,8 @@ class TranslateFragmentTaskHandler:
         )
         fragment_markdown = spec.input_markdown or render_markdown_fragment(fragment)
 
-        llm_client = self._get_llm_client()
         try:
+            llm_client = self._get_llm_client(config, spec.profile_name)
             translated_fragment = llm_client.translate_fragment(
                 config=config,
                 profile_name=spec.profile_name,
@@ -1079,6 +1100,19 @@ class TranslateFragmentTaskHandler:
                     "post_context": spec.post_context,
                     "translation_hints": spec.translation_hints,
                 },
+            )
+        except UnsupportedLlmProviderError as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="LLM translation configuration failed.",
+                            error=str(exc),
+                            error_category="configuration",
+                        ),
+                    }
+                )
             )
         except httpx.TimeoutException as exc:
             return TaskHandlerResult(

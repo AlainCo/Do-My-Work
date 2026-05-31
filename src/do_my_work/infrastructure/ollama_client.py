@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import logging
 from statistics import pvariance
@@ -44,7 +45,11 @@ class LlmCallTimingSummary:
     variance_elapsed_seconds: float = 0.0
 
 
-class OllamaChatClient:
+class UnsupportedLlmProviderError(ValueError):
+    pass
+
+
+class AbstractLlmClient(ABC):
     def __init__(self, http_client: httpx.Client | None = None) -> None:
         self._http_client = http_client or httpx.Client()
         self._owns_http_client = http_client is None
@@ -72,6 +77,9 @@ class OllamaChatClient:
     def _record_attempt_duration(self, elapsed_seconds: float) -> None:
         self._elapsed_attempt_seconds.append(elapsed_seconds)
 
+    def get_attempt_durations(self) -> list[float]:
+        return list(self._elapsed_attempt_seconds)
+
     def render_translator_request(
         self,
         config: WorkspaceConfig,
@@ -97,6 +105,18 @@ class OllamaChatClient:
                 OllamaChatMessage(role="user", content=user_prompt),
             ],
         )
+
+    @abstractmethod
+    def translate_fragment(
+        self,
+        config: WorkspaceConfig,
+        profile_name: str,
+        parameters: Mapping[str, object],
+    ) -> str:
+        raise NotImplementedError()
+
+
+class OllamaLlmClient(AbstractLlmClient):
 
     def translate_fragment(
         self,
@@ -195,6 +215,15 @@ class OllamaChatClient:
                     raise
 
         raise AssertionError("Retry loop exited without response or exception.")
+
+
+def build_llm_client(api: str, http_client: httpx.Client | None = None) -> AbstractLlmClient:
+    if api == "ollama":
+        return OllamaLlmClient(http_client=http_client)
+    raise UnsupportedLlmProviderError(f"Unsupported LLM API provider: {api}")
+
+
+OllamaChatClient = OllamaLlmClient
 
 
 def _build_headers(profile: TranslatorProfileConfig) -> dict[str, str]:

@@ -5,11 +5,15 @@ import pytest
 
 from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig, WorkspaceConfig
 from do_my_work.infrastructure.ollama_client import (
+    AbstractLlmClient,
     LlmCallTimingSummary,
+    OllamaLlmClient,
     OllamaChatClient,
     OllamaResponseError,
     PromptTemplateParameterError,
     TranslatorProfileNotFoundError,
+    UnsupportedLlmProviderError,
+    build_llm_client,
 )
 
 
@@ -88,6 +92,19 @@ def test_ollama_chat_client_renders_translator_prompts_and_calls_chat_endpoint(c
     assert "LLM call completed:" in caplog.text
     assert "profile=technical" in caplog.text
     assert "elapsed_seconds=" in caplog.text
+
+
+def test_build_llm_client_returns_ollama_client_for_ollama_provider() -> None:
+    client = build_llm_client("ollama")
+
+    assert isinstance(client, AbstractLlmClient)
+    assert isinstance(client, OllamaLlmClient)
+    client.close()
+
+
+def test_build_llm_client_raises_for_unsupported_provider() -> None:
+    with pytest.raises(UnsupportedLlmProviderError, match="openai"):
+        build_llm_client("openai")
 
 
 def test_ollama_chat_client_retries_timeout_and_eventually_succeeds(caplog) -> None:

@@ -1669,6 +1669,48 @@ def test_translate_fragment_handler_marks_request_error_as_failed(tmp_path: Path
     assert result.updated_record.outcome.error_category == "request_error"
 
 
+def test_translate_fragment_handler_marks_unsupported_provider_as_failed(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    api="openai",
+                    url="https://api.openai.example/v1",
+                    model="gpt-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator from french to english.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        ),
+    )
+    record = TaskRecord(
+        task_key="task:translate_fragment:unsupported-provider",
+        spec=TranslateFragmentTaskSpec(
+            document_relative_path=Path("note.md"),
+            fragment_kind="paragraph",
+            heading_path=["Intro"],
+            text="Bonjour monde.",
+            fragment_digest="sha256:frag-unsupported-provider",
+            profile_name="technical",
+            profile_digest="sha256:profile",
+        ),
+    )
+
+    result = TranslateFragmentTaskHandler().handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.FAILED
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.message == "LLM translation configuration failed."
+    assert result.updated_record.outcome.error == "Unsupported LLM API provider: openai"
+    assert result.updated_record.outcome.error_category == "configuration"
+
+
 def test_merge_translated_fragments_handler_writes_translated_document(tmp_path: Path) -> None:
     config = WorkspaceConfig(
         input_dir=tmp_path / "input",

@@ -183,8 +183,10 @@ def test_translator_profile_digest_depends_only_on_generation_parameters() -> No
             "user_prompt": "TEXT:\n${input_fragment}",
         }
     )
+    changed_provider_profile = profile.model_copy(update={"api": "openai"})
 
     original_digest = make_translator_profile_digest(profile)
 
     assert make_translator_profile_digest(same_generation_profile) == original_digest
     assert make_translator_profile_digest(changed_generation_profile) != original_digest
+    assert make_translator_profile_digest(changed_provider_profile) != original_digest

@@ -467,6 +467,70 @@ def test_merge_reference_indexes_handler_reuses_yaml_metadata_for_skipped_urls(t
     )
 
 
+def test_merge_reference_indexes_handler_keeps_unused_url_metadata_in_yaml(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    config.output_dir.mkdir(parents=True)
+    (config.output_dir / "references.index.yaml").write_text(
+        "version: 1\n"
+        "urls:\n"
+        "  - url: https://example.org/old\n"
+        "    skip_recheck: true\n"
+        "    unused: false\n"
+        "    doi: 10.1000/old\n"
+        "    last_checked_at: 2026-05-31T10:00:00Z\n"
+        "    http_status_code: 200\n"
+        "    reason_phrase: OK\n"
+        "    final_url: https://cdn.example.org/old\n"
+        "    content_type: text/html\n"
+        "    filename: old\n"
+        "    references:\n"
+        "      - document_path: old.md\n"
+        "        heading_path:\n"
+        "          - Sources\n"
+        "        label: Old\n",
+        encoding="utf-8",
+    )
+
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    record = TaskRecord(
+        task_key=make_merge_reference_indexes_task_key(Path("."), []),
+        spec=MergeReferenceIndexesTaskSpec(
+            root=Path("."),
+            document_relative_paths=[],
+            reference_task_keys=[],
+            url_check_task_keys=[],
+        ),
+        child_task_keys=[],
+    )
+
+    result = MergeReferenceIndexesTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert yaml.safe_load((config.output_dir / "references.index.yaml").read_text(encoding="utf-8")) == {
+        "version": 1,
+        "urls": [
+            {
+                "url": "https://example.org/old",
+                "skip_recheck": True,
+                "unused": True,
+                "doi": "10.1000/old",
+                "last_checked_at": "2026-05-31T10:00:00Z",
+                "http_status_code": 200,
+                "final_url": "https://cdn.example.org/old",
+                "content_type": "text/html",
+                "filename": "old",
+                "reason_phrase": "OK",
+                "references": [],
+            }
+        ],
+    }
+
+
 def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Path) -> None:
     captured_payload: dict[str, object] = {}
 

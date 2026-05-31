@@ -21,6 +21,7 @@ The current workflow surface is designed for documentation-heavy repositories wh
 - `docs/workflow-kernel.md`: design note for the toy workflow kernel
 - `docs/markdown-fragment-slice.md`: design note for the first Markdown parsing and fragment reporting slice
 - `docs/reference-index-slice.md`: design note for the Markdown reference indexing slice
+- `docs/packaging.md`: internal packaging notes for the current `one-folder` distribution target
 - `docs/collaboration.md`: working method, documentation split, and local environment notes
 
 ## Project layout

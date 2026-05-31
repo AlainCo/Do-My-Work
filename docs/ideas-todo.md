@@ -92,4 +92,5 @@ Use the following markers when they help clarify priority or outcome:
 
 ## packaging
 
-- [TODISCUSS] [SOON] Is it possible to package as a single binary ? Will it work well ?
+- [DONE] document the current `one-folder` packaging path with output kept under `./dist/`, so another developer machine can validate the bundle and report bugs
+- [TODISCUSS] [SOON] after `one-folder` validation, is a true `one-file` executable worth the added startup cost and packaging friction ?

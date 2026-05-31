@@ -26,6 +26,11 @@ resource_selection:
       action: include
     - match: assets/private/**/*
       action: exclude
+spurious_detection:
+  default_action: include
+  rules:
+    - match: manual/**/*
+      action: exclude
 llm:
   translator:
     technical:
@@ -69,6 +74,10 @@ llm:
     assert [rule.match for rule in config.resource_selection.rules] == [
       "assets/**/*.jpeg",
       "assets/private/**/*",
+    ]
+    assert config.spurious_detection.default_action == "include"
+    assert [rule.match for rule in config.spurious_detection.rules] == [
+      "manual/**/*",
     ]
     assert config.llm.translator["technical"].url == "http://mock.example:11434"
     assert config.llm.translator["technical"].timeout_seconds == 240

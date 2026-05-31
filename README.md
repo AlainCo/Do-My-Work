@@ -74,12 +74,19 @@ Copy selected resources such as images, `.url` files, or source files from the i
 do-my-work copy-resource-tree --config config/workspace.yaml
 ```
 
+Write a Markdown report at the output root listing files that are present in the output tree but are not expected from translation or resource copy:
+
+```powershell
+do-my-work spurious-file-report --config config/workspace.yaml
+```
+
 Inspect the current command surface:
 
 ```powershell
 do-my-work --help
 do-my-work copy-resource-tree --help
 do-my-work reference-index-tree --help
+do-my-work spurious-file-report --help
 do-my-work translate-document-tree --help
 ```
 

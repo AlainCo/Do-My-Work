@@ -18,6 +18,7 @@ def test_cli_help_only_exposes_workflow_commands() -> None:
     assert "clean-tasks" in result.stdout
     assert "copy-resource-tree" in result.stdout
     assert "reference-index-tree" in result.stdout
+    assert "spurious-file-report" in result.stdout
     assert "translate-document-tree" in result.stdout
     assert "hello" not in result.stdout
     assert "copy-tree" not in result.stdout
@@ -143,6 +144,84 @@ def test_copy_resource_tree_command_copies_selected_files(tmp_path: Path) -> Non
     assert "Active task states: pending=0 waiting=0 succeeded=2 failed=0" in result.stdout
     assert (output_dir / "assets" / "logo.jpeg").read_bytes() == b"jpeg-bytes"
     assert not (output_dir / "assets" / "notes.txt").exists()
+
+
+def test_spurious_file_report_command_writes_markdown_report(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = output_dir / "work" / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text("# Intro\n", encoding="utf-8")
+    (input_dir / "docs" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "spurious:\n"
+        "  rules:\n"
+        "    - match: \"manual/**/*\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+    (input_dir / "assets").mkdir(parents=True)
+    (input_dir / "assets" / "logo.jpeg").write_bytes(b"jpeg-bytes")
+
+    (output_dir / "docs").mkdir(parents=True)
+    (output_dir / "docs" / "note.md").write_text("translated", encoding="utf-8")
+    (output_dir / "docs" / "old.md").write_text("stale", encoding="utf-8")
+    (output_dir / "docs" / "note.references.md").write_text("ignore", encoding="utf-8")
+    (output_dir / "docs" / "manual").mkdir(parents=True)
+    (output_dir / "docs" / "manual" / "keep.md").write_text("manual", encoding="utf-8")
+    (output_dir / "assets").mkdir(parents=True)
+    (output_dir / "assets" / "logo.jpeg").write_bytes(b"jpeg-bytes")
+    (output_dir / "manual").mkdir(parents=True)
+    (output_dir / "manual" / "outside.txt").write_text("ignore", encoding="utf-8")
+    data_dir.mkdir(parents=True)
+    (data_dir / "task.json").write_text("{}", encoding="utf-8")
+
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "resource_selection:\n"
+            "  default_action: exclude\n"
+            "  rules:\n"
+            "    - match: assets/**/*.jpeg\n"
+            "      action: include\n"
+            "spurious_detection:\n"
+            "  default_action: include\n"
+            "  rules:\n"
+            "    - match: manual/**/*\n"
+            "      action: exclude\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "spurious-file-report",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Report path: {output_dir / 'spurious-files.md'}" in result.stdout
+    assert "Checked output files: 3" in result.stdout
+    assert "Ignored output files: 4" in result.stdout
+    assert "Spurious output files: 1" in result.stdout
+    assert (output_dir / "spurious-files.md").read_text(encoding="utf-8") == (
+        "# Spurious Output File Report\n\n"
+        "Root: .\n\n"
+        "- Expected translated documents: 1\n"
+        "- Expected copied resources: 1\n"
+        "- Checked output files: 3\n"
+        "- Ignored output files: 4\n"
+        "- Spurious output files: 1\n\n"
+        "## Spurious Files\n\n"
+        "- docs/old.md\n"
+    )
 
 
 def test_translate_document_tree_command_translates_markdown_fragments(

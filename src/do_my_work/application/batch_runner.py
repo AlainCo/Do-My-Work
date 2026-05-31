@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import shutil
 
+from do_my_work.application.spurious_file_report import SpuriousFileReportResult, SpuriousFileReporter
 from do_my_work.application.workflow_engine import WorkflowEngine
 from do_my_work.domain.models import WorkflowRunResult, WorkspaceConfig
 
@@ -64,6 +65,20 @@ class BatchRunner:
             request_kind="translate_document_tree",
             translator_profile=translator_profile,
         )
+
+    def run_spurious_file_report(
+        self,
+        config: WorkspaceConfig,
+        root: Path = Path("."),
+    ) -> SpuriousFileReportResult:
+        self._logger.info(
+            "Running spurious output file report with root=%s input=%s output=%s data=%s",
+            root,
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
+        return SpuriousFileReporter().build_report(config, root=root)
 
     def clean_tasks(self, config: WorkspaceConfig) -> int:
         tasks_dir = config.data_dir / "tasks"

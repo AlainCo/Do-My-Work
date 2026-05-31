@@ -268,6 +268,39 @@ def translate_document_tree(
     _echo_run_summary(run_result)
 
 
+@app.command("spurious-file-report")
+def spurious_file_report(
+    config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,
+    input_dir: Annotated[
+        Path | None,
+        typer.Option(help="Input directory for source documents and resources."),
+    ] = None,
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(help="Output directory to inspect for unexpected files."),
+    ] = None,
+    data_dir: Annotated[
+        Path | None,
+        typer.Option(help="Data directory used to ignore workflow state artifacts."),
+    ] = None,
+    root: Annotated[
+        Path,
+        typer.Option(help="Relative subtree under the input directory to compare against the output tree."),
+    ] = Path("."),
+) -> None:
+    """Write a Markdown report listing output files that are not expected from translation or resource copy."""
+    configure_logging()
+    workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    typer.echo(f"Input directory: {workspace_config.input_dir}")
+    typer.echo(f"Output directory: {workspace_config.output_dir}")
+    typer.echo(f"Data directory: {workspace_config.data_dir}")
+    report_result = BatchRunner().run_spurious_file_report(workspace_config, root=root)
+    typer.echo(f"Report path: {report_result.report_path}")
+    typer.echo(f"Checked output files: {report_result.checked_file_count}")
+    typer.echo(f"Ignored output files: {report_result.ignored_file_count}")
+    typer.echo(f"Spurious output files: {report_result.spurious_file_count}")
+
+
 @app.command("clean-tasks")
 def clean_tasks(
     config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,

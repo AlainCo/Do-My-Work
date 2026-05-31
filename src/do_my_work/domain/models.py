@@ -24,6 +24,9 @@ class WorkspaceConfig(BaseModel):
     resource_selection: "FileSelectionConfig" = Field(
         default_factory=lambda: FileSelectionConfig(default_action="exclude")
     )
+    spurious_detection: "FileSelectionConfig" = Field(
+        default_factory=lambda: FileSelectionConfig()
+    )
     llm: "LlmConfig" = Field(default_factory=lambda: LlmConfig())
 
 
@@ -82,6 +85,19 @@ class LocalResourceCopyConfig(BaseModel):
     rules: list[LocalResourceCopyRule] = Field(default_factory=list)
 
 
+class LocalSpuriousRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    match: str
+    exclude: bool = False
+
+
+class LocalSpuriousConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rules: list[LocalSpuriousRule] = Field(default_factory=list)
+
+
 class LocalWorkflowConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -93,6 +109,7 @@ class LocalWorkflowConfig(BaseModel):
     resource_copy: LocalResourceCopyConfig = Field(
         default_factory=lambda: LocalResourceCopyConfig()
     )
+    spurious: LocalSpuriousConfig = Field(default_factory=lambda: LocalSpuriousConfig())
 
 
 class TranslatorProfileConfig(BaseModel):

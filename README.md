@@ -134,6 +134,25 @@ do-my-work translate-document-tree --help
 ```
 
 For the full command guide, option reference, and workflow-oriented examples, see `docs/usage.md`.
+If you want a practical onboarding path, start with the `First run example` section in `docs/usage.md`.
+
+## FAQ
+
+What is this tool for?
+
+It is a batch CLI for document repositories, built first for translating French Markdown articles into English and then extended to handle references, copied resources, and output-tree validation.
+
+Where should I start?
+
+Start with `do-my-work --help`, then read the `First run example` section in `docs/usage.md`.
+
+Where do I configure the workflows?
+
+Use a shared workspace-level YAML file such as `config/workspace.yaml`, then add local `do-my-work.yaml` files inside the input tree when one subtree needs specific exclusions, profiles, or hints.
+
+How do I understand missing or stale generated files?
+
+Run `do-my-work spurious-file-report --config config/workspace.yaml` and inspect the generated `spurious-files.md` report.
 
 ## Run the tests
 

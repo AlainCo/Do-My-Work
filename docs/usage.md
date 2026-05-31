@@ -40,6 +40,56 @@ For a documentation repository, the common sequence is:
 
 Not every repository needs every command on every run, but the commands are designed to work together around the same input and output trees.
 
+## First run example
+
+The example below shows a practical first pass on a repository of French articles and supporting assets.
+
+1. Inspect the configured command surface.
+
+```powershell
+do-my-work --help
+```
+
+2. Generate reference reports for the current source tree.
+
+```powershell
+do-my-work reference-index-tree --config config/workspace.yaml
+```
+
+This produces one `.references.md` file per selected source document and one root-level `references.index.md` summary.
+
+3. Translate the selected documents.
+
+```powershell
+do-my-work translate-document-tree --config config/workspace.yaml
+```
+
+This writes translated outputs under `output_dir` and prints a workflow summary with task counts and LLM timings.
+
+4. Copy the selected non-Markdown resources.
+
+```powershell
+do-my-work copy-resource-tree --config config/workspace.yaml
+```
+
+This keeps images, PDFs, `.url` files, and other selected assets aligned with the generated tree.
+
+5. Check the output tree for missing or unexpected files.
+
+```powershell
+do-my-work spurious-file-report --config config/workspace.yaml
+```
+
+This writes `spurious-files.md`, which helps detect outputs that are missing, stale, or outside the expected translation and copy rules.
+
+6. If you changed selection rules or local config during experimentation, clean persisted tasks before a fresh rerun.
+
+```powershell
+do-my-work clean-tasks --config config/workspace.yaml
+```
+
+That sequence gives a clear first operational loop: inspect references, translate, copy assets, then verify the generated tree.
+
 ## Global CLI usage
 
 Show the command list:
@@ -264,6 +314,189 @@ Local `do-my-work.yaml` files refine behavior inside subtrees.
 Depending on the workflow, they can exclude files, override translator profiles, add translation hints, or exclude paths from copy and spurious detection.
 
 For the detailed local rule format, see `docs/local-workflow-config.md`.
+
+## Example `workspace.yaml`
+
+The example below is a reasonable starting point for a repository of French articles, references, and supporting assets.
+
+```yaml
+input_dir: work/input
+output_dir: work/output
+data_dir: work/data
+
+file_selection:
+  default_action: exclude
+  rules:
+    - match: "**/*.md"
+      action: include
+    - match: "**/*.txt"
+      action: include
+    - match: "**/*.references.md"
+      action: exclude
+    - match: "**/*.index.md"
+      action: exclude
+
+resource_selection:
+  default_action: exclude
+  rules:
+    - match: "**/*.url"
+      action: include
+    - match: "**/*.jpeg"
+      action: include
+    - match: "**/*.jpg"
+      action: include
+    - match: "**/*.pdf"
+      action: include
+
+spurious_detection:
+  default_action: include
+  rules:
+    - match: "manual/**/*"
+      action: exclude
+    - match: "**/*.references.md"
+      action: exclude
+    - match: "**/*.index.md"
+      action: exclude
+
+llm:
+  translator:
+    technical:
+      url: http://127.0.0.1:11434
+      model: ollama-mock
+      temperature: 0.0
+      system_prompt: |
+        You are a professional translator from french to english.
+      user_prompt: |
+        ===BEGIN PREVIOUS CONTEXT===
+        ${pre_context}
+        ===END PREVIOUS CONTEXT===
+
+        ===BEGIN SOURCE TEXT===
+        ${input_fragment}
+        ===END SOURCE TEXT===
+
+        ===BEGIN FOLLOWING CONTEXT===
+        ${post_context}
+        ===END FOLLOWING CONTEXT===
+```
+
+Why this example is useful:
+
+- it translates both `.md` and explicitly included `.txt` inputs
+- it excludes generated reference reports from the translation input set
+- it copies common support files used in article repositories
+- it keeps manually managed output areas out of the spurious-file report
+
+Adapt the include and exclude rules to your repository rather than treating the example as a universal default.
+
+## Example local `do-my-work.yaml`
+
+Use a local `do-my-work.yaml` inside the input tree when one subtree needs stricter exclusions or a different translation policy than the rest of the repository.
+
+Example:
+
+```yaml
+version: 1
+
+translation:
+  rules:
+    - match: "drafts/**/*.md"
+      exclude: true
+
+    - match: "articles/**/*.md"
+      profile: technical
+      hints: |
+        Keep the terminology consistent with earlier translated articles.
+        Preserve citation markers and section structure.
+
+reference_index:
+  rules:
+    - match: "drafts/**/*.md"
+      exclude: true
+
+resource_copy:
+  rules:
+    - match: "drafts/**/*.jpeg"
+      exclude: true
+
+spurious:
+  rules:
+    - match: "manual/**/*"
+      exclude: true
+```
+
+Why this local example is useful:
+
+- it keeps draft Markdown files out of translation and reference indexing
+- it adds subtree-specific translation hints close to the documents that need them
+- it prevents draft-only resources from being copied into the output tree
+- it lets one subtree keep manually managed output files out of the spurious-file report
+
+Scope reminder:
+
+- the file name is always `do-my-work.yaml`
+- it lives inside `input_dir`
+- its patterns are evaluated relative to the folder that contains it
+- local config can exclude more files or refine translation behavior, but it does not re-include files already excluded by the workspace-level config
+
+## Troubleshooting
+
+### A `.txt` file is not translated
+
+For translation, non-`.md` files are not picked up implicitly.
+They must be explicitly included by `file_selection`.
+
+Example:
+
+```yaml
+file_selection:
+  default_action: exclude
+  rules:
+    - match: "**/*.txt"
+      action: include
+```
+
+If your `file_selection` excludes everything by default and only includes `.txt`, then only `.txt` files will be translated.
+Add an explicit `.md` include rule as well if you want both kinds of files.
+
+### `reference-index-tree --report-to-input` seems to create extra inputs
+
+When `--report-to-input` is used, generated reference reports are written into `input_dir`.
+The command is designed so those generated `.references.md` and `references.index.md` files are not re-indexed as new source documents.
+
+As a general repository rule, it is still a good idea to keep generated report patterns excluded in `file_selection`.
+
+### `spurious-file-report` shows missing files even though nothing looks wrong
+
+This command reports both kinds of drift:
+
+- files present in `output_dir` that are not expected anymore
+- files expected from translation or resource copy that are still missing
+
+So a nonzero `Missing output files` count is not necessarily a bug in the report.
+It usually means that your selection rules say a file should exist in the output tree, but no workflow run has produced it yet.
+
+### After changing YAML rules, the next run does not behave as expected
+
+The workflow stores task state in `data_dir`.
+In many cases, changing configuration is handled correctly by task identity and revalidation, but when you want a completely fresh rerun during debugging, clear the persisted task files first:
+
+```powershell
+do-my-work clean-tasks --config config/workspace.yaml
+```
+
+Then rerun the workflow command you care about.
+
+### On Windows, the wrong Python or CLI may be used
+
+If command resolution behaves unexpectedly, prefer the virtual environment Python explicitly:
+
+```powershell
+.\.venv\Scripts\python.exe -m do_my_work.cli --help
+.\.venv\Scripts\python.exe -m pytest
+```
+
+This avoids accidentally using a different global Python than the one where the project is installed.
 
 ## Recommended operating habits
 

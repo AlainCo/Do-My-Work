@@ -218,8 +218,12 @@ def test_spurious_file_report_command_writes_markdown_report(tmp_path: Path) -> 
         "- Expected copied resources: 1\n"
         "- Checked output files: 3\n"
         "- Ignored output files: 4\n"
-        "- Spurious output files: 1\n\n"
+        "- Spurious output files: 1\n"
+        "- Spurious translated documents: 1\n"
+        "- Spurious copied resources: 0\n"
+        "- Other spurious output files: 0\n\n"
         "## Spurious Files\n\n"
+        "### Spurious Translated Documents\n\n"
         "- docs/old.md\n"
     )
 

@@ -299,6 +299,7 @@ def spurious_file_report(
     typer.echo(f"Checked output files: {report_result.checked_file_count}")
     typer.echo(f"Ignored output files: {report_result.ignored_file_count}")
     typer.echo(f"Spurious output files: {report_result.spurious_file_count}")
+    typer.echo(f"Missing output files: {report_result.missing_file_count}")
 
 
 @app.command("clean-tasks")

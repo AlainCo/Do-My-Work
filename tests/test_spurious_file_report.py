@@ -93,3 +93,39 @@ def test_spurious_file_report_classifies_spurious_resource_outputs(tmp_path: Pat
     assert result.spurious_other_files == []
     assert result.expected_translated_file_count == 0
     assert result.expected_resource_file_count == 1
+
+
+def test_spurious_file_report_detects_missing_translated_and_resource_outputs(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = output_dir / "work" / "data"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text("# Intro\n", encoding="utf-8")
+    (input_dir / "assets").mkdir(parents=True)
+    (input_dir / "assets" / "logo.jpeg").write_bytes(b"jpeg-bytes")
+    data_dir.mkdir(parents=True)
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        resource_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[FileSelectionRule(match="assets/**/*.jpeg", action="include")],
+        ),
+        spurious_detection=FileSelectionConfig(default_action="include"),
+    )
+
+    result = SpuriousFileReporter().build_report(config)
+
+    assert result.checked_file_count == 0
+    assert result.ignored_file_count == 0
+    assert result.spurious_files == []
+    assert result.missing_files == [Path("assets/logo.jpeg"), Path("docs/note.md")]
+    assert result.missing_translated_files == [Path("docs/note.md")]
+    assert result.missing_resource_files == [Path("assets/logo.jpeg")]
+    assert result.expected_translated_file_count == 1
+    assert result.expected_resource_file_count == 1

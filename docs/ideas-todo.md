@@ -78,3 +78,4 @@ Use the following markers when they help clarify priority or outcome:
   - detection compares the output tree against files that could be translated from Markdown or copied as selected resources from the input
   - local `do-my-work.yaml` config is used through a `spurious.rules[]` exclusion section, analogous to translation and resource copy
   - workspace-level `spurious_detection` rules can exclude independently managed output folders or files from the report
+  - the same report now also lists expected translated documents and copied resources that are missing from the output

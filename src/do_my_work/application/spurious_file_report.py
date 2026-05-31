@@ -24,12 +24,19 @@ class SpuriousFileReportResult:
     spurious_translated_files: list[Path]
     spurious_resource_files: list[Path]
     spurious_other_files: list[Path]
+    missing_files: list[Path]
+    missing_translated_files: list[Path]
+    missing_resource_files: list[Path]
     expected_translated_file_count: int
     expected_resource_file_count: int
 
     @property
     def spurious_file_count(self) -> int:
         return len(self.spurious_files)
+
+    @property
+    def missing_file_count(self) -> int:
+        return len(self.missing_files)
 
 
 class SpuriousFileReporter:
@@ -66,6 +73,7 @@ class SpuriousFileReporter:
         spurious_translated_files: list[Path] = []
         spurious_resource_files: list[Path] = []
         spurious_other_files: list[Path] = []
+        existing_output_files: set[Path] = set()
 
         if output_root.exists():
             for output_path in sorted(output_root.rglob("*")):
@@ -73,6 +81,7 @@ class SpuriousFileReporter:
                     continue
 
                 relative_output_path = output_path.relative_to(config.output_dir)
+                existing_output_files.add(relative_output_path)
                 if not _should_check_output_file(relative_output_path, config):
                     ignored_file_count += 1
                     continue
@@ -88,6 +97,10 @@ class SpuriousFileReporter:
                     else:
                         spurious_other_files.append(relative_output_path)
 
+        missing_translated_files = sorted(expected_translated_outputs - existing_output_files)
+        missing_resource_files = sorted(expected_resource_outputs - existing_output_files)
+        missing_files = sorted(set(missing_translated_files) | set(missing_resource_files))
+
         report_path = config.output_dir / build_spurious_file_report_path()
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(
@@ -97,6 +110,8 @@ class SpuriousFileReporter:
                 spurious_translated_files=spurious_translated_files,
                 spurious_resource_files=spurious_resource_files,
                 spurious_other_files=spurious_other_files,
+                missing_translated_files=missing_translated_files,
+                missing_resource_files=missing_resource_files,
                 expected_translated_file_count=len(expected_translated_outputs),
                 expected_resource_file_count=len(expected_resource_outputs),
                 ignored_file_count=ignored_file_count,
@@ -110,6 +125,7 @@ class SpuriousFileReporter:
             len(checked_files),
             ignored_file_count,
             len(spurious_files),
+            len(missing_files),
             len(expected_translated_outputs),
             len(expected_resource_outputs),
         )
@@ -122,6 +138,9 @@ class SpuriousFileReporter:
             spurious_translated_files=spurious_translated_files,
             spurious_resource_files=spurious_resource_files,
             spurious_other_files=spurious_other_files,
+            missing_files=missing_files,
+            missing_translated_files=missing_translated_files,
+            missing_resource_files=missing_resource_files,
             expected_translated_file_count=len(expected_translated_outputs),
             expected_resource_file_count=len(expected_resource_outputs),
         )
@@ -137,6 +156,8 @@ def render_spurious_file_report(
     spurious_translated_files: list[Path],
     spurious_resource_files: list[Path],
     spurious_other_files: list[Path],
+    missing_translated_files: list[Path],
+    missing_resource_files: list[Path],
     expected_translated_file_count: int,
     expected_resource_file_count: int,
     ignored_file_count: int,
@@ -146,6 +167,7 @@ def render_spurious_file_report(
         *spurious_resource_files,
         *spurious_other_files,
     ]
+    missing_files = [*missing_translated_files, *missing_resource_files]
     lines = [
         "# Spurious Output File Report",
         "",
@@ -159,12 +181,19 @@ def render_spurious_file_report(
         f"- Spurious translated documents: {len(spurious_translated_files)}",
         f"- Spurious copied resources: {len(spurious_resource_files)}",
         f"- Other spurious output files: {len(spurious_other_files)}",
+        f"- Missing output files: {len(missing_files)}",
+        f"- Missing translated documents: {len(missing_translated_files)}",
+        f"- Missing copied resources: {len(missing_resource_files)}",
         "",
     ]
 
-    if not spurious_files:
+    if not spurious_files and not missing_files:
         lines.extend([
             "## Spurious Files",
+            "",
+            "None.",
+            "",
+            "## Missing Files",
             "",
             "None.",
             "",
@@ -172,15 +201,26 @@ def render_spurious_file_report(
         return "\n".join(lines)
 
     lines.extend(["## Spurious Files", ""])
-    lines.extend(
-        _render_spurious_group("Spurious Translated Documents", spurious_translated_files)
-    )
-    lines.extend(_render_spurious_group("Spurious Copied Resources", spurious_resource_files))
-    lines.extend(_render_spurious_group("Other Spurious Output Files", spurious_other_files))
+    if spurious_files:
+        lines.extend(
+            _render_path_group("Spurious Translated Documents", spurious_translated_files)
+        )
+        lines.extend(_render_path_group("Spurious Copied Resources", spurious_resource_files))
+        lines.extend(_render_path_group("Other Spurious Output Files", spurious_other_files))
+    else:
+        lines.extend(["None.", ""])
+
+    lines.extend(["## Missing Files", ""])
+    if missing_files:
+        lines.extend(_render_path_group("Missing Translated Documents", missing_translated_files))
+        lines.extend(_render_path_group("Missing Copied Resources", missing_resource_files))
+    else:
+        lines.extend(["None.", ""])
+
     return "\n".join(lines)
 
 
-def _render_spurious_group(title: str, paths: list[Path]) -> list[str]:
+def _render_path_group(title: str, paths: list[Path]) -> list[str]:
     if not paths:
         return []
 

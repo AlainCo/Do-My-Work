@@ -211,6 +211,7 @@ def test_spurious_file_report_command_writes_markdown_report(tmp_path: Path) -> 
     assert "Checked output files: 3" in result.stdout
     assert "Ignored output files: 4" in result.stdout
     assert "Spurious output files: 1" in result.stdout
+    assert "Missing output files: 0" in result.stdout
     assert (output_dir / "spurious-files.md").read_text(encoding="utf-8") == (
         "# Spurious Output File Report\n\n"
         "Root: .\n\n"
@@ -221,10 +222,15 @@ def test_spurious_file_report_command_writes_markdown_report(tmp_path: Path) -> 
         "- Spurious output files: 1\n"
         "- Spurious translated documents: 1\n"
         "- Spurious copied resources: 0\n"
-        "- Other spurious output files: 0\n\n"
+        "- Other spurious output files: 0\n"
+        "- Missing output files: 0\n"
+        "- Missing translated documents: 0\n"
+        "- Missing copied resources: 0\n\n"
         "## Spurious Files\n\n"
         "### Spurious Translated Documents\n\n"
-        "- docs/old.md\n"
+        "- docs/old.md\n\n"
+        "## Missing Files\n\n"
+        "None.\n"
     )
 
 

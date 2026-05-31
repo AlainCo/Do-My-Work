@@ -57,6 +57,7 @@ Use the following markers when they help clarify priority or outcome:
   - workspace-level `spurious_detection` rules can exclude independently managed output folders or files from the report
   - the same report now also lists expected translated documents and copied resources that are missing from the output
 - [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
+- [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 
 ## managing LLM calls
 
@@ -68,11 +69,26 @@ Use the following markers when they help clarify priority or outcome:
 
 ## references and bibliography
 
+- [TODISCUSS] [SOON] why not check the URLs on internet ?
+  - it should be activated with an option like --check-urls
+  - proxy may be used, and configures as usual in environment variables http_proxy and https_proxy
+  - the report to update would be the final cross reference by URL
+  - for each URL new item should tell
+    - the HTTP return code
+    - if the code is a 2xx, the content-type
+    - if the content-type is HTML, maybe try to get the HEAD/TITLE of the HTML page
+- [LATER] [TODISCUSS] let's be crazy, why not scrap HTML pages
+  - include some lines in a MarkDown Fenced Code Blocks
+  - it should be activated with an option like --preview-urls
+  - the length of preview may be defined with --preview-urls-lines=NNN with a default value of say 20
+- [LATER] [TODISCUSS] let's be crazy, why not scrap PDF pages
+  - feasibility is to be discussed
+
+
 ## file selection
 
-- [ABANDONED] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
 - [LATER] local `do-my-work.yaml` can later grow beyond `profile` and `hints` with glossary-like guidance, corrections, warnings, and other folder-specific business parameters.
-- [SOON] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
+
 
 ## files copy
 

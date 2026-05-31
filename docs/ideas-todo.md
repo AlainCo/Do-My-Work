@@ -78,9 +78,7 @@ Use the following markers when they help clarify priority or outcome:
 
 ## translation
 
-- [SOON] allow to change the header and footer, in do-my-work, for each file/folder like we do for profile.
-  - maybe just adding translated_document_header and translated_document_footer in the translation/rules/match like the profile field
-  - note: the goal is to allow to add long introduction or post-scriptum ins some files like the README, or to change the format of header/footer in non Markdown files (text, html...)
+- [DONE] local `do-my-work.yaml` translation rules can now override `translated_document_header` and `translated_document_footer` per file or subtree, so rare files such as translated `README.md` can carry specific automatic-translation notes or a different wrapper syntax for Markdown, text, or HTML outputs
 
 ## references and bibliography
 

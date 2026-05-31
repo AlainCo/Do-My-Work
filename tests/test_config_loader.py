@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from do_my_work.infrastructure.config_loader import load_workspace_config
+from do_my_work.infrastructure.config_loader import load_local_workflow_config, load_workspace_config
 
 
 def test_load_workspace_config_reads_translator_profiles(tmp_path: Path) -> None:
@@ -105,3 +105,31 @@ llm:
     )
     assert config.llm.translator["emotional"].credential == "secret-token"
     assert "${input_fragment}" in config.llm.translator["emotional"].user_prompt
+
+
+def test_load_local_workflow_config_reads_translation_header_footer_overrides(
+    tmp_path: Path,
+ ) -> None:
+    config_file = tmp_path / "do-my-work.yaml"
+    config_file.write_text(
+        (
+            "version: 1\n"
+            "translation:\n"
+            "  rules:\n"
+            "    - match: \"README.md\"\n"
+            "      translated_document_header: |\n"
+            "        <!-- Automatically translated README -->\n"
+            "      translated_document_footer: |\n"
+            "        <!-- End translated README -->\n"
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_local_workflow_config(config_file)
+
+    assert config.translation.rules[0].translated_document_header == (
+        "<!-- Automatically translated README -->\n"
+    )
+    assert config.translation.rules[0].translated_document_footer == (
+        "<!-- End translated README -->\n"
+    )

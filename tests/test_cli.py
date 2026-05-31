@@ -759,6 +759,115 @@ def test_translate_document_tree_command_reorders_review_columns_without_retrans
     assert second_review_html.index(">Translated<") < second_review_html.index(">Original<")
 
 
+def test_translate_document_tree_command_rerenders_local_header_footer_without_retranslation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "README.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"README.md\"\n"
+        "      translated_document_header: \"<!-- First header -->\"\n"
+        "      translated_document_footer: \"<!-- First footer -->\"\n",
+        encoding="utf-8",
+    )
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: |\n"
+            "        You are a professional translatoir from french to english.\n"
+            "      user_prompt: |\n"
+            "        ===BEGIN SOURCE TEXT===\n"
+            "        ${input_fragment}\n"
+            "        ===END SOURCE TEXT===\n"
+        ),
+        encoding="utf-8",
+    )
+
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    translation_call_count = 0
+
+    def fake_translate_fragment(self, config, profile_name, parameters):
+        nonlocal translation_call_count
+        translation_call_count += 1
+        self._record_attempt_duration(1.0)
+        return str(parameters["input_fragment"]).upper()
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        fake_translate_fragment,
+    )
+
+    first_result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    assert first_result.exit_code == 0
+    first_translation_call_count = translation_call_count
+    assert first_translation_call_count == 2
+    assert (output_dir / "README.md").read_text(encoding="utf-8") == (
+        "<!-- First header -->\n\n"
+        "# INTRO\n\n"
+        "ALPHA BETA.\n\n"
+        "<!-- First footer -->\n"
+    )
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"README.md\"\n"
+        "      translated_document_header: \"<!-- Second header -->\"\n"
+        "      translated_document_footer: \"<!-- Second footer -->\"\n",
+        encoding="utf-8",
+    )
+
+    second_result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    assert second_result.exit_code == 0
+    assert translation_call_count == first_translation_call_count
+    assert "Tasks replayed:" in second_result.stdout
+    assert (output_dir / "README.md").read_text(encoding="utf-8") == (
+        "<!-- Second header -->\n\n"
+        "# INTRO\n\n"
+        "ALPHA BETA.\n\n"
+        "<!-- Second footer -->\n"
+    )
+
+
 def test_compare_runs_command_compares_latest_two_runs(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     repository = JsonRunRepository(data_dir / "runs")

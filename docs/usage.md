@@ -140,7 +140,7 @@ Selection behavior:
 
 - `.md` files follow `file_selection`
 - non-`.md` files can also be translated when they are explicitly included by `file_selection`
-- local `do-my-work.yaml` files can exclude files, switch profiles, and add hints through `translation` rules
+- local `do-my-work.yaml` files can exclude files, switch profiles, add hints, and override translated document headers or footers through `translation` rules
 
 Typical output:
 
@@ -450,6 +450,12 @@ translation:
         Keep the terminology consistent with earlier translated articles.
         Preserve citation markers and section structure.
 
+    - match: "README.md"
+      translated_document_header: |
+        <!-- This README was translated automatically. Review before publication. -->
+      translated_document_footer: |
+        <!-- End automatic translation note -->
+
 reference_index:
   rules:
     - match: "drafts/**/*.md"
@@ -470,6 +476,7 @@ Why this local example is useful:
 
 - it keeps draft Markdown files out of translation and reference indexing
 - it adds subtree-specific translation hints close to the documents that need them
+- it can add a file-specific translation note or wrapper syntax through `translated_document_header` and `translated_document_footer`
 - it prevents draft-only resources from being copied into the output tree
 - it lets one subtree keep manually managed output files out of the spurious-file report
 

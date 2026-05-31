@@ -71,6 +71,8 @@ class LocalTranslationRule(BaseModel):
     exclude: bool = False
     profile: str | None = None
     hints: str | None = None
+    translated_document_header: str | None = None
+    translated_document_footer: str | None = None
 
 
 class LocalTranslationConfig(BaseModel):
@@ -340,6 +342,8 @@ class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     with_review: bool = False
     translation_hints: str = ""
     translation_hints_digest: str | None = None
+    translated_document_header: str | None = None
+    translated_document_footer: str | None = None
 
 
 class TranslateFragmentTaskSpec(BaseModel):

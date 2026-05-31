@@ -707,6 +707,98 @@ def test_workflow_engine_recreates_translation_tasks_when_local_hints_change(
     assert "Second hint." in (output_dir / "note.md").read_text(encoding="utf-8")
 
 
+def test_workflow_engine_rerenders_translation_when_local_header_footer_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "README.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"README.md\"\n"
+        "      translated_document_header: \"<!-- First header -->\"\n"
+        "      translated_document_footer: \"<!-- First footer -->\"\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    translate_call_count = 0
+
+    def translate_fragment(self, config, profile_name, parameters):
+        nonlocal translate_call_count
+        translate_call_count += 1
+        self._record_attempt_duration(1.0)
+        return str(parameters["input_fragment"]).upper()
+
+    monkeypatch.setattr(OllamaChatClient, "translate_fragment", translate_fragment)
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a translator.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+    first_run_translate_call_count = translate_call_count
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"README.md\"\n"
+        "      translated_document_header: \"<!-- Second header -->\"\n"
+        "      translated_document_footer: \"<!-- Second footer -->\"\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "succeeded"
+    assert second_run.status == "succeeded"
+    assert first_run_translate_call_count > 0
+    assert translate_call_count == first_run_translate_call_count
+    assert second_run.summary.executed_task_count == 3
+    assert second_run.summary.created_task_count == 2
+    assert (output_dir / "README.md").read_text(encoding="utf-8") == (
+        "<!-- Second header -->\n\n"
+        "# INTRO\n\n"
+        "ALPHA BETA.\n\n"
+        "<!-- Second footer -->\n"
+    )
+
+
 def test_workflow_engine_runs_translation_flow_via_fragment_tasks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

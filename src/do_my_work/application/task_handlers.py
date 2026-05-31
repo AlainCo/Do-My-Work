@@ -22,6 +22,7 @@ from do_my_work.application.task_keys import (
     make_translation_plan_digest,
     make_translate_fragment_task_key,
     make_translated_document_render_digest,
+    make_translated_document_render_digest_for_content,
     make_translator_profile_digest,
 )
 from do_my_work.domain.models import (
@@ -100,6 +101,8 @@ class DocumentWorkflowSettings:
     relative_path: Path
     translation_profile_name: str | None = None
     translation_hints: str = ""
+    translated_document_header: str | None = None
+    translated_document_footer: str | None = None
 
 
 class DiscoverReferenceDocumentsTaskHandler:
@@ -413,8 +416,16 @@ class DiscoverTranslateDocumentsTaskHandler:
 
             profile_digest = make_translator_profile_digest(effective_profile)
             plan_digest = make_translation_plan_digest(effective_profile)
-            render_digest = make_translated_document_render_digest(
-                effective_profile,
+            effective_header = document.translated_document_header
+            if effective_header is None:
+                effective_header = effective_profile.translated_document_header
+            effective_footer = document.translated_document_footer
+            if effective_footer is None:
+                effective_footer = effective_profile.translated_document_footer
+
+            render_digest = make_translated_document_render_digest_for_content(
+                effective_header,
+                effective_footer,
                 with_review=spec.with_review,
                 translated_first=config.translation_review.translated_first,
             )
@@ -445,6 +456,8 @@ class DiscoverTranslateDocumentsTaskHandler:
                             with_review=spec.with_review,
                             translation_hints=document.translation_hints,
                             translation_hints_digest=translation_hints_digest,
+                            translated_document_header=effective_header,
+                            translated_document_footer=effective_footer,
                         ),
                     )
                 )
@@ -974,8 +987,8 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                         render_digest=spec.render_digest,
                         with_review=spec.with_review,
                         translation_hints_digest=spec.translation_hints_digest,
-                        translated_document_header=profile.translated_document_header,
-                        translated_document_footer=profile.translated_document_footer,
+                        translated_document_header=spec.translated_document_header,
+                        translated_document_footer=spec.translated_document_footer,
                     ),
                     child_task_keys=fragment_task_keys,
                 )
@@ -2059,6 +2072,8 @@ def _resolve_document_workflow_settings(
     excluded = False
     translation_profile_name = default_translation_profile_name
     translation_hints_parts: list[str] = []
+    translated_document_header: str | None = None
+    translated_document_footer: str | None = None
 
     for directory, local_config in _iter_applicable_local_workflow_configs(
         source_path,
@@ -2080,6 +2095,10 @@ def _resolve_document_workflow_settings(
                     translation_profile_name = rule.profile
                 if rule.hints is not None:
                     translation_hints_parts.append(rule.hints)
+                if rule.translated_document_header is not None:
+                    translated_document_header = rule.translated_document_header
+                if rule.translated_document_footer is not None:
+                    translated_document_footer = rule.translated_document_footer
         else:
             raise ValueError(f"Unsupported workflow kind: {workflow_kind}")
 
@@ -2091,6 +2110,8 @@ def _resolve_document_workflow_settings(
         relative_path=relative_path,
         translation_profile_name=translation_profile_name,
         translation_hints="\n\n".join(part for part in translation_hints_parts if part),
+        translated_document_header=translated_document_header,
+        translated_document_footer=translated_document_footer,
     )
 
 

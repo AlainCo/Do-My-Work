@@ -153,17 +153,32 @@ def make_translated_document_render_digest(
     with_review: bool = False,
     translated_first: bool = False,
 ) -> str | None:
+    return make_translated_document_render_digest_for_content(
+        profile.translated_document_header,
+        profile.translated_document_footer,
+        with_review=with_review,
+        translated_first=translated_first,
+    )
+
+
+def make_translated_document_render_digest_for_content(
+    translated_document_header: str | None,
+    translated_document_footer: str | None,
+    *,
+    with_review: bool = False,
+    translated_first: bool = False,
+) -> str | None:
     if (
-        not profile.translated_document_header
-        and not profile.translated_document_footer
+        not translated_document_header
+        and not translated_document_footer
         and not with_review
     ):
         return None
 
     payload = "|".join(
         [
-            profile.translated_document_header or "",
-            profile.translated_document_footer or "",
+            translated_document_header or "",
+            translated_document_footer or "",
             "with_review" if with_review else "without_review",
             "translated_first" if translated_first else "original_first",
         ]

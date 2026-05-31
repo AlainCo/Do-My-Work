@@ -179,6 +179,40 @@ def test_check_reference_url_handler_records_http_metadata() -> None:
     assert result.updated_record.outcome.result.reason_phrase == "OK"
 
 
+def test_check_reference_url_handler_extracts_html_title_and_excerpt() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=(
+                "<html><head><title>Example article</title></head>"
+                "<body><h1>Ignored heading</h1><p>First sentence about the article preview. "
+                "Second sentence adds a bit more detail for the plain text excerpt.</p>"
+                "<script>window.ignore = true;</script></body></html>"
+            ).encode("utf-8"),
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/article"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/article"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.html_title == "Example article"
+    assert result.updated_record.outcome.result.html_excerpt is not None
+    assert "First sentence about the article preview." in result.updated_record.outcome.result.html_excerpt
+    assert "window.ignore" not in result.updated_record.outcome.result.html_excerpt
+
+
 def test_check_reference_url_handler_records_request_errors_without_failing() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("certificate verify failed", request=request)

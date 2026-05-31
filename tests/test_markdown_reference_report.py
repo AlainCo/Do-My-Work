@@ -166,6 +166,50 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
     )
 
 
+def test_render_tree_markdown_reference_report_includes_html_preview_metadata(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/article).\n",
+        encoding="utf-8",
+    )
+
+    report = render_tree_markdown_reference_report(
+        source_root=tmp_path,
+        relative_paths=[Path("alpha.md")],
+        url_index_entries={
+            "https://example.org/article": ReferenceUrlIndexEntry(
+                url="https://example.org/article",
+                last_checked_at="2026-05-31T10:00:00Z",
+                http_status_code=200,
+                reason_phrase="OK",
+                content_type="text/html",
+                filename="article",
+                html_title="Example article",
+                html_excerpt="First line of preview.\nSecond line of preview.",
+            )
+        },
+    )
+
+    assert report == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/article) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/article\n\n"
+        "- Status: 200 OK\n"
+        "- Last checked: 2026-05-31T10:00:00Z\n"
+        "- HTML Title: Example article\n"
+        "- Content-Type: text/html\n"
+        "- Filename: article\n"
+        "```text\n"
+        "First line of preview.\n"
+        "Second line of preview.\n"
+        "```\n\n"
+        "- alpha.md [Sources] Bob\n"
+    )
+
+
 def test_render_tree_markdown_reference_report_excludes_relative_links_from_cross_reference(
     tmp_path: Path,
 ) -> None:

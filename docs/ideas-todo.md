@@ -59,6 +59,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
 - [DONE] `reference-index-tree --check-urls` now checks each unique referenced URL and enriches the root URL cross-reference with HTTP status, content type, and a probable filename. HTML title extraction remains a later slice.
 - [DONE] `reference-index-tree` now also writes `references.index.yaml`, preserves manual URL metadata (`skip_recheck`, `doi`), reuses stored metadata when `skip_recheck: true`, carries `last_checked_at` into the Markdown report, and keeps unused URL entries marked as `unused` instead of deleting them.
+- [DONE] HTML URL checks now extract a bounded `title` and a short plain-text preview excerpt, persist them in `references.index.yaml`, and render them in `references.index.md`.
 - [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 
 ## managing LLM calls
@@ -71,12 +72,11 @@ Use the following markers when they help clarify priority or outcome:
 
 ## references and bibliography
 
-- [LATER] [TODISCUSS] why not scrap HTML pages
-  - beside the HEAD/TITLE, include some lines in a MarkDown Fenced Code Blocks
-    - get the to H1/2/3 ? what is common for this functionality ?
-    - use a dedicated scraping tool ?
-  - it should be activated with an option like --preview-urls
-  - the length of preview may be defined with --preview-urls-lines=NNN  with a default value of say 20
+- [LATER] [TODISCUSS] improve HTML page extraction beyond the current bounded title and plain-text excerpt
+  - evaluate whether H1/H2/H3 add useful signal beyond the plain-text preview
+  - evaluate whether a dedicated extraction library is warranted for cleaner article text
+  - if control becomes necessary, add an option like `--preview-urls`
+  - if control becomes necessary, add an option like `--preview-urls-lines=NNN`
 - [LATER]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
 - [LATER] [TODISCUSS] why not scrap PDF pages
   - feasibility is to be discussed

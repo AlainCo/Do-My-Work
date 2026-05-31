@@ -181,6 +181,8 @@ class ReferenceUrlCheckResult(BaseModel):
     content_type: str | None = None
     filename: str | None = None
     reason_phrase: str | None = None
+    html_title: str | None = None
+    html_excerpt: str | None = None
 
 
 class ReferenceUrlOccurrence(BaseModel):
@@ -205,6 +207,8 @@ class ReferenceUrlIndexEntry(BaseModel):
     content_type: str | None = None
     filename: str | None = None
     reason_phrase: str | None = None
+    html_title: str | None = None
+    html_excerpt: str | None = None
     references: list[ReferenceUrlOccurrence] = Field(default_factory=list)
 
 

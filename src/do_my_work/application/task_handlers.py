@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from hashlib import sha256
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 import shutil
+import textwrap
 from urllib.parse import unquote, urlsplit
 
 import httpx
@@ -543,9 +545,10 @@ class CheckReferenceUrlTaskHandler:
                 spec.url,
                 follow_redirects=True,
                 timeout=20.0,
-                headers={"Accept": "*/*", "Range": "bytes=0-0"},
+                headers={"Accept": "text/html,*/*", "Range": f"bytes=0-{_HTML_PREVIEW_BYTE_LIMIT - 1}"},
             ) as response:
                 response.raise_for_status()
+                html_title, html_excerpt = _extract_html_preview(response)
                 result = ReferenceUrlCheckResult(
                     url=spec.url,
                     checked_at=_build_checked_at_timestamp(),
@@ -553,6 +556,8 @@ class CheckReferenceUrlTaskHandler:
                     content_type=response.headers.get("content-type"),
                     filename=_resolve_reference_url_filename(spec.url, response),
                     reason_phrase=response.reason_phrase or None,
+                    html_title=html_title,
+                    html_excerpt=html_excerpt,
                 )
                 return TaskHandlerResult(
                     updated_record=record.model_copy(
@@ -1251,10 +1256,111 @@ def _merge_reference_index_sidecar(
                 updated_entry.content_type = result.content_type
                 updated_entry.filename = result.filename
                 updated_entry.reason_phrase = result.reason_phrase
+                updated_entry.html_title = result.html_title
+                updated_entry.html_excerpt = result.html_excerpt
 
         merged_entries.append(updated_entry)
 
     return ReferenceIndexSidecar(version=1, urls=merged_entries)
+
+
+_HTML_PREVIEW_BYTE_LIMIT = 16 * 1024
+_HTML_PREVIEW_TEXT_WIDTH = 100
+_HTML_PREVIEW_MAX_LINES = 3
+_HTML_PREVIEW_MAX_TEXT_CHARS = 600
+
+
+class _HtmlPreviewParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._in_title = False
+        self._ignored_tag_depth = 0
+        self._title_parts: list[str] = []
+        self._text_parts: list[str] = []
+
+    @property
+    def title(self) -> str:
+        return " ".join(part for part in self._title_parts if part).strip()
+
+    @property
+    def text(self) -> str:
+        return " ".join(part for part in self._text_parts if part).strip()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        del attrs
+        normalized_tag = tag.lower()
+        if normalized_tag == "title":
+            self._in_title = True
+            return
+        if normalized_tag in {"script", "style", "noscript"}:
+            self._ignored_tag_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        normalized_tag = tag.lower()
+        if normalized_tag == "title":
+            self._in_title = False
+            return
+        if normalized_tag in {"script", "style", "noscript"} and self._ignored_tag_depth > 0:
+            self._ignored_tag_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        normalized = " ".join(data.split())
+        if not normalized:
+            return
+        if self._in_title:
+            self._title_parts.append(normalized)
+            return
+        if self._ignored_tag_depth > 0:
+            return
+        self._text_parts.append(normalized)
+
+
+def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | None]:
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "html" not in content_type:
+        return None, None
+
+    payload = _read_limited_response_bytes(response, _HTML_PREVIEW_BYTE_LIMIT)
+    if not payload:
+        return None, None
+
+    encoding = response.encoding or "utf-8"
+    html = payload.decode(encoding, errors="ignore")
+    parser = _HtmlPreviewParser()
+    parser.feed(html)
+    parser.close()
+
+    title = parser.title or None
+    excerpt = _format_html_excerpt(parser.text)
+    return title, excerpt
+
+
+def _read_limited_response_bytes(response: httpx.Response, limit: int) -> bytes:
+    buffer = bytearray()
+
+    for chunk in response.iter_bytes():
+        if not chunk:
+            continue
+        remaining = limit - len(buffer)
+        if remaining <= 0:
+            break
+        buffer.extend(chunk[:remaining])
+        if len(buffer) >= limit:
+            break
+
+    return bytes(buffer)
+
+
+def _format_html_excerpt(text: str) -> str | None:
+    normalized = " ".join(text.split())
+    if not normalized:
+        return None
+
+    clipped = normalized[:_HTML_PREVIEW_MAX_TEXT_CHARS].strip()
+    wrapped = textwrap.wrap(clipped, width=_HTML_PREVIEW_TEXT_WIDTH)
+    if not wrapped:
+        return None
+    return "\n".join(wrapped[:_HTML_PREVIEW_MAX_LINES])
 
 
 def _build_fragment_digest(fragment: MarkdownFragment) -> str:

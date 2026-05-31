@@ -157,12 +157,18 @@ def _render_url_check_lines(entry: ReferenceUrlIndexEntry) -> list[str]:
     if entry.doi.strip():
         normalized_doi = entry.doi.strip()
         lines.append(f"- DOI: [{normalized_doi}]({_build_doi_link(normalized_doi)})")
+    if entry.html_title:
+        lines.append(f"- HTML Title: {entry.html_title}")
     if entry.content_type:
         lines.append(f"- Content-Type: {entry.content_type}")
     if entry.filename:
         lines.append(f"- Filename: {entry.filename}")
     if entry.final_url and entry.final_url != entry.url:
         lines.append(f"- Final URL: {entry.final_url}")
+    if entry.html_excerpt:
+        lines.append("```text")
+        lines.extend(entry.html_excerpt.splitlines())
+        lines.append("```")
 
     return lines
 

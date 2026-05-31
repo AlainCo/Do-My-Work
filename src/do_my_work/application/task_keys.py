@@ -8,12 +8,15 @@ def make_discover_reference_documents_task_key(
     root: Path,
     local_policy_digest: str | None = None,
     check_urls: bool = False,
+    url_check_run_token: str | None = None,
 ) -> str:
     parts = [root.as_posix()]
     if local_policy_digest:
         parts.append(local_policy_digest)
     if check_urls:
         parts.append("check_urls")
+        if url_check_run_token:
+            parts.append(url_check_run_token)
     return _make_task_key("discover_reference_documents", *parts)
 
 
@@ -106,8 +109,11 @@ def make_index_markdown_references_task_key(relative_path: Path, source_digest: 
     return _make_task_key("index_markdown_references", relative_path.as_posix(), source_digest)
 
 
-def make_check_reference_url_task_key(url: str) -> str:
-    return _make_task_key("check_reference_url", url)
+def make_check_reference_url_task_key(url: str, url_check_run_token: str | None = None) -> str:
+    parts = [url]
+    if url_check_run_token:
+        parts.append(url_check_run_token)
+    return _make_task_key("check_reference_url", *parts)
 
 
 def make_copy_resource_file_task_key(relative_path: Path, source_digest: str) -> str:
@@ -118,11 +124,14 @@ def make_merge_reference_indexes_task_key(
     root: Path,
     relative_paths: list[Path],
     checked_urls: list[str] | None = None,
+    url_check_run_token: str | None = None,
 ) -> str:
     parts = [root.as_posix(), *(relative_path.as_posix() for relative_path in relative_paths)]
     if checked_urls:
         parts.append("check_urls")
         parts.extend(checked_urls)
+        if url_check_run_token:
+            parts.append(url_check_run_token)
     return _make_task_key("merge_reference_indexes", *parts)
 
 

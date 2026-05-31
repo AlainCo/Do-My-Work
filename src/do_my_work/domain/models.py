@@ -196,6 +196,7 @@ class DiscoverReferenceDocumentsTaskSpec(BaseModel):
     kind: Literal["discover_reference_documents"] = "discover_reference_documents"
     root: Path = Field(default=Path("."))
     check_urls: bool = False
+    url_check_run_token: str | None = None
 
 
 class DiscoverCopyResourcesTaskSpec(BaseModel):
@@ -229,6 +230,7 @@ class CheckReferenceUrlTaskSpec(BaseModel):
 
     kind: Literal["check_reference_url"] = "check_reference_url"
     url: str
+    url_check_run_token: str | None = None
 
 
 class CopyResourceFileTaskSpec(BaseModel):
@@ -247,6 +249,7 @@ class MergeReferenceIndexesTaskSpec(BaseModel):
     document_relative_paths: list[Path] = Field(default_factory=list)
     reference_task_keys: list[str] = Field(default_factory=list)
     url_check_task_keys: list[str] = Field(default_factory=list)
+    url_check_run_token: str | None = None
 
 
 class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):

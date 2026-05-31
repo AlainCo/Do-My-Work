@@ -59,6 +59,7 @@ class WorkflowEngine:
     ) -> WorkflowRunResult:
         task_repository = JsonTaskRepository(config.data_dir / "tasks")
         run_repository = JsonRunRepository(config.data_dir / "runs")
+        run_id = _build_run_id()
         executed_task_keys: set[str] = set()
         created_task_keys: set[str] = set()
         replayed_task_keys: set[str] = set()
@@ -71,6 +72,7 @@ class WorkflowEngine:
             request_kind,
             translator_profile,
             check_urls,
+            run_id,
         )
         root_record = task_repository.get(root_task_key)
         if root_record is None:
@@ -81,6 +83,7 @@ class WorkflowEngine:
                 request_kind,
                 translator_profile,
                 check_urls,
+                run_id,
             )
             task_repository.save(root_record)
 
@@ -93,7 +96,7 @@ class WorkflowEngine:
         }
 
         run_request = RunRequest(
-            run_id=_build_run_id(),
+            run_id=run_id,
             request_kind=request_kind,
             root=root,
             status="running",
@@ -287,11 +290,16 @@ class WorkflowEngine:
         ],
         translator_profile: str,
         check_urls: bool,
+        run_id: str,
     ) -> TaskRecord:
         if request_kind == "reference_index_tree":
             return TaskRecord(
                 task_key=root_task_key,
-                spec=DiscoverReferenceDocumentsTaskSpec(root=root, check_urls=check_urls),
+                spec=DiscoverReferenceDocumentsTaskSpec(
+                    root=root,
+                    check_urls=check_urls,
+                    url_check_run_token=run_id if check_urls else None,
+                ),
             )
 
         if request_kind == "copy_resource_tree":
@@ -328,6 +336,7 @@ class WorkflowEngine:
         ],
         translator_profile: str,
         check_urls: bool,
+        run_id: str,
     ) -> str:
         local_policy_digest = _build_local_workflow_policy_digest(config.input_dir, root)
         if request_kind == "reference_index_tree":
@@ -335,6 +344,7 @@ class WorkflowEngine:
                 root,
                 local_policy_digest,
                 check_urls=check_urls,
+                url_check_run_token=run_id if check_urls else None,
             )
         if request_kind == "copy_resource_tree":
             return make_discover_copy_resources_task_key(root, local_policy_digest)

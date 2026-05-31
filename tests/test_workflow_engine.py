@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+import do_my_work.application.workflow_engine as workflow_engine_module
 from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.application.task_keys import make_translate_fragment_task_key
 from do_my_work.application.workflow_engine import WorkflowEngine
@@ -372,6 +373,72 @@ def test_workflow_engine_reference_index_succeeds_when_url_check_reports_request
         "- Filename: broken\n\n"
         "- note.md [Sources] Bob\n"
     )
+
+
+def test_workflow_engine_reference_index_rechecks_urls_on_new_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    request_urls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_urls.append(str(request.url))
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html"},
+            request=request,
+        )
+
+    run_ids = iter(["20260531T100000Z", "20260531T100100Z"])
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(workflow_engine_module, "_build_run_id", lambda: next(run_ids))
+    monkeypatch.setattr(CheckReferenceUrlTaskHandler, "_get_http_client", lambda self: http_client)
+    monkeypatch.setattr(CheckReferenceUrlTaskHandler, "close", lambda self: None)
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+        check_urls=True,
+    )
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+        check_urls=True,
+    )
+
+    assert first_run.status == "succeeded"
+    assert second_run.status == "succeeded"
+    assert first_run.run_request.root_task_key != second_run.run_request.root_task_key
+    assert request_urls == ["https://example.org/bob", "https://example.org/bob"]
+
+    persisted_tasks = [
+        TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in sorted((data_dir / "tasks").rglob("*.json"))
+    ]
+    url_check_tasks = [
+        task
+        for task in persisted_tasks
+        if task.spec.kind == "check_reference_url" and task.spec.url == "https://example.org/bob"
+    ]
+    assert len(url_check_tasks) == 2
 
 
 def test_workflow_engine_copies_selected_resources_and_applies_local_exclusion(

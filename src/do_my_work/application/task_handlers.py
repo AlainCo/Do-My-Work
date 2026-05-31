@@ -149,7 +149,7 @@ class DiscoverReferenceDocumentsTaskHandler:
         url_check_task_keys: list[str] = []
         if spec.check_urls:
             for url in sorted(discovered_urls):
-                task_key = make_check_reference_url_task_key(url)
+                task_key = make_check_reference_url_task_key(url, spec.url_check_run_token)
                 url_check_task_keys.append(task_key)
                 child_task_keys.append(task_key)
 
@@ -157,7 +157,10 @@ class DiscoverReferenceDocumentsTaskHandler:
                     discovered_records.append(
                         TaskRecord(
                             task_key=task_key,
-                            spec=CheckReferenceUrlTaskSpec(url=url),
+                            spec=CheckReferenceUrlTaskSpec(
+                                url=url,
+                                url_check_run_token=spec.url_check_run_token,
+                            ),
                         )
                     )
 
@@ -165,6 +168,7 @@ class DiscoverReferenceDocumentsTaskHandler:
             spec.root,
             document_relative_paths,
             checked_urls=sorted(discovered_urls) if spec.check_urls else None,
+            url_check_run_token=spec.url_check_run_token,
         )
         child_task_keys.append(merge_task_key)
         if task_repository.get(merge_task_key) is None:
@@ -182,6 +186,7 @@ class DiscoverReferenceDocumentsTaskHandler:
                             for relative_path in document_relative_paths
                         ],
                         url_check_task_keys=url_check_task_keys,
+                        url_check_run_token=spec.url_check_run_token,
                     ),
                     child_task_keys=[
                         make_index_markdown_references_task_key(

@@ -1,4 +1,4 @@
-# Do My Work - a tool designed to make projects speak globally.
+# Do My Work - a tool designed to make projects speak globally
 
 Do My Work is a batch CLI for repository-scale content workflows.
 It was built first to help translate a repository of French Markdown articles into English, then grew to cover the practical problems around that job: keeping references visible, copying supporting resources, and spotting missing or unexpected output files.
@@ -21,6 +21,7 @@ The current workflow surface is designed for documentation-heavy repositories wh
 - `docs/workflow-kernel.md`: design note for the toy workflow kernel
 - `docs/markdown-fragment-slice.md`: design note for the first Markdown parsing and fragment reporting slice
 - `docs/reference-index-slice.md`: design note for the Markdown reference indexing slice
+- `docs/ollama.md`: simple guide for the real Ollama runtime, the local mock server, and trace mode scripts
 - `docs/packaging.md`: internal packaging notes for the current `one-folder` distribution target
 - `docs/collaboration.md`: working method, documentation split, and local environment notes
 
@@ -67,6 +68,22 @@ For the project commands below, using the virtual environment Python explicitly 
 ```
 
 ## Quick start
+
+For the LLM side of the project, the easiest starting point is usually the local mock server, especially on a corporate machine where the real Ollama runtime is blocked.
+
+Start the mock server:
+
+```powershell
+scripts\start-ollama-mock.bat
+```
+
+On Linux or Git Bash:
+
+```bash
+./scripts/start-ollama-mock.sh
+```
+
+For a simple explanation of what Ollama does in this repository, how to install the real runtime, and how to use the mock and trace scripts, see `docs/ollama.md`.
 
 Inspect the CLI surface:
 

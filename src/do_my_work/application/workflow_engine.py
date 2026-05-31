@@ -279,7 +279,12 @@ class WorkflowEngine:
             completed_run.run_id,
             completed_run.status,
         )
-        return WorkflowRunResult(run_request=completed_run, summary=summary)
+        return WorkflowRunResult(
+            run_request=completed_run,
+            summary=summary,
+            root_message=None if root_record is None or root_record.outcome is None else root_record.outcome.message,
+            root_error=None if root_record is None or root_record.outcome is None else root_record.outcome.error,
+        )
 
     def _build_root_task_record(
         self,

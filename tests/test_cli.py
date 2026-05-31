@@ -302,7 +302,8 @@ def test_translate_document_tree_command_exits_nonzero_when_local_profile_overri
     assert result.exit_code == 1
     assert "Workflow run completed:" in output
     assert "failed=1" in output
-    assert "Error: Workflow failed. See summary above." in output
+    assert "Error: Translator profile does not exist." in output
+    assert "missing-profile for docs/note.md" in output
     assert "Traceback" not in output
 
 

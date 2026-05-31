@@ -90,7 +90,10 @@ def _echo_run_summary(run_result) -> None:
 
 def _ensure_successful_run(run_result) -> None:
     if run_result.status != "succeeded":
-        _fail_command("Workflow failed. See summary above.", exit_code=1)
+        failure_message = run_result.root_message or "Workflow failed. See summary above."
+        if run_result.root_error:
+            failure_message = f"{failure_message} {run_result.root_error}"
+        _fail_command(failure_message, exit_code=1)
 
 
 def _format_delta(old_value: int | float, new_value: int | float, precision: int = 0) -> str:

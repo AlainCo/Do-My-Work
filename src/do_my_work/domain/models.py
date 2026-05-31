@@ -445,6 +445,8 @@ class WorkflowRunResult(BaseModel):
 
     run_request: RunRequest
     summary: WorkflowRunSummary
+    root_message: str | None = None
+    root_error: str | None = None
 
     @property
     def run_id(self) -> str:

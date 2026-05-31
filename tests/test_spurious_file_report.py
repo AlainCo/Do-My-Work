@@ -95,6 +95,42 @@ def test_spurious_file_report_classifies_spurious_resource_outputs(tmp_path: Pat
     assert result.expected_resource_file_count == 1
 
 
+def test_spurious_file_report_classifies_spurious_translated_txt_outputs(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = output_dir / "work" / "data"
+
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.txt").write_text("# Intro\n", encoding="utf-8")
+
+    (output_dir / "docs").mkdir(parents=True)
+    (output_dir / "docs" / "note.txt").write_text("translated", encoding="utf-8")
+    (output_dir / "docs" / "old.txt").write_text("stale", encoding="utf-8")
+    data_dir.mkdir(parents=True)
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        file_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[FileSelectionRule(match="docs/**/*.txt", action="include")],
+        ),
+        spurious_detection=FileSelectionConfig(default_action="include"),
+    )
+
+    result = SpuriousFileReporter().build_report(config)
+
+    assert result.checked_file_count == 2
+    assert result.ignored_file_count == 0
+    assert result.spurious_files == [Path("docs/old.txt")]
+    assert result.spurious_translated_files == [Path("docs/old.txt")]
+    assert result.spurious_resource_files == []
+    assert result.spurious_other_files == []
+    assert result.expected_translated_file_count == 1
+    assert result.expected_resource_file_count == 0
+
+
 def test_spurious_file_report_detects_missing_translated_and_resource_outputs(
     tmp_path: Path,
 ) -> None:

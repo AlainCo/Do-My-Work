@@ -4,6 +4,8 @@ data_dir: work/data
 file_selection:
   default_action: exclude
   rules:
+    - match: "**/*.txt"
+      action: include
     - match: "**/test*.md"
       action: include
     - match: "**/*.references.md"

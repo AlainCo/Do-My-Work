@@ -1237,7 +1237,10 @@ def _iter_markdown_documents(
         document
         for path in root_path.rglob("*")
         if path.is_file()
-        and path.suffix.lower() == ".md"
+        and (
+            workflow_kind == "translate_document_tree"
+            or path.suffix.lower() == ".md"
+        )
         and (
             document := _resolve_document_workflow_settings(
                 path,
@@ -1270,8 +1273,14 @@ def _resolve_document_workflow_settings(
     local_config_cache: dict[Path, LocalWorkflowConfig | None],
 ) -> DocumentWorkflowSettings | None:
     relative_path = source_path.relative_to(config.input_dir)
-    if not _is_selected_markdown_document(relative_path, config):
-        return None
+    if workflow_kind == "reference_index_tree":
+        if not _is_selected_reference_document(relative_path, config):
+            return None
+    elif workflow_kind == "translate_document_tree":
+        if not _is_selected_translation_document(relative_path, config):
+            return None
+    else:
+        raise ValueError(f"Unsupported workflow kind: {workflow_kind}")
 
     excluded = False
     translation_profile_name = default_translation_profile_name
@@ -1349,8 +1358,26 @@ def _is_selected_markdown_document(relative_path: Path, config: WorkspaceConfig)
     return _is_selected_path(relative_path, config.file_selection)
 
 
+def _is_selected_reference_document(relative_path: Path, config: WorkspaceConfig) -> bool:
+    return (
+        relative_path.suffix.lower() == ".md"
+        and not _is_generated_reference_report_path(relative_path)
+        and _is_selected_markdown_document(relative_path, config)
+    )
+
+
+def _is_selected_translation_document(relative_path: Path, config: WorkspaceConfig) -> bool:
+    if relative_path.suffix.lower() == ".md":
+        return _is_selected_markdown_document(relative_path, config)
+    return _is_explicitly_included_path(relative_path, config.file_selection)
+
+
 def _is_selected_resource_file(relative_path: Path, config: WorkspaceConfig) -> bool:
     return _is_selected_path(relative_path, config.resource_selection)
+
+
+def _is_generated_reference_report_path(relative_path: Path) -> bool:
+    return relative_path.name.endswith(".references.md") or relative_path == build_root_reference_index_path()
 
 
 def _is_copy_resource_allowed(
@@ -1378,6 +1405,18 @@ def _is_selected_path(relative_path: Path, selection) -> bool:
             selected = rule.action == "include"
 
     return selected
+
+
+def _is_explicitly_included_path(relative_path: Path, selection) -> bool:
+    selected = selection.default_action == "include"
+    explicitly_included = False
+
+    for rule in selection.rules:
+        if _path_matches_rule(relative_path, rule.match):
+            selected = rule.action == "include"
+            explicitly_included = rule.action == "include"
+
+    return selected and explicitly_included
 
 
 def _path_matches_rule(relative_path: Path, pattern: str) -> bool:

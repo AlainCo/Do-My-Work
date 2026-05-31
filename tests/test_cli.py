@@ -285,6 +285,7 @@ def test_spurious_file_report_command_writes_report_in_input_when_requested(tmp_
     config_file = tmp_path / "workspace.yaml"
 
     input_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True)
     (input_dir / "note.md").write_text("# Intro\n", encoding="utf-8")
     (output_dir / "note.md").write_text("translated", encoding="utf-8")
     data_dir.mkdir(parents=True)

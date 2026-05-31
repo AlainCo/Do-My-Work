@@ -50,6 +50,13 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
 - [DONE] it should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
   - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
+- [DONE] `spurious-file-report` now writes a Markdown report at the output root with files that are present in the output but are not expected from translation or resource copy.
+  - it does not delete anything; it only reports
+  - detection compares the output tree against files that could be translated from Markdown or copied as selected resources from the input
+  - local `do-my-work.yaml` config is used through a `spurious.rules[]` exclusion section, analogous to translation and resource copy
+  - workspace-level `spurious_detection` rules can exclude independently managed output folders or files from the report
+  - the same report now also lists expected translated documents and copied resources that are missing from the output
+- [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
 
 ## managing LLM calls
 
@@ -61,8 +68,6 @@ Use the following markers when they help clarify priority or outcome:
 
 ## references and bibliography
 
-- [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
-
 ## file selection
 
 - [ABANDONED] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
@@ -73,9 +78,3 @@ Use the following markers when they help clarify priority or outcome:
 
 ## spurious file
 
-- [DONE] `spurious-file-report` now writes a Markdown report at the output root with files that are present in the output but are not expected from translation or resource copy.
-  - it does not delete anything; it only reports
-  - detection compares the output tree against files that could be translated from Markdown or copied as selected resources from the input
-  - local `do-my-work.yaml` config is used through a `spurious.rules[]` exclusion section, analogous to translation and resource copy
-  - workspace-level `spurious_detection` rules can exclude independently managed output folders or files from the report
-  - the same report now also lists expected translated documents and copied resources that are missing from the output

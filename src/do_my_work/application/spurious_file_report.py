@@ -127,7 +127,6 @@ class SpuriousFileReporter:
             len(checked_files),
             ignored_file_count,
             len(spurious_files),
-            len(missing_files),
             len(expected_translated_outputs),
             len(expected_resource_outputs),
         )
@@ -291,8 +290,7 @@ def _is_translated_output_candidate(relative_output_path: Path, config: Workspac
     local_config_cache: dict[Path, LocalWorkflowConfig | None] = {}
     candidate_source_path = config.input_dir / relative_output_path
     return (
-        relative_output_path.suffix.lower() == ".md"
-        and _resolve_document_workflow_settings(
+        _resolve_document_workflow_settings(
             candidate_source_path,
             config,
             workflow_kind="translate_document_tree",

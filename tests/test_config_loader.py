@@ -14,6 +14,8 @@ reference_index:
   max_pdf_bytes: 123456
   preview_max_text_chars: 234
   preview_max_lines: 4
+translation_review:
+  translated_first: true
 file_selection:
   default_action: exclude
   rules:
@@ -71,6 +73,7 @@ llm:
     assert config.reference_index.max_pdf_bytes == 123456
     assert config.reference_index.preview_max_text_chars == 234
     assert config.reference_index.preview_max_lines == 4
+    assert config.translation_review.translated_first is True
     assert config.file_selection.default_action == "exclude"
     assert [rule.match for rule in config.file_selection.rules] == [
       "docs/**/*.md",

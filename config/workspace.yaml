@@ -5,6 +5,8 @@ reference_index:
   max_pdf_bytes: 8388608
   preview_max_text_chars: 1200
   preview_max_lines: 5
+translation_review:
+  translated_first: false
 file_selection:
   default_action: exclude
   rules:

@@ -269,6 +269,13 @@ def translate_document_tree(
         str,
         typer.Option(help="Translator profile name under llm.translator in the YAML config."),
     ] = "technical",
+    with_review: Annotated[
+        bool,
+        typer.Option(
+            "--with-review",
+            help="Also generate a side-by-side HTML review document for each translated document.",
+        ),
+    ] = False,
 ) -> None:
     """Translate Markdown documents through fragment tasks using a named LLM profile."""
     configure_logging()
@@ -280,6 +287,7 @@ def translate_document_tree(
         workspace_config,
         root=root,
         translator_profile=translator_profile,
+        with_review=with_review,
     )
     _echo_run_summary(run_result)
 

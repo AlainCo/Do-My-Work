@@ -28,6 +28,13 @@ def test_cli_help_only_exposes_workflow_commands() -> None:
     assert "summary-document-tree" not in result.stdout
 
 
+def test_translate_document_tree_help_mentions_with_review_option() -> None:
+    result = runner.invoke(app, ["translate-document-tree", "--help"])
+
+    assert result.exit_code == 0
+    assert "--with-review" in result.stdout
+
+
 def test_clean_tasks_command_removes_persisted_task_files(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     task_dir = data_dir / "tasks" / "translate_fragment"
@@ -491,6 +498,72 @@ def test_translate_document_tree_command_translates_markdown_fragments(
     assert (output_dir / "note.md").read_text(encoding="utf-8") == (
         "# INTRO\n\nALPHA BETA.\n"
     )
+
+
+def test_translate_document_tree_command_writes_review_html_when_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "translation_review:\n"
+            "  translated_first: true\n"
+            "llm:\n"
+            "  translator:\n"
+            "    technical:\n"
+            "      url: http://mock.example:11434\n"
+            "      model: ollama-mock\n"
+            "      temperature: 0.0\n"
+            "      system_prompt: |\n"
+            "        You are a professional translatoir from french to english.\n"
+            "      user_prompt: |\n"
+            "        ===BEGIN SOURCE TEXT===\n"
+            "        ${input_fragment}\n"
+            "        ===END SOURCE TEXT===\n"
+        ),
+        encoding="utf-8",
+    )
+
+    from do_my_work.infrastructure.ollama_client import OllamaChatClient
+
+    monkeypatch.setattr(
+        OllamaChatClient,
+        "translate_fragment",
+        lambda self, config, profile_name, parameters: (
+            self._record_attempt_duration(1.0),
+            str(parameters["input_fragment"]).upper(),
+        )[1],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate-document-tree",
+            "--config",
+            str(config_file),
+            "--with-review",
+        ],
+    )
+
+    assert result.exit_code == 0
+    review_html = (output_dir / "note.review.html").read_text(encoding="utf-8")
+    assert "Translation Review" in review_html
+    assert review_html.index(">Translated<") < review_html.index(">Original<")
+    assert "<h1>INTRO</h1>" in review_html
+    assert "<h1>Intro</h1>" in review_html
 
 
 def test_compare_runs_command_compares_latest_two_runs(tmp_path: Path) -> None:

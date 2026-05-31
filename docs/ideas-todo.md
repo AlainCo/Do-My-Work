@@ -65,6 +65,12 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
 - [DONE] why not scrap PDF pages
   - feasibility is to be discussed
+- [DONE] improve HTML page extraction beyond the current bounded title and plain-text excerpt
+  - [ABANDONED] evaluate whether H1/H2/H3 add useful signal beyond the plain-text preview
+  - [DONE] evaluate whether a dedicated extraction library is warranted for cleaner article text
+  - [ABANDONED] if control becomes necessary, add an option like `--preview-urls`
+  - [ABANDONED] if control becomes necessary, add an option like `--preview-urls-lines=NNN`
+- [DONE] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
 ## managing LLM calls
 
@@ -72,23 +78,10 @@ Use the following markers when they help clarify priority or outcome:
 
 ## translation improvement
 
-- [LATER] [TODISCUSS] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
-
 ## references and bibliography
 
-- [LATER] [TODISCUSS] improve HTML page extraction beyond the current bounded title and plain-text excerpt
-  - evaluate whether H1/H2/H3 add useful signal beyond the plain-text preview
-  - evaluate whether a dedicated extraction library is warranted for cleaner article text
-  - if control becomes necessary, add an option like `--preview-urls`
-  - if control becomes necessary, add an option like `--preview-urls-lines=NNN`
-
-
 ## file selection
-
-- [LATER] local `do-my-work.yaml` can later grow beyond `profile` and `hints` with glossary-like guidance, corrections, warnings, and other folder-specific business parameters.
-
 
 ## files copy
 
 ## spurious file
-

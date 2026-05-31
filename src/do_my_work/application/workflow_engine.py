@@ -56,6 +56,7 @@ class WorkflowEngine:
         ] = "reference_index_tree",
         translator_profile: str = "technical",
         check_urls: bool = False,
+        with_review: bool = False,
     ) -> WorkflowRunResult:
         task_repository = JsonTaskRepository(config.data_dir / "tasks")
         run_repository = JsonRunRepository(config.data_dir / "runs")
@@ -73,6 +74,7 @@ class WorkflowEngine:
             translator_profile,
             check_urls,
             run_id,
+            with_review,
         )
         root_record = task_repository.get(root_task_key)
         if root_record is None:
@@ -84,6 +86,7 @@ class WorkflowEngine:
                 translator_profile,
                 check_urls,
                 run_id,
+                with_review,
             )
             task_repository.save(root_record)
 
@@ -291,6 +294,7 @@ class WorkflowEngine:
         translator_profile: str,
         check_urls: bool,
         run_id: str,
+        with_review: bool,
     ) -> TaskRecord:
         if request_kind == "reference_index_tree":
             return TaskRecord(
@@ -319,7 +323,12 @@ class WorkflowEngine:
                     profile_name=translator_profile,
                     profile_digest=make_translator_profile_digest(profile),
                     plan_digest=make_translation_plan_digest(profile),
-                    render_digest=make_translated_document_render_digest(profile),
+                    render_digest=make_translated_document_render_digest(
+                        profile,
+                        with_review=with_review,
+                        translated_first=config.translation_review.translated_first,
+                    ),
+                    with_review=with_review,
                 ),
             )
 
@@ -337,6 +346,7 @@ class WorkflowEngine:
         translator_profile: str,
         check_urls: bool,
         run_id: str,
+        with_review: bool,
     ) -> str:
         local_policy_digest = _build_local_workflow_policy_digest(config.input_dir, root)
         if request_kind == "reference_index_tree":
@@ -357,7 +367,11 @@ class WorkflowEngine:
                 translator_profile,
                 make_translator_profile_digest(profile),
                 make_translation_plan_digest(profile),
-                make_translated_document_render_digest(profile),
+                make_translated_document_render_digest(
+                    profile,
+                    with_review=with_review,
+                    translated_first=config.translation_review.translated_first,
+                ),
                 local_policy_digest,
             )
         raise ValueError(f"Unsupported request kind: {request_kind}")

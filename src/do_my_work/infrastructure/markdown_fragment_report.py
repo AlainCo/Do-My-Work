@@ -1,4 +1,5 @@
 from pathlib import Path
+import html
 
 import frontmatter
 from markdown_it import MarkdownIt
@@ -133,6 +134,147 @@ def render_translated_document(
     if not parts:
         return ""
     return "\n\n".join(parts) + "\n"
+
+
+def build_translation_review_path(relative_path: Path) -> Path:
+        return relative_path.with_name(f"{relative_path.stem}.review.html")
+
+
+def render_chunk_review_document(
+        *,
+        source_path: Path,
+        source_fragments: list[str],
+        translated_fragments: list[str],
+        translated_first: bool = False,
+) -> str:
+        parser = MarkdownIt("commonmark")
+        left_label = "Translated" if translated_first else "Original"
+        right_label = "Original" if translated_first else "Translated"
+        rows: list[str] = []
+
+        for index, (source_chunk, translated_chunk) in enumerate(
+                zip(source_fragments, translated_fragments, strict=True),
+                start=1,
+        ):
+                left_markdown = translated_chunk if translated_first else source_chunk
+                right_markdown = source_chunk if translated_first else translated_chunk
+                rows.append(
+                        "\n".join(
+                                [
+                                        '<section class="chunk-row">',
+                                        (
+                                                '  <div class="chunk-box"><div class="chunk-number">'
+                                                f"Chunk {index}</div>{parser.render(left_markdown)}</div>"
+                                        ),
+                                        (
+                                                '  <div class="chunk-box"><div class="chunk-number">'
+                                                f"Chunk {index}</div>{parser.render(right_markdown)}</div>"
+                                        ),
+                                        "</section>",
+                                ]
+                        )
+                )
+
+        title = html.escape(source_path.as_posix())
+        return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Translation review - {title}</title>
+    <style>
+        :root {{
+            color-scheme: light;
+            --page-bg: #f6f1e8;
+            --panel-bg: #fffdf8;
+            --panel-border: #b9aa8f;
+            --muted: #6a6254;
+            --text: #201c17;
+        }}
+        * {{ box-sizing: border-box; }}
+        body {{
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            background: linear-gradient(180deg, #efe4d0 0%, var(--page-bg) 100%);
+            color: var(--text);
+        }}
+        main {{
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }}
+        h1 {{
+            margin: 0 0 6px;
+            font-size: 1.8rem;
+        }}
+        .path {{
+            margin: 0 0 24px;
+            color: var(--muted);
+        }}
+        .column-headings {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }}
+        .chunk-row {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }}
+        .chunk-box {{
+            border: 1px solid var(--panel-border);
+            background: var(--panel-bg);
+            padding: 16px;
+            overflow-wrap: anywhere;
+        }}
+        .chunk-number {{
+            margin-bottom: 12px;
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-family: Arial, sans-serif;
+        }}
+        .chunk-box > :first-child {{ margin-top: 0; }}
+        .chunk-box > :last-child {{ margin-bottom: 0; }}
+        pre {{
+            white-space: pre-wrap;
+            background: #f1ebdf;
+            padding: 12px;
+            border: 1px solid #d9ccb5;
+            overflow-x: auto;
+        }}
+        code {{ font-family: Consolas, "Courier New", monospace; }}
+        @media (max-width: 900px) {{
+            .column-headings,
+            .chunk-row {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Translation Review</h1>
+        <p class="path">{title}</p>
+        <div class="column-headings">
+            <div>{left_label}</div>
+            <div>{right_label}</div>
+        </div>
+        {rows}
+    </main>
+</body>
+</html>
+""".format(
+                title=title,
+                left_label=html.escape(left_label),
+                right_label=html.escape(right_label),
+                rows="\n".join(rows),
+        )
 
 
 def _collect_inline_content(tokens: list[Token]) -> str:

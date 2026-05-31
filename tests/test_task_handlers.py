@@ -834,6 +834,101 @@ def test_merge_reference_indexes_handler_writes_redirect_location_to_report_and_
     }
 
 
+def test_merge_translated_fragments_handler_writes_optional_review_html(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.translation_review.translated_first = True
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+
+    first_task_key = "task:translate_fragment:first"
+    second_task_key = "task:translate_fragment:second"
+    task_repository.save(
+        TaskRecord(
+            task_key=first_task_key,
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("note.md"),
+                fragment_kind="heading",
+                heading_path=["Intro"],
+                text="# Intro",
+                input_markdown="# Intro",
+                fragment_digest="sha256:first",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="Fragment translated.",
+                result=TranslatedFragmentResult(
+                    translated_text="# Introduction",
+                    length=14,
+                ),
+            ),
+        )
+    )
+    task_repository.save(
+        TaskRecord(
+            task_key=second_task_key,
+            spec=TranslateFragmentTaskSpec(
+                document_relative_path=Path("note.md"),
+                fragment_kind="paragraph",
+                heading_path=["Intro"],
+                text="Alpha beta.",
+                input_markdown="Alpha beta.",
+                fragment_digest="sha256:second",
+                profile_name="technical",
+                profile_digest="sha256:profile",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="Fragment translated.",
+                result=TranslatedFragmentResult(
+                    translated_text="ALPHA BETA.",
+                    length=11,
+                ),
+            ),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_translated_fragments_task_key(
+            Path("note.md"),
+            "sha256:doc",
+            "technical",
+            "sha256:profile",
+            render_digest="sha256:render",
+        ),
+        spec=MergeTranslatedFragmentsTaskSpec(
+            document_relative_path=Path("note.md"),
+            source_digest="sha256:doc",
+            fragment_task_keys=[first_task_key, second_task_key],
+            profile_name="technical",
+            profile_digest="sha256:profile",
+            render_digest="sha256:render",
+            with_review=True,
+        ),
+        child_task_keys=[first_task_key, second_task_key],
+    )
+
+    result = MergeTranslatedFragmentsTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "note.md").read_text(encoding="utf-8") == (
+        "# Introduction\n\nALPHA BETA.\n"
+    )
+    review_html = (config.output_dir / "note.review.html").read_text(encoding="utf-8")
+    assert "Translation Review" in review_html
+    assert ">Translated<" in review_html
+    assert ">Original<" in review_html
+    assert review_html.index(">Translated<") < review_html.index(">Original<")
+    assert "<h1>Introduction</h1>" in review_html
+    assert "<h1>Intro</h1>" in review_html
+    assert "<p>ALPHA BETA.</p>" in review_html
+    assert "<p>Alpha beta.</p>" in review_html
+
+
 def test_discover_reference_documents_ignores_relative_links_for_url_checks(tmp_path: Path) -> None:
     config = WorkspaceConfig(
         input_dir=tmp_path / "input",

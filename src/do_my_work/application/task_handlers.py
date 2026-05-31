@@ -54,7 +54,9 @@ from do_my_work.infrastructure.config_loader import (
 )
 from do_my_work.infrastructure.json_workflow_store import JsonTaskRepository
 from do_my_work.infrastructure.markdown_fragment_report import (
+    build_translation_review_path,
     extract_markdown_fragments,
+    render_chunk_review_document,
     render_markdown_fragment,
     render_translated_document,
 )
@@ -411,7 +413,11 @@ class DiscoverTranslateDocumentsTaskHandler:
 
             profile_digest = make_translator_profile_digest(effective_profile)
             plan_digest = make_translation_plan_digest(effective_profile)
-            render_digest = make_translated_document_render_digest(effective_profile)
+            render_digest = make_translated_document_render_digest(
+                effective_profile,
+                with_review=spec.with_review,
+                translated_first=config.translation_review.translated_first,
+            )
             translation_hints_digest = _build_optional_text_digest(document.translation_hints)
             source_digest = _build_source_digest(source_path)
             task_key = make_discover_translate_document_fragments_task_key(
@@ -436,6 +442,7 @@ class DiscoverTranslateDocumentsTaskHandler:
                             profile_digest=profile_digest,
                             plan_digest=plan_digest,
                             render_digest=render_digest,
+                            with_review=spec.with_review,
                             translation_hints=document.translation_hints,
                             translation_hints_digest=translation_hints_digest,
                         ),
@@ -965,6 +972,7 @@ class DiscoverTranslateDocumentFragmentsTaskHandler:
                         profile_digest=spec.profile_digest,
                         plan_digest=spec.plan_digest,
                         render_digest=spec.render_digest,
+                        with_review=spec.with_review,
                         translation_hints_digest=spec.translation_hints_digest,
                         translated_document_header=profile.translated_document_header,
                         translated_document_footer=profile.translated_document_footer,
@@ -1186,6 +1194,7 @@ class MergeTranslatedFragmentsTaskHandler:
             )
 
         translated_fragments: list[str] = []
+        source_fragments: list[str] = []
         for fragment_record in fragment_records:
             if (
                 fragment_record is None
@@ -1204,6 +1213,7 @@ class MergeTranslatedFragmentsTaskHandler:
                 )
 
             translated_fragments.append(fragment_record.outcome.result.translated_text)
+            source_fragments.append(fragment_record.spec.input_markdown or fragment_record.spec.text)
 
         destination_path = config.output_dir / spec.document_relative_path
         destination_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1215,6 +1225,19 @@ class MergeTranslatedFragmentsTaskHandler:
             ),
             encoding="utf-8",
         )
+
+        if spec.with_review:
+            review_path = config.output_dir / build_translation_review_path(spec.document_relative_path)
+            review_path.parent.mkdir(parents=True, exist_ok=True)
+            review_path.write_text(
+                render_chunk_review_document(
+                    source_path=spec.document_relative_path,
+                    source_fragments=source_fragments,
+                    translated_fragments=translated_fragments,
+                    translated_first=config.translation_review.translated_first,
+                ),
+                encoding="utf-8",
+            )
 
         return TaskHandlerResult(
             updated_record=record.model_copy(

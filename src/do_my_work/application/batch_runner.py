@@ -56,12 +56,14 @@ class BatchRunner:
         config: WorkspaceConfig,
         root: Path = Path("."),
         translator_profile: str = "technical",
+        with_review: bool = False,
     ) -> WorkflowRunResult:
         self._logger.info(
             "Running Markdown fragment translation workflow with root=%s "
-            "profile=%s input=%s output=%s data=%s",
+            "profile=%s with_review=%s input=%s output=%s data=%s",
             root,
             translator_profile,
+            with_review,
             config.input_dir,
             config.output_dir,
             config.data_dir,
@@ -71,6 +73,7 @@ class BatchRunner:
             root=root,
             request_kind="translate_document_tree",
             translator_profile=translator_profile,
+            with_review=with_review,
         )
 
     def run_spurious_file_report(

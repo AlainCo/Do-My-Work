@@ -23,6 +23,9 @@ class WorkspaceConfig(BaseModel):
     reference_index: "ReferenceIndexConfig" = Field(
         default_factory=lambda: ReferenceIndexConfig()
     )
+    translation_review: "TranslationReviewConfig" = Field(
+        default_factory=lambda: TranslationReviewConfig()
+    )
     file_selection: "FileSelectionConfig" = Field(default_factory=lambda: FileSelectionConfig())
     resource_selection: "FileSelectionConfig" = Field(
         default_factory=lambda: FileSelectionConfig(default_action="exclude")
@@ -53,6 +56,12 @@ class ReferenceIndexConfig(BaseModel):
     max_pdf_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
     preview_max_text_chars: int = Field(default=600, gt=0)
     preview_max_lines: int = Field(default=3, gt=0)
+
+
+class TranslationReviewConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    translated_first: bool = False
 
 
 class LocalTranslationRule(BaseModel):
@@ -278,6 +287,7 @@ class DiscoverTranslateDocumentsTaskSpec(BaseModel):
     profile_digest: str
     plan_digest: str | None = None
     render_digest: str | None = None
+    with_review: bool = False
 
 
 class IndexMarkdownReferencesTaskSpec(BaseModel):
@@ -327,6 +337,7 @@ class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
     profile_digest: str
     plan_digest: str | None = None
     render_digest: str | None = None
+    with_review: bool = False
     translation_hints: str = ""
     translation_hints_digest: str | None = None
 
@@ -360,6 +371,7 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
     profile_digest: str
     plan_digest: str | None = None
     render_digest: str | None = None
+    with_review: bool = False
     translation_hints_digest: str | None = None
     translated_document_header: str | None = None
     translated_document_footer: str | None = None

@@ -134,6 +134,7 @@ Main options:
 - `--data-dir`: override the workflow state directory
 - `--root`: restrict translation to a subtree
 - `--translator-profile`: choose the profile under `llm.translator` in YAML, default `technical`
+- `--with-review`: also generate an HTML review document showing each translated chunk side by side with its source chunk
 
 Selection behavior:
 
@@ -144,7 +145,14 @@ Selection behavior:
 Typical output:
 
 - translated documents written under `output_dir`
+- optional `*.review.html` files written next to translated documents when `--with-review` is enabled
 - workflow summary in the CLI with task counts and LLM timings
+
+Translation review behavior:
+
+- the review document is an HTML file laid out in two columns, one chunk pair per row
+- the chunks are the same translation units that were sent to the model, which may contain more than one atomic Markdown fragment when chunk grouping is enabled
+- `workspace.yaml` can define `translation_review.translated_first: true` when you want the translated column shown before the original column
 
 ### `reference-index-tree`
 

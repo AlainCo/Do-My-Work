@@ -1,10 +1,21 @@
 # Do My Work
 
-Batch application scaffold in modern Python, with a simple CLI entry point, validated YAML configuration, and room for future workflow orchestration.
+Do My Work is a batch CLI for repository-scale content workflows.
+It was built first to help translate a repository of French Markdown articles into English, then grew to cover the practical problems around that job: keeping references visible, copying supporting resources, and spotting missing or unexpected output files.
+
+The current workflow surface is designed for documentation-heavy repositories where repeatability matters more than ad hoc scripts.
+
+## Why use it
+
+- translate a selected document tree with YAML-driven rules and reproducible task state
+- generate per-document and tree-wide reference indexes for citations and links
+- copy selected non-Markdown resources alongside translated content
+- report output files that are spurious or missing compared with the input tree and workflow rules
 
 ## Documentation Map
 
 - `README.md`: quick project overview and main entry points
+- `docs/usage.md`: user guide for the CLI, commands, options, and typical workflows
 - `docs/foundations.md`: stable vocabulary and configuration rules
 - `docs/project-direction.md`: product vision and current direction
 - `docs/workflow-kernel.md`: design note for the toy workflow kernel
@@ -54,6 +65,38 @@ For the project commands below, using the virtual environment Python explicitly 
 .\.venv\Scripts\python.exe -m do_my_work.cli --help
 ```
 
+## Quick start
+
+Inspect the CLI surface:
+
+```powershell
+do-my-work --help
+```
+
+Use the shared workspace config:
+
+```powershell
+do-my-work translate-document-tree --config config/workspace.yaml
+```
+
+Generate reference reports:
+
+```powershell
+do-my-work reference-index-tree --config config/workspace.yaml
+```
+
+Copy selected resources:
+
+```powershell
+do-my-work copy-resource-tree --config config/workspace.yaml
+```
+
+Check for missing or unexpected outputs:
+
+```powershell
+do-my-work spurious-file-report --config config/workspace.yaml
+```
+
 ## Current commands
 
 Generate Markdown reference indexes with one `.references.md` file per input file and one root-level `references.index.md` synthesis:
@@ -89,6 +132,8 @@ do-my-work reference-index-tree --help
 do-my-work spurious-file-report --help
 do-my-work translate-document-tree --help
 ```
+
+For the full command guide, option reference, and workflow-oriented examples, see `docs/usage.md`.
 
 ## Run the tests
 

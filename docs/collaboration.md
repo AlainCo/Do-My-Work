@@ -29,6 +29,7 @@ Practical rule:
 
 - if a note helps understand the project from the outside, it belongs in `README.md`
 - if a note helps us design, implement, validate, or resume work, it belongs in `docs/`
+- user-facing documentation in `README.md` and `docs/` should be written in English unless a specific exception is decided explicitly
 
 ## Ideas Backlog
 
@@ -48,6 +49,7 @@ The following practices are now part of the working agreement for this repositor
 - keep adding focused automated tests when a new slice becomes executable
 - keep the CLI `--help` text aligned with the actual commands and options
 - update the relevant document in `docs/` when a design decision or working rule becomes durable
+- update `README.md` and `docs/usage.md` when the CLI surface, workflow behavior, or user expectations evolve
 - record deferred ideas and future improvements in `docs/ideas-todo.md` when they should not interrupt the current slice
 - note local environment quirks when they cost time more than once
 - treat glossary and terminology choices as important design decisions, because names shape the domain model, the CLI, and the documentation

@@ -63,6 +63,8 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] HTML URL checks now extract a bounded `title` and a short plain-text preview excerpt, persist them in `references.index.yaml`, and render them in `references.index.md`. The current implementation prefers the raw HTML `title` and uses `trafilatura` for the preview text.
 - [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 - [DONE]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
+- [DONE] why not scrap PDF pages
+  - feasibility is to be discussed
 
 ## managing LLM calls
 
@@ -80,8 +82,6 @@ Use the following markers when they help clarify priority or outcome:
   - if control becomes necessary, add an option like `--preview-urls`
   - if control becomes necessary, add an option like `--preview-urls-lines=NNN`
 
-- [LATER] [TODISCUSS] why not scrap PDF pages
-  - feasibility is to be discussed
 
 ## file selection
 

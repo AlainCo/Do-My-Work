@@ -276,6 +276,45 @@ def test_check_reference_url_handler_extracts_pdf_metadata_and_excerpt() -> None
     )
 
 
+def test_check_reference_url_handler_applies_configured_preview_length_to_pdf_excerpt() -> None:
+    pdf_bytes = _build_test_pdf_bytes(
+        first_page_text=(
+            "One two three four five six seven eight nine ten eleven twelve "
+            "thirteen fourteen fifteen sixteen seventeen eighteen"
+        )
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/pdf",
+                "content-disposition": 'attachment; filename="report.pdf"',
+            },
+            content=pdf_bytes,
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/files/report.pdf"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/files/report.pdf"),
+    )
+    config = WorkspaceConfig()
+    config.reference_index.preview_max_text_chars = 60
+    config.reference_index.preview_max_lines = 2
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.pdf_excerpt is not None
+    assert result.updated_record.outcome.result.pdf_excerpt.startswith("One two three four five")
+    assert len(result.updated_record.outcome.result.pdf_excerpt.replace("\n", "")) <= 60
+    assert len(result.updated_record.outcome.result.pdf_excerpt.splitlines()) <= 2
+
+
 def test_check_reference_url_handler_skips_pdf_preview_when_pdf_exceeds_configured_limit() -> None:
     pdf_bytes = _build_test_pdf_bytes(first_page_text="A" * 1024)
 
@@ -501,6 +540,39 @@ def test_check_reference_url_handler_extracts_html_title_and_excerpt() -> None:
     assert result.updated_record.outcome.result.html_excerpt is not None
     assert "First sentence about the article preview." in result.updated_record.outcome.result.html_excerpt
     assert "window.ignore" not in result.updated_record.outcome.result.html_excerpt
+
+
+def test_check_reference_url_handler_applies_configured_preview_length_to_html_excerpt() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=(
+                "<html><head><title>Example article</title></head>"
+                "<body><p>One two three four five six seven eight nine ten eleven twelve "
+                "thirteen fourteen fifteen sixteen seventeen eighteen.</p></body></html>"
+            ).encode("utf-8"),
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/article"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/article"),
+    )
+    config = WorkspaceConfig()
+    config.reference_index.preview_max_text_chars = 60
+    config.reference_index.preview_max_lines = 2
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(record, config)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.html_excerpt is not None
+    assert result.updated_record.outcome.result.html_excerpt.startswith("One two three four five")
+    assert len(result.updated_record.outcome.result.html_excerpt.replace("\n", "")) <= 60
+    assert len(result.updated_record.outcome.result.html_excerpt.splitlines()) <= 2
 
 
 def test_check_reference_url_handler_records_request_errors_without_failing() -> None:

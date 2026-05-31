@@ -51,6 +51,8 @@ class ReferenceIndexConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     max_pdf_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
+    preview_max_text_chars: int = Field(default=600, gt=0)
+    preview_max_lines: int = Field(default=3, gt=0)
 
 
 class LocalTranslationRule(BaseModel):

@@ -565,9 +565,19 @@ class CheckReferenceUrlTaskHandler:
                         pdf_preview_status,
                         pdf_preview_max_bytes,
                         pdf_excerpt,
-                    ) = _extract_pdf_preview(client, spec.url, config.reference_index.max_pdf_bytes)
+                    ) = _extract_pdf_preview(
+                        client,
+                        spec.url,
+                        config.reference_index.max_pdf_bytes,
+                        preview_max_text_chars=config.reference_index.preview_max_text_chars,
+                        preview_max_lines=config.reference_index.preview_max_lines,
+                    )
                 else:
-                    html_title, html_excerpt, html_doi = _extract_html_preview(response)
+                    html_title, html_excerpt, html_doi = _extract_html_preview(
+                        response,
+                        preview_max_text_chars=config.reference_index.preview_max_text_chars,
+                        preview_max_lines=config.reference_index.preview_max_lines,
+                    )
                 result = ReferenceUrlCheckResult(
                     url=spec.url,
                     checked_at=_build_checked_at_timestamp(),
@@ -1299,9 +1309,12 @@ def _merge_reference_index_sidecar(
 
 _HTML_PREVIEW_BYTE_LIMIT = 64 * 1024
 _HTML_PREVIEW_TEXT_WIDTH = 100
-_HTML_PREVIEW_MAX_LINES = 3
-_HTML_PREVIEW_MAX_TEXT_CHARS = 600
-def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | None, str]:
+def _extract_html_preview(
+    response: httpx.Response,
+    *,
+    preview_max_text_chars: int,
+    preview_max_lines: int,
+) -> tuple[str | None, str | None, str]:
     content_type = (response.headers.get("content-type") or "").lower()
     if "html" not in content_type:
         return None, None, ""
@@ -1313,7 +1326,12 @@ def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | N
     encoding = response.encoding or "utf-8"
     html = payload.decode(encoding, errors="ignore")
     title = _extract_html_title(html, str(response.url))
-    excerpt = _extract_html_excerpt(html, str(response.url))
+    excerpt = _extract_html_excerpt(
+        html,
+        str(response.url),
+        preview_max_text_chars=preview_max_text_chars,
+        preview_max_lines=preview_max_lines,
+    )
     doi = _extract_doi_from_html(html, str(response.url), excerpt)
     return title, excerpt, doi
 
@@ -1337,6 +1355,9 @@ def _extract_pdf_preview(
     client: httpx.Client,
     url: str,
     max_pdf_bytes: int,
+    *,
+    preview_max_text_chars: int,
+    preview_max_lines: int,
 ) -> tuple[str | None, str | None, str | None, str | None, int | None, str | None]:
     try:
         with client.stream(
@@ -1361,12 +1382,19 @@ def _extract_pdf_preview(
     if truncated:
         return None, None, None, "skipped_due_to_size_limit", max_pdf_bytes, None
 
-    pdf_title, pdf_author, pdf_subject, pdf_excerpt = _extract_pdf_preview_from_bytes(payload)
+    pdf_title, pdf_author, pdf_subject, pdf_excerpt = _extract_pdf_preview_from_bytes(
+        payload,
+        preview_max_text_chars=preview_max_text_chars,
+        preview_max_lines=preview_max_lines,
+    )
     return pdf_title, pdf_author, pdf_subject, None, None, pdf_excerpt
 
 
 def _extract_pdf_preview_from_bytes(
     payload: bytes,
+    *,
+    preview_max_text_chars: int,
+    preview_max_lines: int,
 ) -> tuple[str | None, str | None, str | None, str | None]:
     try:
         from pypdf import PdfReader
@@ -1383,7 +1411,11 @@ def _extract_pdf_preview_from_bytes(
     pdf_excerpt = None
     if reader.pages:
         try:
-            pdf_excerpt = _format_pdf_excerpt(reader.pages[0].extract_text())
+            pdf_excerpt = _format_pdf_excerpt(
+                reader.pages[0].extract_text(),
+                preview_max_text_chars=preview_max_text_chars,
+                preview_max_lines=preview_max_lines,
+            )
         except Exception:
             pdf_excerpt = None
 
@@ -1436,25 +1468,45 @@ def _extract_response_size_hint(response: httpx.Response) -> int | None:
         return None
 
 
-def _format_preview_excerpt(text: str) -> str | None:
+def _format_preview_excerpt(
+    text: str,
+    *,
+    preview_max_text_chars: int,
+    preview_max_lines: int,
+) -> str | None:
     normalized = " ".join(text.split())
     if not normalized:
         return None
 
-    clipped = normalized[:_HTML_PREVIEW_MAX_TEXT_CHARS].strip()
+    clipped = normalized[:preview_max_text_chars].strip()
     wrapped = textwrap.wrap(clipped, width=_HTML_PREVIEW_TEXT_WIDTH)
     if not wrapped:
         return None
-    return "\n".join(wrapped[:_HTML_PREVIEW_MAX_LINES])
+    return "\n".join(wrapped[:preview_max_lines])
 
 
-def _format_pdf_excerpt(text: str | None) -> str | None:
+def _format_pdf_excerpt(
+    text: str | None,
+    *,
+    preview_max_text_chars: int,
+    preview_max_lines: int,
+) -> str | None:
     if text is None:
         return None
-    return _format_preview_excerpt(text)
+    return _format_preview_excerpt(
+        text,
+        preview_max_text_chars=preview_max_text_chars,
+        preview_max_lines=preview_max_lines,
+    )
 
 
-def _extract_html_excerpt(html: str, url: str) -> str | None:
+def _extract_html_excerpt(
+    html: str,
+    url: str,
+    *,
+    preview_max_text_chars: int,
+    preview_max_lines: int,
+) -> str | None:
     extracted_text = extract(
         html,
         url=url,
@@ -1465,7 +1517,11 @@ def _extract_html_excerpt(html: str, url: str) -> str | None:
     )
     if extracted_text is None:
         return None
-    return _format_preview_excerpt(extracted_text)
+    return _format_preview_excerpt(
+        extracted_text,
+        preview_max_text_chars=preview_max_text_chars,
+        preview_max_lines=preview_max_lines,
+    )
 
 
 def _extract_html_title(html: str, url: str) -> str | None:

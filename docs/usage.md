@@ -187,6 +187,7 @@ Notes:
 - `references.index.yaml` keeps the URL metadata across runs, including `skip_recheck`, `last_checked_at`, `doi`, and `unused`
 - when a URL entry has `skip_recheck: true`, later `--check-urls` runs reuse the stored metadata instead of launching a new HTTP check for that URL
 - when a checked URL is itself a DOI link such as `https://doi.org/...`, the checker stores that DOI automatically in `references.index.yaml`
+- for HTML pages, the checker also tries to extract a DOI from page metadata first, then falls back to a simple DOI pattern found in the URL or fetched content when it is obvious
 - when `doi` is set in `references.index.yaml`, whether manually or automatically, the Markdown report shows it as a clickable DOI link
 - when a checked URL goes through one or more HTTP redirects, the checker stores the last observed `Location` target in `references.index.yaml` and shows it in the Markdown cross-reference
 - for successful HTML responses, the checker now stores a bounded HTML title and a short plain-text preview excerpt in `references.index.yaml` and shows them in `references.index.md`

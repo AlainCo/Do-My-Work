@@ -243,6 +243,99 @@ def test_check_reference_url_handler_extracts_doi_from_doi_url() -> None:
     assert result.updated_record.outcome.result.doi == "10.1000/example.paper"
 
 
+def test_check_reference_url_handler_extracts_doi_from_html_metadata() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=(
+                "<html><head>"
+                '<meta name="citation_doi" content="10.1000/meta-doi">'
+                "<title>Paper</title></head><body>Paper.</body></html>"
+            ).encode("utf-8"),
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://publisher.example/paper"),
+        spec=CheckReferenceUrlTaskSpec(url="https://publisher.example/paper"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.doi == "10.1000/meta-doi"
+
+
+def test_check_reference_url_handler_extracts_doi_from_non_doi_url_pattern() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=b"<html><body>Forbidden.</body></html>",
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key(
+            "https://journals.example.org/doi/10.1111/j.1749-6632.2001.tb05714.x"
+        ),
+        spec=CheckReferenceUrlTaskSpec(
+            url="https://journals.example.org/doi/10.1111/j.1749-6632.2001.tb05714.x"
+        ),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.doi == "10.1111/j.1749-6632.2001.tb05714.x"
+
+
+def test_check_reference_url_handler_records_http_error_without_stream_closed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=(
+                "<html><head>"
+                '<meta name="citation_doi" content="10.1002/bies.201900087">'
+                "<title>Missing paper</title></head><body>Missing.</body></html>"
+            ).encode("utf-8"),
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://doi.org/10.1002/bies.201900087"),
+        spec=CheckReferenceUrlTaskSpec(url="https://doi.org/10.1002/bies.201900087"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.error_category == "http_status"
+    assert result.updated_record.outcome.http_status_code == 404
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.doi == "10.1002/bies.201900087"
+    assert result.updated_record.outcome.result.html_title == "Missing paper"
+
+
 def test_check_reference_url_handler_extracts_html_title_and_excerpt() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

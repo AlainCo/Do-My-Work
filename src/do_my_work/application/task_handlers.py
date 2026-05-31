@@ -548,12 +548,14 @@ class CheckReferenceUrlTaskHandler:
                 timeout=20.0,
                 headers={"Accept": "text/html,*/*", "Range": f"bytes=0-{_HTML_PREVIEW_BYTE_LIMIT - 1}"},
             ) as response:
-                response.raise_for_status()
-                html_title, html_excerpt = _extract_html_preview(response)
+                html_title, html_excerpt, html_doi = _extract_html_preview(response)
                 result = ReferenceUrlCheckResult(
                     url=spec.url,
                     checked_at=_build_checked_at_timestamp(),
-                    doi=_extract_doi_from_reference_urls(spec.url, str(response.url)),
+                    doi=_extract_doi_from_candidates(
+                        _extract_doi_from_reference_urls(spec.url, str(response.url)),
+                        html_doi,
+                    ),
                     redirect_location=_extract_redirect_location(response),
                     final_url=str(response.url),
                     content_type=response.headers.get("content-type"),
@@ -562,6 +564,21 @@ class CheckReferenceUrlTaskHandler:
                     html_title=html_title,
                     html_excerpt=html_excerpt,
                 )
+                if response.is_error:
+                    return TaskHandlerResult(
+                        updated_record=record.model_copy(
+                            update={
+                                "status": TaskStatus.SUCCEEDED,
+                                "outcome": TaskOutcome(
+                                    message="URL check recorded an HTTP error status.",
+                                    error=response.reason_phrase or f"HTTP {response.status_code}",
+                                    error_category="http_status",
+                                    http_status_code=response.status_code,
+                                    result=result,
+                                ),
+                            }
+                        )
+                    )
                 return TaskHandlerResult(
                     updated_record=record.model_copy(
                         update={
@@ -588,31 +605,6 @@ class CheckReferenceUrlTaskHandler:
                                 checked_at=_build_checked_at_timestamp(),
                                 doi=_extract_doi_from_reference_urls(spec.url),
                                 filename=_resolve_reference_url_filename(spec.url, None),
-                            ),
-                        ),
-                    }
-                )
-            )
-        except httpx.HTTPStatusError as exc:
-            response = exc.response
-            return TaskHandlerResult(
-                updated_record=record.model_copy(
-                    update={
-                        "status": TaskStatus.SUCCEEDED,
-                        "outcome": TaskOutcome(
-                            message="URL check recorded an HTTP error status.",
-                            error=response.reason_phrase or str(exc),
-                            error_category="http_status",
-                            http_status_code=response.status_code,
-                            result=ReferenceUrlCheckResult(
-                                url=spec.url,
-                                checked_at=_build_checked_at_timestamp(),
-                                doi=_extract_doi_from_reference_urls(spec.url, str(response.url)),
-                                redirect_location=_extract_redirect_location(response),
-                                final_url=str(response.url),
-                                content_type=response.headers.get("content-type"),
-                                filename=_resolve_reference_url_filename(spec.url, response),
-                                reason_phrase=response.reason_phrase or None,
                             ),
                         ),
                     }
@@ -1280,20 +1272,21 @@ _HTML_PREVIEW_MAX_LINES = 3
 _HTML_PREVIEW_MAX_TEXT_CHARS = 600
 
 
-def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | None]:
+def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | None, str]:
     content_type = (response.headers.get("content-type") or "").lower()
     if "html" not in content_type:
-        return None, None
+        return None, None, ""
 
     payload = _read_limited_response_bytes(response, _HTML_PREVIEW_BYTE_LIMIT)
     if not payload:
-        return None, None
+        return None, None, ""
 
     encoding = response.encoding or "utf-8"
     html = payload.decode(encoding, errors="ignore")
     title = _extract_html_title(html, str(response.url))
     excerpt = _extract_html_excerpt(html, str(response.url))
-    return title, excerpt
+    doi = _extract_doi_from_html(html, str(response.url), excerpt)
+    return title, excerpt, doi
 
 
 def _read_limited_response_bytes(response: httpx.Response, limit: int) -> bytes:
@@ -1400,6 +1393,90 @@ _DOI_URL_PATTERN = re.compile(
     r"^(?:https?://)?(?:dx\.)?doi\.org/(?P<doi>10\.\d{4,9}/.+)$",
     flags=re.IGNORECASE,
 )
+_DOI_PATTERN = re.compile(
+    r"(?P<doi>10\.\d{4,9}/[-._;()/:A-Za-z0-9]+[-_()/:A-Za-z0-9])",
+    flags=re.IGNORECASE,
+)
+_DOI_META_TAG_PATTERN = re.compile(
+    r"<meta\b(?P<attrs>[^>]+?)>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_HTML_ATTRIBUTE_PATTERN = re.compile(
+    r"(?P<name>[A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(?P<quote>[\"'])(?P<value>.*?)(?P=quote)",
+    flags=re.DOTALL,
+)
+_DOI_META_FIELDS = {
+    "citation_doi",
+    "dc.identifier",
+    "dc.identifier.doi",
+    "dc.source",
+    "doi",
+    "prism.doi",
+}
+
+
+def _extract_doi_from_candidates(*candidates: str | None) -> str:
+    for candidate in candidates:
+        normalized = (candidate or "").strip()
+        if normalized:
+            return normalized
+    return ""
+
+
+def _extract_doi_from_html(html: str, url: str, excerpt: str | None) -> str:
+    return _extract_doi_from_candidates(
+        _extract_doi_from_html_meta(html),
+        _extract_doi_from_reference_url(url),
+        _extract_doi_from_text(html),
+        _extract_doi_from_text(excerpt),
+    )
+
+
+def _extract_doi_from_html_meta(html: str) -> str:
+    for match in _DOI_META_TAG_PATTERN.finditer(html):
+        attrs = {
+            key.lower(): value.strip()
+            for key, _, value in _HTML_ATTRIBUTE_PATTERN.findall(match.group("attrs"))
+        }
+        meta_name = (attrs.get("name") or attrs.get("property") or "").strip().lower()
+        if meta_name not in _DOI_META_FIELDS:
+            continue
+        normalized = _normalize_doi_candidate(attrs.get("content", ""))
+        if normalized:
+            return normalized
+    return ""
+
+
+def _extract_doi_from_text(text: str | None) -> str:
+    if not text:
+        return ""
+    match = _DOI_PATTERN.search(text)
+    if match is None:
+        return ""
+    return _normalize_doi_candidate(match.group("doi"))
+
+
+def _normalize_doi_candidate(value: str | None) -> str:
+    if not value:
+        return ""
+
+    normalized = value.strip()
+    if not normalized:
+        return ""
+
+    normalized = re.sub(
+        r"^(?:doi\s*:\s*|https?://(?:dx\.)?doi\.org/)",
+        "",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    normalized = normalized.strip().strip("<>")
+    normalized = normalized.rstrip(".,;:)]}>")
+
+    match = _DOI_PATTERN.search(normalized)
+    if match is None:
+        return ""
+    return match.group("doi")
 
 
 def _extract_doi_from_reference_urls(*urls: str | None) -> str:
@@ -1419,13 +1496,15 @@ def _extract_doi_from_reference_url(url: str | None) -> str | None:
         return None
 
     match = _DOI_URL_PATTERN.match(trimmed)
-    if match is None:
-        return None
+    if match is not None:
+        doi = unquote(match.group("doi")).strip().rstrip("/")
+        if doi:
+            return doi
 
-    doi = unquote(match.group("doi")).strip().rstrip("/")
-    if not doi:
-        return None
-    return doi
+    url_without_query = trimmed.split("?", 1)[0].split("#", 1)[0]
+    decoded_url = unquote(url_without_query)
+    normalized = _extract_doi_from_text(decoded_url)
+    return normalized or None
 
 
 def _build_fragment_digest(fragment: MarkdownFragment) -> str:

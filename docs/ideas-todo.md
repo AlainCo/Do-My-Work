@@ -63,14 +63,14 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] HTML URL checks now extract a bounded `title` and a short plain-text preview excerpt, persist them in `references.index.yaml`, and render them in `references.index.md`. The current implementation prefers the raw HTML `title` and uses `trafilatura` for the preview text.
 - [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 - [DONE]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
-- [DONE] why not scrap PDF pages
-  - feasibility is to be discussed
+- [DONE] successful PDF URL checks now extract bounded metadata and a first-page plain-text preview when possible, under the configured size limit
 - [DONE] improve HTML page extraction beyond the current bounded title and plain-text excerpt
   - [ABANDONED] evaluate whether H1/H2/H3 add useful signal beyond the plain-text preview
   - [DONE] evaluate whether a dedicated extraction library is warranted for cleaner article text
   - [ABANDONED] if control becomes necessary, add an option like `--preview-urls`
   - [ABANDONED] if control becomes necessary, add an option like `--preview-urls-lines=NNN`
-- [DONE] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
+- [DONE] `translate-document-tree --with-review` now generates a side-by-side HTML review document per translated file, aligned by translation chunk rather than trying to force this into Markdown
+- [DONE] translation review files can be generated on a later run with `--with-review` without redoing costly translation calls; changing `translation_review.translated_first` also re-renders the review without retranslating
 
 ## managing LLM calls
 
@@ -81,7 +81,6 @@ Use the following markers when they help clarify priority or outcome:
 - [SOON] allow to change the header and footer, in do-my-work, for each file/folder like we do for profile.
   - maybe just adding translated_document_header and translated_document_footer in the translation/rules/match like the profile field
   - note: the goal is to allow to add long introduction or post-scriptum ins some files like the README, or to change the format of header/footer in non Markdown files (text, html...)
-- [URGENT] are the review comparison files generated after a similar translate run is done without review ? it should, without retranslating all.
 
 ## references and bibliography
 

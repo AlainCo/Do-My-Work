@@ -138,8 +138,10 @@ def test_merge_reference_indexes_handler_writes_root_reference_index(tmp_path: P
         "- [Alice](https://example.org/alice) [Further Reading]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/alice\n\n"
+        "References:\n"
         "- nested/beta.md [Further Reading] Alice\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )
 
@@ -334,6 +336,7 @@ def test_merge_reference_indexes_handler_includes_http_error_url_checks_in_root_
         "- Status: 403 Forbidden\n"
         "- Content-Type: text/html\n"
         "- Filename: bob\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )
     assert yaml.safe_load((config.output_dir / "references.index.yaml").read_text(encoding="utf-8")) == {
@@ -497,6 +500,7 @@ def test_merge_reference_indexes_handler_reuses_yaml_metadata_for_skipped_urls(t
         "- DOI: [10.1000/bob](https://doi.org/10.1000/bob)\n"
         "- Content-Type: text/html\n"
         "- Filename: bob\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )
 

@@ -101,8 +101,10 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/alice\n\n"
+        "References:\n"
         "- nested/other.md [Further Reading] Alice\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- note.md [Sources] Bob\n"
     )
 
@@ -145,6 +147,7 @@ def test_reference_index_tree_command_writes_reports_in_input_when_requested(tmp
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- note.md [Sources] Bob\n"
     )
     assert not (output_dir / "note.references.md").exists()
@@ -211,6 +214,7 @@ def test_reference_index_tree_command_checks_urls_when_requested(
         "- Last checked: 2026-05-31T10:00:00Z\n"
         "- Content-Type: application/pdf\n"
         "- Filename: report.pdf\n\n"
+        "References:\n"
         "- note.md [Sources] Bob\n"
     )
 
@@ -249,6 +253,7 @@ def test_reference_index_tree_command_excludes_relative_links_from_url_cross_ref
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- note.md [Sources] Bob\n"
     )
 

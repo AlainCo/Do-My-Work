@@ -122,6 +122,8 @@ def _render_url_cross_reference_lines(
             if metadata_lines:
                 lines.extend(metadata_lines)
                 lines.append("")
+        if references_by_url[url]:
+            lines.append("References:")
         for occurrence in sorted(
             references_by_url[url],
             key=lambda item: (

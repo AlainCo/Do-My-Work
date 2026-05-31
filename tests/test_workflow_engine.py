@@ -204,8 +204,10 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/alice\n\n"
+        "References:\n"
         "- nested/other.md [Further Reading] Alice\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- note.md [Sources] Bob\n"
     )
 
@@ -378,6 +380,7 @@ def test_workflow_engine_reference_index_succeeds_when_url_check_reports_request
         "- Status: request_error\n"
         "- Last checked: 2026-05-31T10:00:00Z\n"
         "- Filename: broken\n\n"
+        "References:\n"
         "- note.md [Sources] Bob\n"
     )
 

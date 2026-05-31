@@ -86,10 +86,13 @@ def test_render_tree_markdown_reference_report_outputs_root_index(tmp_path: Path
         "- [Shared reference](https://example.org/shared) [Further Reading]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/alice\n\n"
+        "References:\n"
         "- nested/beta.md [Further Reading] Alice\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n\n"
         "### https://example.org/shared\n\n"
+        "References:\n"
         "- alpha.md [Sources / More] Shared\n"
         "- nested/beta.md [Further Reading] Shared reference\n"
     )
@@ -121,6 +124,7 @@ def test_render_tree_markdown_reference_report_skips_documents_without_reference
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )
 
@@ -162,6 +166,7 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
         "- Content-Type: application/pdf\n"
         "- Filename: report.pdf\n"
         "- Final URL: https://cdn.example.org/report.pdf\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )
 
@@ -206,6 +211,7 @@ def test_render_tree_markdown_reference_report_includes_html_preview_metadata(
         "First line of preview.\n"
         "Second line of preview.\n"
         "```\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )
 
@@ -230,5 +236,6 @@ def test_render_tree_markdown_reference_report_excludes_relative_links_from_cros
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/bob\n\n"
+        "References:\n"
         "- alpha.md [Sources] Bob\n"
     )

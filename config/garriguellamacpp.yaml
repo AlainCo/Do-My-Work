@@ -33,7 +33,7 @@ llm:
   translator:
     technical:
       api: openai
-      url: http://127.0.0.1:8080/v1
+      url: http://127.0.0.1:8000/v1
       model: Ministral-3-3B-Instruct-2512-Q4_K_M
       temperature: 0.0
       timeout_seconds: 400.0
@@ -94,7 +94,7 @@ llm:
       translated_document_header: "> ✨ Translated automatically with **Do-My-Work** — profile: technical."         
     romantic:
       api: openai
-      url: http://127.0.0.1:8080/v1
+      url: http://127.0.0.1:8000/v1
       model: ministral-3:3b
       temperature: 0.2
       timeout_seconds: 600.0

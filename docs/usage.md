@@ -186,7 +186,8 @@ Notes:
 - when `--check-urls` is enabled, the root `references.index.md` report adds the HTTP status, content type, and a probable filename for each checked URL
 - `references.index.yaml` keeps the URL metadata across runs, including `skip_recheck`, `last_checked_at`, `doi`, and `unused`
 - when a URL entry has `skip_recheck: true`, later `--check-urls` runs reuse the stored metadata instead of launching a new HTTP check for that URL
-- when `doi` is set in `references.index.yaml`, the Markdown report shows it as a clickable DOI link
+- when a checked URL is itself a DOI link such as `https://doi.org/...`, the checker stores that DOI automatically in `references.index.yaml`
+- when `doi` is set in `references.index.yaml`, whether manually or automatically, the Markdown report shows it as a clickable DOI link
 - for successful HTML responses, the checker now stores a bounded HTML title and a short plain-text preview excerpt in `references.index.yaml` and shows them in `references.index.md`
 - proxy configuration follows the usual environment variables such as `http_proxy` and `https_proxy`
 - HTTPS certificate validation is currently disabled for URL checks so the feature still works on machines without a configured trust store

@@ -553,6 +553,7 @@ class CheckReferenceUrlTaskHandler:
                 result = ReferenceUrlCheckResult(
                     url=spec.url,
                     checked_at=_build_checked_at_timestamp(),
+                    doi=_extract_doi_from_reference_urls(spec.url, str(response.url)),
                     final_url=str(response.url),
                     content_type=response.headers.get("content-type"),
                     filename=_resolve_reference_url_filename(spec.url, response),
@@ -584,6 +585,7 @@ class CheckReferenceUrlTaskHandler:
                             result=ReferenceUrlCheckResult(
                                 url=spec.url,
                                 checked_at=_build_checked_at_timestamp(),
+                                doi=_extract_doi_from_reference_urls(spec.url),
                                 filename=_resolve_reference_url_filename(spec.url, None),
                             ),
                         ),
@@ -604,6 +606,7 @@ class CheckReferenceUrlTaskHandler:
                             result=ReferenceUrlCheckResult(
                                 url=spec.url,
                                 checked_at=_build_checked_at_timestamp(),
+                                doi=_extract_doi_from_reference_urls(spec.url, str(response.url)),
                                 final_url=str(response.url),
                                 content_type=response.headers.get("content-type"),
                                 filename=_resolve_reference_url_filename(spec.url, response),
@@ -625,6 +628,7 @@ class CheckReferenceUrlTaskHandler:
                             result=ReferenceUrlCheckResult(
                                 url=spec.url,
                                 checked_at=_build_checked_at_timestamp(),
+                                doi=_extract_doi_from_reference_urls(spec.url),
                                 filename=_resolve_reference_url_filename(spec.url, None),
                             ),
                         ),
@@ -1252,6 +1256,8 @@ def _merge_reference_index_sidecar(
             updated_entry.error_category = error_category
             updated_entry.http_status_code = http_status_code
             if result is not None:
+                if result.doi.strip() and not updated_entry.doi.strip():
+                    updated_entry.doi = result.doi.strip()
                 updated_entry.last_checked_at = result.checked_at
                 updated_entry.final_url = result.final_url
                 updated_entry.content_type = result.content_type
@@ -1361,6 +1367,38 @@ def _extract_html_title_fallback(html: str) -> str | None:
         return None
     normalized = " ".join(match.group(1).split()).strip()
     return normalized or None
+
+
+_DOI_URL_PATTERN = re.compile(
+    r"^(?:https?://)?(?:dx\.)?doi\.org/(?P<doi>10\.\d{4,9}/.+)$",
+    flags=re.IGNORECASE,
+)
+
+
+def _extract_doi_from_reference_urls(*urls: str | None) -> str:
+    for candidate in urls:
+        normalized = _extract_doi_from_reference_url(candidate)
+        if normalized:
+            return normalized
+    return ""
+
+
+def _extract_doi_from_reference_url(url: str | None) -> str | None:
+    if not url:
+        return None
+
+    trimmed = url.strip()
+    if not trimmed:
+        return None
+
+    match = _DOI_URL_PATTERN.match(trimmed)
+    if match is None:
+        return None
+
+    doi = unquote(match.group("doi")).strip().rstrip("/")
+    if not doi:
+        return None
+    return doi
 
 
 def _build_fragment_digest(fragment: MarkdownFragment) -> str:

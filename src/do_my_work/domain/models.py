@@ -177,6 +177,7 @@ class ReferenceUrlCheckResult(BaseModel):
     kind: Literal["reference_url_check"] = "reference_url_check"
     url: str
     checked_at: str | None = None
+    doi: str = ""
     final_url: str | None = None
     content_type: str | None = None
     filename: str | None = None

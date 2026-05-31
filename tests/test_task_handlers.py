@@ -175,10 +175,37 @@ def test_check_reference_url_handler_records_http_metadata() -> None:
     assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
     assert result.updated_record.outcome.result.url == "https://example.org/files/report.pdf"
     assert result.updated_record.outcome.result.checked_at is not None
+    assert result.updated_record.outcome.result.doi == ""
     assert result.updated_record.outcome.result.final_url == "https://example.org/files/report.pdf"
     assert result.updated_record.outcome.result.content_type == "application/pdf"
     assert result.updated_record.outcome.result.filename == "report.pdf"
     assert result.updated_record.outcome.result.reason_phrase == "OK"
+
+
+def test_check_reference_url_handler_extracts_doi_from_doi_url() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=b"<html><head><title>Paper</title></head><body>Paper.</body></html>",
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://doi.org/10.1000/example.paper"),
+        spec=CheckReferenceUrlTaskSpec(url="https://doi.org/10.1000/example.paper"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.doi == "10.1000/example.paper"
 
 
 def test_check_reference_url_handler_extracts_html_title_and_excerpt() -> None:
@@ -564,6 +591,107 @@ def test_merge_reference_indexes_handler_keeps_unused_url_metadata_in_yaml(tmp_p
                 "filename": "old",
                 "reason_phrase": "OK",
                 "references": [],
+            }
+        ],
+    }
+
+
+def test_merge_reference_indexes_handler_keeps_manual_doi_over_auto_detected_doi(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    config.output_dir.mkdir(parents=True)
+    (config.input_dir / "alpha.md").write_text(
+        "# Sources\n\nSee [Paper](https://doi.org/10.1000/auto).\n",
+        encoding="utf-8",
+    )
+    (config.output_dir / "references.index.yaml").write_text(
+        "version: 1\n"
+        "urls:\n"
+        "  - url: https://doi.org/10.1000/auto\n"
+        "    skip_recheck: false\n"
+        "    unused: false\n"
+        "    doi: 10.1000/manual\n",
+        encoding="utf-8",
+    )
+
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    alpha_task_key = make_index_markdown_references_task_key(Path("alpha.md"), "sha256:alpha")
+    url_task_key = make_check_reference_url_task_key("https://doi.org/10.1000/auto")
+    task_repository.save(
+        TaskRecord(
+            task_key=alpha_task_key,
+            spec=IndexMarkdownReferencesTaskSpec(
+                relative_path=Path("alpha.md"),
+                source_digest="sha256:alpha",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(message="Markdown reference report written."),
+        )
+    )
+    task_repository.save(
+        TaskRecord(
+            task_key=url_task_key,
+            spec=CheckReferenceUrlTaskSpec(url="https://doi.org/10.1000/auto"),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="URL checked.",
+                http_status_code=200,
+                result=ReferenceUrlCheckResult(
+                    url="https://doi.org/10.1000/auto",
+                    checked_at="2026-05-31T10:00:00Z",
+                    doi="10.1000/auto",
+                    final_url="https://publisher.example/paper",
+                    reason_phrase="OK",
+                ),
+            ),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_reference_indexes_task_key(
+            Path("."),
+            [Path("alpha.md")],
+            checked_urls=["https://doi.org/10.1000/auto"],
+        ),
+        spec=MergeReferenceIndexesTaskSpec(
+            root=Path("."),
+            document_relative_paths=[Path("alpha.md")],
+            reference_task_keys=[alpha_task_key],
+            url_check_task_keys=[url_task_key],
+        ),
+        child_task_keys=[alpha_task_key, url_task_key],
+    )
+
+    result = MergeReferenceIndexesTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    rendered = (config.output_dir / "references.index.md").read_text(encoding="utf-8")
+    assert "- DOI: [10.1000/manual](https://doi.org/10.1000/manual)" in rendered
+    assert yaml.safe_load((config.output_dir / "references.index.yaml").read_text(encoding="utf-8")) == {
+        "version": 1,
+        "urls": [
+            {
+                "url": "https://doi.org/10.1000/auto",
+                "skip_recheck": False,
+                "unused": False,
+                "doi": "10.1000/manual",
+                "last_checked_at": "2026-05-31T10:00:00Z",
+                "http_status_code": 200,
+                "final_url": "https://publisher.example/paper",
+                "reason_phrase": "OK",
+                "references": [
+                    {
+                        "document_path": "alpha.md",
+                        "heading_path": ["Sources"],
+                        "label": "Paper",
+                    }
+                ],
             }
         ],
     }

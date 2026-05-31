@@ -86,7 +86,7 @@ On Linux or Git Bash:
 
 For a simple explanation of what Ollama does in this repository, how to install the real runtime, and how to use the mock and trace scripts, see `docs/ollama.md`.
 If you prefer a local `llama.cpp` runtime with a GGUF model, see `docs/llama-cpp.md`.
-That note now documents both launch variants: `scripts/run-llamacpp.bat` on Windows and `scripts/run-llamacpp.sh` on Linux or Git Bash.
+That note now documents both launch variants: `scripts/start-llamacpp.bat` on Windows and `scripts/start-llamacpp.sh` on Linux or Git Bash.
 
 Inspect the CLI surface:
 

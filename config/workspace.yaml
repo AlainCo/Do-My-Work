@@ -49,10 +49,10 @@ llm:
       timeout_seconds: 600.0
       max_retries: 2
       temperature: 0.0
-      max_pre_context_bytes: 1200
-      max_post_context_bytes: 1200
-      max_input_fragment_bytes: 1200
-      max_total_text_bytes: 3000
+      max_pre_context_bytes: 2400
+      max_post_context_bytes: 2400
+      max_input_fragment_bytes: 2400
+      max_total_text_bytes: 6000
       system_prompt: |
         You are a professional translator from french to english.
       user_prompt: |

@@ -34,12 +34,12 @@ One practical layout is:
 
 ```text
 Do-My-Work/
-  model/
-    Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
   scripts/
-    run-llamacpp.bat
-  llama-b9442-bin-win-cpu-x64/
+    start-llamacpp.bat
+  llama/
     llama-server.exe
+    model/
+        Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
 ```
 
 The exact release folder name can differ depending on the downloaded archive.
@@ -50,43 +50,41 @@ One practical Linux layout is:
 
 ```text
 Do-My-Work/
-  model/
-    Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
   scripts/
-    run-llamacpp.sh
-  llama-b9442-bin-linux-x64/
+    start-llamacpp.sh
+  llama/
     llama-server
+    model/
+        Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
 ```
 
 Again, the release folder name can differ depending on the downloaded archive.
 
 ## Example Launch Scripts
 
-This repository now contains a working example script at [scripts/run-llamacpp.bat](c:/Local/github.git/Do-My-Work/scripts/run-llamacpp.bat).
+This repository now contains a working example script at scripts/start-llamacpp.bat.
 
-It also now contains a Linux or Git Bash variant at [scripts/run-llamacpp.sh](c:/Local/github.git/Do-My-Work/scripts/run-llamacpp.sh).
+It also now contains a Linux or Git Bash variant at scripts/start-llamacpp.sh.
+
+Both require an environment variable LLAMA_HOME pointing to the folder where llama-server binary exist, and assume there is a folder "model" with your model GGUF image.
 
 Windows example:
 
 ```bat
 @echo off
-cd %~dp0
-set MODEL=model\Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
-set LLAMAHOME=llama-b9442-bin-win-cpu-x64
 set PORT=8000
 set CTXSIZE=8192
+set MODEL=Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+
+set APPOPTS=-m "%LLAMA_HOME%\model\%MODEL%" --ctx-size %CTXSIZE% 
+set TRACEOPTS=
+rem set TRACEOPTS=%TRACEOPTS% --verbose 
+set TRACEOPTS=%TRACEOPTS% --metrics
+set NETOPTS=--host 127.0.0.1 --port %PORT%
+set PERFOPTS=-t 12  --batch-size 512 --ubatch-size 512  --mlock
 
 @echo on
-%LLAMAHOME%\llama-server.exe ^
-  -m %MODEL% ^
-  --host 127.0.0.1 ^
-  --port %PORT% ^
-  --ctx-size %CTXSIZE% ^
-  -t 12 ^
-  --batch-size 512 ^
-  --ubatch-size 512 ^
-  --verbose ^
-  --mlock
+%LLAMA_HOME%\llama-server.exe %APPOPTS% %NETOPTS% %PERFOPTS% %TRACEOPTS%
 @echo off
 echo.
 pause
@@ -98,24 +96,36 @@ Linux or Git Bash example:
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-MODEL="${REPO_ROOT}/model/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
-LLAMA_HOME="${REPO_ROOT}/llama-b9442-bin-linux-x64"
 PORT="8000"
 CTX_SIZE="8192"
+MODEL="Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
+
+APP_OPTS=(
+  -m "${HERE}/model/${MODEL}"
+  --ctx-size "${CTX_SIZE}"
+)
+
+TRACE_OPTS=(
+  --metrics
+)
+
+NET_OPTS=(
+  --host 127.0.0.1
+  --port "${PORT}"
+)
+
+PERF_OPTS=(
+  -t 12
+  --batch-size 512
+  --ubatch-size 512
+  --mlock
+)
 
 exec "${LLAMA_HOME}/llama-server" \
-  -m "${MODEL}" \
-  --host 127.0.0.1 \
-  --port "${PORT}" \
-  --ctx-size "${CTX_SIZE}" \
-  -t 12 \
-  --batch-size 512 \
-  --ubatch-size 512 \
-  --verbose \
-  --mlock
+  "${APP_OPTS[@]}" \
+  "${NET_OPTS[@]}" \
+  "${PERF_OPTS[@]}" \
+  "${TRACE_OPTS[@]}"
 ```
 
 What this does:
@@ -128,12 +138,12 @@ What this does:
 On Linux, you will usually want to make the script executable first:
 
 ```bash
-chmod +x scripts/run-llamacpp.sh
+chmod +x scripts/start-llamacpp.sh
 ```
 
 ## YAML Configuration
 
-Use an OpenAI-style translator profile in [config/workspace.yaml](c:/Local/github.git/Do-My-Work/config/workspace.yaml).
+Use an OpenAI-style translator profile in config/workspace.yaml.
 
 Example:
 
@@ -177,9 +187,9 @@ Important details:
 
 ## Typical Workflow
 
-1. start [scripts/run-llamacpp.bat](c:/Local/github.git/Do-My-Work/scripts/run-llamacpp.bat) on Windows, or [scripts/run-llamacpp.sh](c:/Local/github.git/Do-My-Work/scripts/run-llamacpp.sh) on Linux
+1. start scripts/start-llamacpp.bat on Windows, or scripts/start-llamacpp.sh on Linux
 2. keep the server window open
-3. run the CLI with [config/workspace.yaml](c:/Local/github.git/Do-My-Work/config/workspace.yaml)
+3. run the CLI with config/workspace.yaml
 
 Example:
 

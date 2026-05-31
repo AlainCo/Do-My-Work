@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+import shutil
 
 import httpx
 
 from do_my_work.application.task_keys import (
+    make_copy_resource_file_task_key,
+    make_discover_copy_resources_task_key,
     make_discover_translate_document_fragments_task_key,
     make_index_markdown_references_task_key,
     make_merge_reference_indexes_task_key,
@@ -15,6 +18,8 @@ from do_my_work.application.task_keys import (
     make_translator_profile_digest,
 )
 from do_my_work.domain.models import (
+    CopyResourceFileTaskSpec,
+    DiscoverCopyResourcesTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentFragmentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
@@ -178,6 +183,91 @@ class DiscoverReferenceDocumentsTaskHandler:
         else:
             status = TaskStatus.WAITING
             message = f"{len(document_relative_paths)} documents discovered."
+
+        updated_record = record.model_copy(
+            update={
+                "status": status,
+                "child_task_keys": child_task_keys,
+                "outcome": TaskOutcome(
+                    message=message,
+                    created_task_keys=[task.task_key for task in discovered_records],
+                ),
+            }
+        )
+        return TaskHandlerResult(updated_record=updated_record, new_records=discovered_records)
+
+
+class DiscoverCopyResourcesTaskHandler:
+    def handle(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+        task_repository: JsonTaskRepository,
+    ) -> TaskHandlerResult:
+        spec = record.spec
+        if not isinstance(spec, DiscoverCopyResourcesTaskSpec):
+            raise TypeError("discover handler requires a DiscoverCopyResourcesTaskSpec")
+
+        root_path = config.input_dir / spec.root
+        if not root_path.exists():
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="Input root does not exist.",
+                            error=str(root_path),
+                        ),
+                    }
+                )
+            )
+
+        discovered_records: list[TaskRecord] = []
+        child_task_keys: list[str] = []
+
+        for source_path in sorted(
+            _iter_resource_files(root_path, config),
+            key=lambda path: path.relative_to(config.input_dir).as_posix(),
+        ):
+            relative_path = source_path.relative_to(config.input_dir)
+            source_digest = _build_source_digest(source_path)
+            task_key = make_copy_resource_file_task_key(relative_path, source_digest)
+            child_task_keys.append(task_key)
+
+            if task_repository.get(task_key) is None:
+                discovered_records.append(
+                    TaskRecord(
+                        task_key=task_key,
+                        spec=CopyResourceFileTaskSpec(
+                            relative_path=relative_path,
+                            source_digest=source_digest,
+                        ),
+                    )
+                )
+
+        child_records = [task_repository.get(task_key) for task_key in child_task_keys]
+        child_records.extend(discovered_records)
+        failed_children = [
+            child
+            for child in child_records
+            if child is not None and child.status == TaskStatus.FAILED
+        ]
+        all_succeeded = all(
+            child is not None and child.status == TaskStatus.SUCCEEDED for child in child_records
+        )
+
+        if failed_children:
+            status = TaskStatus.FAILED
+            message = (
+                f"{len(child_task_keys)} resources discovered, "
+                "at least one copy task failed."
+            )
+        elif all_succeeded:
+            status = TaskStatus.SUCCEEDED
+            message = f"{len(child_task_keys)} resources discovered and copied."
+        else:
+            status = TaskStatus.WAITING
+            message = f"{len(child_task_keys)} resources discovered."
 
         updated_record = record.model_copy(
             update={
@@ -365,6 +455,41 @@ class IndexMarkdownReferencesTaskHandler:
                 update={
                     "status": TaskStatus.SUCCEEDED,
                     "outcome": TaskOutcome(message="Markdown reference report written."),
+                }
+            )
+        )
+
+
+class CopyResourceFileTaskHandler:
+    def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
+        spec = record.spec
+        if not isinstance(spec, CopyResourceFileTaskSpec):
+            raise TypeError("resource copier requires a CopyResourceFileTaskSpec")
+
+        source_path = config.input_dir / spec.relative_path
+        destination_path = config.output_dir / spec.relative_path
+
+        if not source_path.exists():
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="Source file does not exist.",
+                            error=str(source_path),
+                        ),
+                    }
+                )
+            )
+
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, destination_path)
+
+        return TaskHandlerResult(
+            updated_record=record.model_copy(
+                update={
+                    "status": TaskStatus.SUCCEEDED,
+                    "outcome": TaskOutcome(message="Resource copied."),
                 }
             )
         )
@@ -1126,6 +1251,17 @@ def _iter_markdown_documents(
     ]
 
 
+def _iter_resource_files(root_path: Path, config: WorkspaceConfig) -> list[Path]:
+    local_config_cache: dict[Path, LocalWorkflowConfig | None] = {}
+    return [
+        path
+        for path in root_path.rglob("*")
+        if path.is_file()
+        and _is_selected_resource_file(path.relative_to(config.input_dir), config)
+        and _is_copy_resource_allowed(path, config.input_dir, local_config_cache)
+    ]
+
+
 def _resolve_document_workflow_settings(
     source_path: Path,
     config: WorkspaceConfig,
@@ -1210,7 +1346,31 @@ def _build_optional_text_digest(text: str) -> str | None:
 
 
 def _is_selected_markdown_document(relative_path: Path, config: WorkspaceConfig) -> bool:
-    selection = config.file_selection
+    return _is_selected_path(relative_path, config.file_selection)
+
+
+def _is_selected_resource_file(relative_path: Path, config: WorkspaceConfig) -> bool:
+    return _is_selected_path(relative_path, config.resource_selection)
+
+
+def _is_copy_resource_allowed(
+    source_path: Path,
+    input_dir: Path,
+    local_config_cache: dict[Path, LocalWorkflowConfig | None],
+) -> bool:
+    for directory, local_config in _iter_applicable_local_workflow_configs(
+        source_path,
+        input_dir,
+        local_config_cache,
+    ):
+        relative_to_directory = source_path.relative_to(directory)
+        for rule in local_config.resource_copy.rules:
+            if _path_matches_rule(relative_to_directory, rule.match) and rule.exclude:
+                return False
+    return True
+
+
+def _is_selected_path(relative_path: Path, selection) -> bool:
     selected = selection.default_action == "include"
 
     for rule in selection.rules:

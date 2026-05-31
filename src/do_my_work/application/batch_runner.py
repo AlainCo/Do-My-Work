@@ -29,6 +29,20 @@ class BatchRunner:
         )
         return WorkflowEngine().run(config, root=root, request_kind="reference_index_tree")
 
+    def run_copy_resource_tree(
+        self,
+        config: WorkspaceConfig,
+        root: Path = Path("."),
+    ) -> WorkflowRunResult:
+        self._logger.info(
+            "Running resource copy workflow with root=%s input=%s output=%s data=%s",
+            root,
+            config.input_dir,
+            config.output_dir,
+            config.data_dir,
+        )
+        return WorkflowEngine().run(config, root=root, request_kind="copy_resource_tree")
+
     def run_translate_document_tree(
         self,
         config: WorkspaceConfig,

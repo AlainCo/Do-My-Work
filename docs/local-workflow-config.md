@@ -11,6 +11,7 @@ V1 is intentionally narrow.
 - local config can further exclude files from processing
 - local config can override the translation profile used for matching Markdown files
 - local config can add translation hints for matching Markdown files
+- local config can further exclude matching resources from copy workflows
 - local config does not add new files that the workspace-level selection already excluded
 - local config does not yet add glossary entries or prompt fragments
 
@@ -43,6 +44,11 @@ reference_index:
   rules:
     - match: "drafts/**/*.md"
       exclude: true
+
+resource_copy:
+  rules:
+    - match: "drafts/**/*.jpeg"
+      exclude: true
 ```
 
 ## Sections
@@ -59,17 +65,24 @@ reference_index:
 - `match`: glob-like pattern relative to the folder containing this `do-my-work.yaml`
 - `exclude`: optional boolean; when `true`, matching files are excluded from reference indexing
 
+`resource_copy.rules[]`
+
+- `match`: glob-like pattern relative to the folder containing this `do-my-work.yaml`
+- `exclude`: optional boolean; when `true`, matching files are excluded from resource copy
+
 ## Precedence Rules
 
 The effective policy for one document follows these rules.
 
-1. workspace-level file selection remains the base gatekeeper
+1. workspace-level file selection remains the base gatekeeper for Markdown workflows, and `resource_selection` remains the base gatekeeper for resource copy
 2. local config may exclude more files, but may not re-include files excluded by the workspace
 3. for translation, the CLI or root workflow profile is the default profile
 4. matching local `profile` rules may override that default translation profile for one document
 5. matching local `hints` rules are accumulated in application order, so broader folders can provide shared guidance and deeper folders can add document-family-specific hints
 6. within one config file, `last matching rule wins` for scalar values like `exclude` and `profile`
 7. across multiple `do-my-work.yaml` files, deeper folders override higher folders because configs are applied from `input_dir` down to the document folder
+
+Workspace-level resource selection uses the same flat include/exclude rule shape as `file_selection`, but defaults to `exclude` so no resources are copied unless explicitly included.
 
 ## Matching Scope
 
@@ -115,6 +128,7 @@ V1 intentionally does not do the following.
 - no local glossary entries yet
 - no local prompt fragments yet
 - no local reference-index parameters beyond exclusion
+- no local resource-copy parameters beyond exclusion
 - no automatic cleanup of previously generated output files that became excluded after an earlier run
 
 Those can be added later once the base behavior is stable and easy to reason about.

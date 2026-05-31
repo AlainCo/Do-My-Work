@@ -320,6 +320,65 @@ def test_workflow_engine_applies_local_folder_exclusion_to_reference_index(
     assert not (output_dir / "docs" / "drafts" / "skip.references.md").exists()
 
 
+def test_workflow_engine_copies_selected_resources_and_applies_local_exclusion(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    (input_dir / "assets" / "images").mkdir(parents=True)
+    (input_dir / "assets" / "images" / "logo.jpeg").write_bytes(b"jpeg-bytes")
+    (input_dir / "assets" / "private").mkdir(parents=True)
+    (input_dir / "assets" / "private" / "secret.jpeg").write_bytes(b"secret-bytes")
+    (input_dir / "notes.md").write_text("# Notes\n", encoding="utf-8")
+    (input_dir / "assets" / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "resource_copy:\n"
+        "  rules:\n"
+        "    - match: \"private/**/*\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import FileSelectionConfig, FileSelectionRule
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        resource_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[
+                FileSelectionRule(match="assets/**/*.jpeg", action="include"),
+            ],
+        ),
+    )
+
+    run_request = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="copy_resource_tree",
+    )
+
+    assert run_request.status == "succeeded"
+    assert run_request.summary.executed_task_count == 2
+    assert run_request.summary.created_task_count == 1
+    assert run_request.summary.succeeded_task_count == 2
+    assert (output_dir / "assets" / "images" / "logo.jpeg").read_bytes() == b"jpeg-bytes"
+    assert not (output_dir / "assets" / "private" / "secret.jpeg").exists()
+    assert not (output_dir / "notes.md").exists()
+
+    persisted_tasks = [
+        TaskRecord.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in sorted((data_dir / "tasks").rglob("*.json"))
+    ]
+    assert sorted(task.spec.kind for task in persisted_tasks) == [
+        "copy_resource_file",
+        "discover_copy_resources",
+    ]
+
+
 def test_workflow_engine_applies_local_translation_profile_and_exclusion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

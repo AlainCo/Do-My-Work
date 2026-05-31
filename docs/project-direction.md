@@ -121,20 +121,21 @@ Recommended habit:
 
 ## Current Kernel Slice
 
-The workflow kernel is now implemented far enough to support the two retained public commands.
+The workflow kernel is now implemented far enough to support the retained public commands.
 
 The currently supported user-facing workflows are:
 
 1. `reference-index-tree`: discover Markdown documents, extract inline links, write one `.references.md` report per source file, and synthesize one root `references.index.md`
-2. `translate-document-tree`: discover Markdown documents, extract ordered fragments, translate them through a named LLM profile, and merge them back into translated Markdown documents
+2. `copy-resource-tree`: discover selected resources and copy them to the mirrored relative path under `output_dir`
+3. `translate-document-tree`: discover Markdown documents, extract ordered fragments, translate them through a named LLM profile, and merge them back into translated Markdown documents
 
 This means the codebase now includes:
 
-- stable task key generation for the retained reference and translation task kinds
+- stable task key generation for the retained reference, copy, and translation task kinds
 - JSON repositories for runs and tasks under `data_dir`
-- task handlers for reference indexing and fragment translation
+- task handlers for reference indexing, resource copy, and fragment translation
 - a sequential workflow engine loop
-- the two retained CLI commands
+- the retained CLI commands
 
 Earlier copy-tree and fragment-length-report slices remain documented in `docs/` as historical design and teaching context, but they are no longer part of the supported command surface.
 

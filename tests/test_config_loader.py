@@ -19,6 +19,13 @@ file_selection:
       action: exclude
     - match: docs/drafts/reviewed/**/*.md
       action: include
+resource_selection:
+  default_action: exclude
+  rules:
+    - match: assets/**/*.jpeg
+      action: include
+    - match: assets/private/**/*
+      action: exclude
 llm:
   translator:
     technical:
@@ -57,6 +64,11 @@ llm:
       "docs/**/*.md",
       "docs/drafts/**/*.md",
       "docs/drafts/reviewed/**/*.md",
+    ]
+    assert config.resource_selection.default_action == "exclude"
+    assert [rule.match for rule in config.resource_selection.rules] == [
+      "assets/**/*.jpeg",
+      "assets/private/**/*",
     ]
     assert config.llm.translator["technical"].url == "http://mock.example:11434"
     assert config.llm.translator["technical"].timeout_seconds == 240

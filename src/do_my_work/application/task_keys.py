@@ -14,6 +14,16 @@ def make_discover_reference_documents_task_key(
     return _make_task_key("discover_reference_documents", *parts)
 
 
+def make_discover_copy_resources_task_key(
+    root: Path,
+    local_policy_digest: str | None = None,
+) -> str:
+    parts = [root.as_posix()]
+    if local_policy_digest:
+        parts.append(local_policy_digest)
+    return _make_task_key("discover_copy_resources", *parts)
+
+
 def make_discover_translate_documents_task_key(
     root: Path,
     profile_name: str,
@@ -91,6 +101,10 @@ def make_merge_translated_fragments_task_key(
 
 def make_index_markdown_references_task_key(relative_path: Path, source_digest: str) -> str:
     return _make_task_key("index_markdown_references", relative_path.as_posix(), source_digest)
+
+
+def make_copy_resource_file_task_key(relative_path: Path, source_digest: str) -> str:
+    return _make_task_key("copy_resource_file", relative_path.as_posix(), source_digest)
 
 
 def make_merge_reference_indexes_task_key(root: Path, relative_paths: list[Path]) -> str:

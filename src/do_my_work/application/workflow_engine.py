@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Literal
 
 from do_my_work.application.task_handlers import (
+    CopyResourceFileTaskHandler,
+    DiscoverCopyResourcesTaskHandler,
     DiscoverReferenceDocumentsTaskHandler,
     DiscoverTranslateDocumentFragmentsTaskHandler,
     DiscoverTranslateDocumentsTaskHandler,
@@ -15,6 +17,7 @@ from do_my_work.application.task_handlers import (
     TranslateFragmentTaskHandler,
 )
 from do_my_work.application.task_keys import (
+    make_discover_copy_resources_task_key,
     make_discover_reference_documents_task_key,
     make_discover_translate_documents_task_key,
     make_translation_plan_digest,
@@ -23,6 +26,7 @@ from do_my_work.application.task_keys import (
 )
 from do_my_work.application.task_revalidation import TaskRevalidator
 from do_my_work.domain.models import (
+    DiscoverCopyResourcesTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
     RunRequest,
@@ -46,6 +50,7 @@ class WorkflowEngine:
         root: Path = Path("."),
         request_kind: Literal[
             "reference_index_tree",
+            "copy_resource_tree",
             "translate_document_tree",
         ] = "reference_index_tree",
         translator_profile: str = "technical",
@@ -93,7 +98,9 @@ class WorkflowEngine:
         )
 
         discover_reference_handler = DiscoverReferenceDocumentsTaskHandler()
+        discover_copy_resources_handler = DiscoverCopyResourcesTaskHandler()
         discover_translate_handler = DiscoverTranslateDocumentsTaskHandler()
+        copy_resource_file_handler = CopyResourceFileTaskHandler()
         index_references_handler = IndexMarkdownReferencesTaskHandler()
         merge_reference_indexes_handler = MergeReferenceIndexesTaskHandler()
         discover_translate_fragments_handler = DiscoverTranslateDocumentFragmentsTaskHandler()
@@ -144,8 +151,12 @@ class WorkflowEngine:
 
                 if next_task.spec.kind == "discover_reference_documents":
                     result = discover_reference_handler.handle(next_task, config, task_repository)
+                elif next_task.spec.kind == "discover_copy_resources":
+                    result = discover_copy_resources_handler.handle(next_task, config, task_repository)
                 elif next_task.spec.kind == "discover_translate_documents":
                     result = discover_translate_handler.handle(next_task, config, task_repository)
+                elif next_task.spec.kind == "copy_resource_file":
+                    result = copy_resource_file_handler.handle(next_task, config)
                 elif next_task.spec.kind == "index_markdown_references":
                     result = index_references_handler.handle(next_task, config)
                 elif next_task.spec.kind == "merge_reference_indexes":
@@ -258,6 +269,7 @@ class WorkflowEngine:
         root: Path,
         request_kind: Literal[
             "reference_index_tree",
+            "copy_resource_tree",
             "translate_document_tree",
         ],
         translator_profile: str,
@@ -266,6 +278,12 @@ class WorkflowEngine:
             return TaskRecord(
                 task_key=root_task_key,
                 spec=DiscoverReferenceDocumentsTaskSpec(root=root),
+            )
+
+        if request_kind == "copy_resource_tree":
+            return TaskRecord(
+                task_key=root_task_key,
+                spec=DiscoverCopyResourcesTaskSpec(root=root),
             )
 
         if request_kind == "translate_document_tree":
@@ -291,6 +309,7 @@ class WorkflowEngine:
         root: Path,
         request_kind: Literal[
             "reference_index_tree",
+            "copy_resource_tree",
             "translate_document_tree",
         ],
         translator_profile: str,
@@ -298,6 +317,8 @@ class WorkflowEngine:
         local_policy_digest = _build_local_workflow_policy_digest(config.input_dir, root)
         if request_kind == "reference_index_tree":
             return make_discover_reference_documents_task_key(root, local_policy_digest)
+        if request_kind == "copy_resource_tree":
+            return make_discover_copy_resources_task_key(root, local_policy_digest)
         if request_kind == "translate_document_tree":
             profile = config.llm.translator.get(translator_profile)
             if profile is None:

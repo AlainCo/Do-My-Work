@@ -37,6 +37,8 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] workflow scheduling now logs active task counts by state before each task selection/execution, excluding unchanged tasks carried over from previous runs.
 - [DONE] workflow run summaries now expose active task state counts in the CLI output, and LLM call logs include per-attempt elapsed time.
 - [DONE] workflow run summaries now expose aggregated LLM timing stats (`attempt_count`, average, variance) for the current run.
+- [DONE] `copy-resource-tree` now copies selected resources through the workflow engine, using workspace-level `resource_selection` rules and local `do-my-work.yaml` `resource_copy` exclusions.
+- [ABANDONED] automatic cleanup of generated outputs when source documents or resources are renamed, moved, or deleted. This is too general and risky because it could destroy manually added output files; cleanup will remain manual.
 - [DONE] local `do-my-work.yaml` config files under the source tree now support V1 business overrides: per-folder `exclude` rules for translation/reference workflows and per-folder translation `profile` overrides.
 - [DONE] local `do-my-work.yaml` translation rules now support folder-scoped `hints`, exposed to prompts as `${translation_hints}`, and hints changes participate in translation task identity.
 - [DONE] timeout of LLM call should be configurable via workspace.yaml
@@ -70,22 +72,3 @@ Use the following markers when they help clarify priority or outcome:
 - [SOON] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 
 ## files copy
-- [SOON] we should add a command to copy some files, text or binary, like url, images, source code. say "copy-resource-tree". 
-  - best would be to use the same yaml selection configuration as file_selection, but with another name like resource_selection. default would be to copy nothing.
-
-    ```yaml
-    resource_selection:
-      default_action: exclude
-      rules:
-        - match: "**/*.jpeg"
-          action: include
-    ```
-
-  - it should also be configurable in do-my-work.yaml from the input folders like that:
-
-    ```yaml
-      resource_copy:
-        rules:
-          - match: "work/**/*.jpeg"
-            exclude: true
-    ```

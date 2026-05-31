@@ -21,6 +21,9 @@ class WorkspaceConfig(BaseModel):
     output_dir: Path = Field(default=Path("work/output"))
     data_dir: Path = Field(default=Path("work/data"))
     file_selection: "FileSelectionConfig" = Field(default_factory=lambda: FileSelectionConfig())
+    resource_selection: "FileSelectionConfig" = Field(
+        default_factory=lambda: FileSelectionConfig(default_action="exclude")
+    )
     llm: "LlmConfig" = Field(default_factory=lambda: LlmConfig())
 
 
@@ -66,6 +69,19 @@ class LocalReferenceIndexConfig(BaseModel):
     rules: list[LocalReferenceIndexRule] = Field(default_factory=list)
 
 
+class LocalResourceCopyRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    match: str
+    exclude: bool = False
+
+
+class LocalResourceCopyConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rules: list[LocalResourceCopyRule] = Field(default_factory=list)
+
+
 class LocalWorkflowConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -73,6 +89,9 @@ class LocalWorkflowConfig(BaseModel):
     translation: LocalTranslationConfig = Field(default_factory=lambda: LocalTranslationConfig())
     reference_index: LocalReferenceIndexConfig = Field(
         default_factory=lambda: LocalReferenceIndexConfig()
+    )
+    resource_copy: LocalResourceCopyConfig = Field(
+        default_factory=lambda: LocalResourceCopyConfig()
     )
 
 
@@ -150,6 +169,13 @@ class DiscoverReferenceDocumentsTaskSpec(BaseModel):
     root: Path = Field(default=Path("."))
 
 
+class DiscoverCopyResourcesTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["discover_copy_resources"] = "discover_copy_resources"
+    root: Path = Field(default=Path("."))
+
+
 class DiscoverTranslateDocumentsTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -165,6 +191,14 @@ class IndexMarkdownReferencesTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["index_markdown_references"] = "index_markdown_references"
+    relative_path: Path
+    source_digest: str
+
+
+class CopyResourceFileTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["copy_resource_file"] = "copy_resource_file"
     relative_path: Path
     source_digest: str
 
@@ -230,7 +264,9 @@ class MergeTranslatedFragmentsTaskSpec(BaseModel):
 
 TaskSpec = Annotated[
     DiscoverReferenceDocumentsTaskSpec
+    | DiscoverCopyResourcesTaskSpec
     | DiscoverTranslateDocumentsTaskSpec
+    | CopyResourceFileTaskSpec
     | IndexMarkdownReferencesTaskSpec
     | MergeReferenceIndexesTaskSpec
     | DiscoverTranslateDocumentFragmentsTaskSpec
@@ -275,6 +311,7 @@ class RunRequest(BaseModel):
     run_id: str
     request_kind: Literal[
         "reference_index_tree",
+        "copy_resource_tree",
         "translate_document_tree",
     ] = "reference_index_tree"
     root: Path = Field(default=Path("."))

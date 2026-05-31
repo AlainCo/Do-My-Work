@@ -119,7 +119,12 @@ def _resolve_runs_for_comparison(
     run_repository: JsonRunRepository,
     older_run_id: str | None,
     newer_run_id: str | None,
-    request_kind: Literal["reference_index_tree", "translate_document_tree"] | None,
+    request_kind: Literal[
+        "reference_index_tree",
+        "copy_resource_tree",
+        "translate_document_tree",
+    ]
+    | None,
 ) -> tuple[RunRequest, RunRequest]:
     if (older_run_id is None) != (newer_run_id is None):
         raise typer.BadParameter("Provide both --older-run-id and --newer-run-id, or neither.")
@@ -195,6 +200,36 @@ def reference_index_tree(
     _echo_run_summary(run_result)
 
 
+@app.command("copy-resource-tree")
+def copy_resource_tree(
+    config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,
+    input_dir: Annotated[
+        Path | None,
+        typer.Option(help="Input directory for source files."),
+    ] = None,
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(help="Output directory for copied files."),
+    ] = None,
+    data_dir: Annotated[
+        Path | None,
+        typer.Option(help="Data directory for state and intermediate artifacts."),
+    ] = None,
+    root: Annotated[
+        Path,
+        typer.Option(help="Relative subtree under the input directory to process."),
+    ] = Path("."),
+) -> None:
+    """Copy selected non-generated resources from the input tree to the output tree."""
+    configure_logging()
+    workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
+    typer.echo(f"Input directory: {workspace_config.input_dir}")
+    typer.echo(f"Output directory: {workspace_config.output_dir}")
+    typer.echo(f"Data directory: {workspace_config.data_dir}")
+    run_result = BatchRunner().run_copy_resource_tree(workspace_config, root=root)
+    _echo_run_summary(run_result)
+
+
 @app.command("translate-document-tree")
 def translate_document_tree(
     config: Annotated[Path | None, typer.Option(help="Path to a YAML config file.")] = None,
@@ -265,7 +300,7 @@ def compare_runs(
         typer.Option(help="Newer run id to compare. If omitted, the latest run is used."),
     ] = None,
     request_kind: Annotated[
-        Literal["reference_index_tree", "translate_document_tree"] | None,
+        Literal["reference_index_tree", "copy_resource_tree", "translate_document_tree"] | None,
         typer.Option(
             help=(
                 "Restrict comparison to one workflow type. By default, compare-runs uses "

@@ -1,4 +1,6 @@
 from do_my_work.domain.models import (
+    CopyResourceFileTaskSpec,
+    DiscoverCopyResourcesTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentFragmentsTaskSpec,
     DiscoverTranslateDocumentsTaskSpec,
@@ -42,6 +44,9 @@ class TaskRevalidator:
         if isinstance(spec, IndexMarkdownReferencesTaskSpec):
             return self._revalidate_reference_index(record, config)
 
+        if isinstance(spec, CopyResourceFileTaskSpec):
+            return self._revalidate_copy_resource_file(record, config)
+
         if isinstance(spec, TranslateFragmentTaskSpec):
             return self._revalidate_translate_fragment(record)
 
@@ -53,6 +58,9 @@ class TaskRevalidator:
 
         if isinstance(spec, DiscoverReferenceDocumentsTaskSpec):
             return self._revalidate_discover_reference_documents(record, task_index)
+
+        if isinstance(spec, DiscoverCopyResourcesTaskSpec):
+            return self._revalidate_discover_copy_resources(record, task_index)
 
         if isinstance(spec, DiscoverTranslateDocumentFragmentsTaskSpec):
             return self._revalidate_discover_translate_document_fragments(record, task_index)
@@ -73,6 +81,27 @@ class TaskRevalidator:
         destination_path = config.output_dir / build_reference_report_relative_path(
             record.spec.relative_path
         )
+        if destination_path.exists():
+            return record
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.PENDING,
+                "outcome": TaskOutcome(
+                    message="Output file is missing; task must run again.",
+                ),
+            }
+        )
+
+    def _revalidate_copy_resource_file(
+        self,
+        record: TaskRecord,
+        config: WorkspaceConfig,
+    ) -> TaskRecord:
+        if record.status != TaskStatus.SUCCEEDED:
+            return record
+
+        destination_path = config.output_dir / record.spec.relative_path
         if destination_path.exists():
             return record
 
@@ -111,6 +140,64 @@ class TaskRevalidator:
                     message=(
                         f"{max(len(record.child_task_keys) - 1, 0)} documents discovered."
                     ),
+                    created_task_keys=created_task_keys,
+                ),
+            }
+        )
+
+    def _revalidate_discover_copy_resources(
+        self,
+        record: TaskRecord,
+        task_index: dict[str, TaskRecord],
+    ) -> TaskRecord:
+        if record.status not in {TaskStatus.SUCCEEDED, TaskStatus.WAITING, TaskStatus.FAILED}:
+            return record
+
+        child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        failed_children = [
+            child
+            for child in child_records
+            if child is not None and child.status == TaskStatus.FAILED
+        ]
+        created_task_keys = []
+        if record.outcome is not None:
+            created_task_keys = record.outcome.created_task_keys
+
+        if failed_children:
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.FAILED,
+                    "outcome": TaskOutcome(
+                        message=(
+                            f"{len(record.child_task_keys)} resources discovered, "
+                            "at least one copy task failed."
+                        ),
+                        created_task_keys=created_task_keys,
+                    ),
+                }
+            )
+
+        if all(
+            child is not None and child.status == TaskStatus.SUCCEEDED
+            for child in child_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.SUCCEEDED,
+                    "outcome": TaskOutcome(
+                        message=(
+                            f"{len(record.child_task_keys)} resources discovered and copied."
+                        ),
+                        created_task_keys=created_task_keys,
+                    ),
+                }
+            )
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.WAITING,
+                "outcome": TaskOutcome(
+                    message=f"{len(record.child_task_keys)} resources discovered.",
                     created_task_keys=created_task_keys,
                 ),
             }
@@ -360,7 +447,7 @@ class TaskRevalidator:
 
 def _revalidation_priority(record: TaskRecord) -> tuple[int, str]:
     priority = 2
-    if record.spec.kind in {"index_markdown_references", "translate_fragment"}:
+    if record.spec.kind in {"copy_resource_file", "index_markdown_references", "translate_fragment"}:
         priority = 0
     elif record.spec.kind in {"merge_reference_indexes", "merge_translated_fragments"}:
         priority = 1

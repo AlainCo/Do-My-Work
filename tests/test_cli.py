@@ -10,12 +10,13 @@ from do_my_work.infrastructure.json_workflow_store import JsonRunRepository
 runner = CliRunner()
 
 
-def test_cli_help_only_exposes_reference_and_translation_commands() -> None:
+def test_cli_help_only_exposes_workflow_commands() -> None:
     result = runner.invoke(app, ["--help"])
 
     assert result.exit_code == 0
     assert "compare-runs" in result.stdout
     assert "clean-tasks" in result.stdout
+    assert "copy-resource-tree" in result.stdout
     assert "reference-index-tree" in result.stdout
     assert "translate-document-tree" in result.stdout
     assert "hello" not in result.stdout
@@ -95,6 +96,48 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
         "## note.md\n\n"
         "- [Bob](https://example.org/bob) [Sources]\n"
     )
+
+
+def test_copy_resource_tree_command_copies_selected_files(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    (input_dir / "assets").mkdir(parents=True)
+    (input_dir / "assets" / "logo.jpeg").write_bytes(b"jpeg-bytes")
+    (input_dir / "assets" / "notes.txt").write_text("skip", encoding="utf-8")
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "resource_selection:\n"
+            "  default_action: exclude\n"
+            "  rules:\n"
+            "    - match: assets/**/*.jpeg\n"
+            "      action: include\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "copy-resource-tree",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Workflow run completed:" in result.stdout
+    assert "Tasks executed: 2" in result.stdout
+    assert "Failed tasks retried: 0" in result.stdout
+    assert "Tasks created: 1" in result.stdout
+    assert "Active task states: pending=0 waiting=0 succeeded=2 failed=0" in result.stdout
+    assert (output_dir / "assets" / "logo.jpeg").read_bytes() == b"jpeg-bytes"
+    assert not (output_dir / "assets" / "notes.txt").exists()
 
 
 def test_translate_document_tree_command_translates_markdown_fragments(

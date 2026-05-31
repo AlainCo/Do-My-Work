@@ -68,10 +68,17 @@ Translate Markdown documents through fragment tasks with the `technical` transla
 do-my-work translate-document-tree --config config/workspace.yaml
 ```
 
+Copy selected resources such as images, `.url` files, or source files from the input tree to the output tree:
+
+```powershell
+do-my-work copy-resource-tree --config config/workspace.yaml
+```
+
 Inspect the current command surface:
 
 ```powershell
 do-my-work --help
+do-my-work copy-resource-tree --help
 do-my-work reference-index-tree --help
 do-my-work translate-document-tree --help
 ```

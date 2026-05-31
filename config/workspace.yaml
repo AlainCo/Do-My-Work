@@ -10,6 +10,17 @@ file_selection:
       action: exclude
     - match: "**/*3.md"
       action: exclude
+resource_selection:
+  default_action: exclude
+  rules:
+    - match: "**/*.url"
+      action: include
+    - match: "**/*.jpeg"
+      action: include
+    - match: "**/*.jpg"
+      action: include
+    - match: "**/*.pdf"
+      action: include
 llm:
   translator:
     technical:

@@ -76,7 +76,12 @@ Use the following markers when they help clarify priority or outcome:
 
 ## task scheduling
 
-## translation improvement
+## translation
+
+- [SOON] allow to change the header and footer, in do-my-work, for each file/folder like we do for profile.
+  - maybe just adding translated_document_header and translated_document_footer in the translation/rules/match like the profile field
+  - note: the goal is to allow to add long introduction or post-scriptum ins some files like the README, or to change the format of header/footer in non Markdown files (text, html...)
+- [URGENT] are the review comparison files generated after a similar translate run is done without review ? it should, without retranslating all.
 
 ## references and bibliography
 
@@ -85,3 +90,7 @@ Use the following markers when they help clarify priority or outcome:
 ## files copy
 
 ## spurious file
+
+## packaging
+
+- [TODISCUSS] [SOON] Is it possible to package as a single binary ? Will it work well ?

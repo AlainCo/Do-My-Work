@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from do_my_work.domain.models import ReferenceUrlCheckResult
+from do_my_work.domain.models import ReferenceUrlIndexEntry
 from do_my_work.infrastructure.markdown_reference_report import (
     build_root_reference_index_path,
+    build_root_reference_index_yaml_path,
     extract_markdown_references,
     render_markdown_reference_report,
     render_tree_markdown_reference_report,
@@ -93,6 +94,7 @@ def test_render_tree_markdown_reference_report_outputs_root_index(tmp_path: Path
         "- nested/beta.md [Further Reading] Shared reference\n"
     )
     assert build_root_reference_index_path() == Path("references.index.md")
+    assert build_root_reference_index_yaml_path() == Path("references.index.yaml")
 
 
 def test_render_tree_markdown_reference_report_skips_documents_without_references(
@@ -134,17 +136,16 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
     report = render_tree_markdown_reference_report(
         source_root=tmp_path,
         relative_paths=[Path("alpha.md")],
-        url_check_results={
-            "https://example.org/files/report.pdf": (
-                ReferenceUrlCheckResult(
-                    url="https://example.org/files/report.pdf",
-                    final_url="https://cdn.example.org/report.pdf",
-                    content_type="application/pdf",
-                    filename="report.pdf",
-                    reason_phrase="OK",
-                ),
-                None,
-                200,
+        url_index_entries={
+            "https://example.org/files/report.pdf": ReferenceUrlIndexEntry(
+                url="https://example.org/files/report.pdf",
+                last_checked_at="2026-05-31T10:00:00Z",
+                doi="10.1000/report",
+                http_status_code=200,
+                reason_phrase="OK",
+                final_url="https://cdn.example.org/report.pdf",
+                content_type="application/pdf",
+                filename="report.pdf",
             )
         },
     )
@@ -156,6 +157,8 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
         "## URL Cross Reference\n\n"
         "### https://example.org/files/report.pdf\n\n"
         "- Status: 200 OK\n"
+        "- Last checked: 2026-05-31T10:00:00Z\n"
+        "- DOI: [10.1000/report](https://doi.org/10.1000/report)\n"
         "- Content-Type: application/pdf\n"
         "- Filename: report.pdf\n"
         "- Final URL: https://cdn.example.org/report.pdf\n\n"

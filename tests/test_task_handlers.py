@@ -2,6 +2,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
 from do_my_work.application.task_handlers import (
     CheckReferenceUrlTaskHandler,
@@ -169,13 +170,13 @@ def test_check_reference_url_handler_records_http_metadata() -> None:
     assert result.updated_record.status == TaskStatus.SUCCEEDED
     assert result.updated_record.outcome is not None
     assert result.updated_record.outcome.http_status_code == 200
-    assert result.updated_record.outcome.result == ReferenceUrlCheckResult(
-        url="https://example.org/files/report.pdf",
-        final_url="https://example.org/files/report.pdf",
-        content_type="application/pdf",
-        filename="report.pdf",
-        reason_phrase="OK",
-    )
+    assert isinstance(result.updated_record.outcome.result, ReferenceUrlCheckResult)
+    assert result.updated_record.outcome.result.url == "https://example.org/files/report.pdf"
+    assert result.updated_record.outcome.result.checked_at is not None
+    assert result.updated_record.outcome.result.final_url == "https://example.org/files/report.pdf"
+    assert result.updated_record.outcome.result.content_type == "application/pdf"
+    assert result.updated_record.outcome.result.filename == "report.pdf"
+    assert result.updated_record.outcome.result.reason_phrase == "OK"
 
 
 def test_check_reference_url_handler_records_request_errors_without_failing() -> None:
@@ -301,6 +302,30 @@ def test_merge_reference_indexes_handler_includes_http_error_url_checks_in_root_
         "- Filename: bob\n\n"
         "- alpha.md [Sources] Bob\n"
     )
+    assert yaml.safe_load((config.output_dir / "references.index.yaml").read_text(encoding="utf-8")) == {
+        "version": 1,
+        "urls": [
+            {
+                "url": "https://example.org/bob",
+                "skip_recheck": False,
+                "unused": False,
+                "doi": "",
+                "error_category": "http_status",
+                "http_status_code": 403,
+                "final_url": "https://example.org/bob",
+                "content_type": "text/html",
+                "filename": "bob",
+                "reason_phrase": "Forbidden",
+                "references": [
+                    {
+                        "document_path": "alpha.md",
+                        "heading_path": ["Sources"],
+                        "label": "Bob",
+                    }
+                ],
+            }
+        ],
+    }
 
 
 def test_discover_reference_documents_ignores_relative_links_for_url_checks(tmp_path: Path) -> None:
@@ -328,6 +353,118 @@ def test_discover_reference_documents_ignores_relative_links_for_url_checks(tmp_
         if isinstance(task.spec, CheckReferenceUrlTaskSpec)
     )
     assert checked_urls == ["https://example.org/bob"]
+
+
+def test_discover_reference_documents_skips_recheck_for_marked_urls(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    config.output_dir.mkdir(parents=True)
+    (config.input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (config.output_dir / "references.index.yaml").write_text(
+        "version: 1\n"
+        "urls:\n"
+        "  - url: https://example.org/bob\n"
+        "    skip_recheck: true\n"
+        "    unused: false\n"
+        "    doi: 10.1000/bob\n"
+        "    last_checked_at: 2026-05-31T10:00:00Z\n",
+        encoding="utf-8",
+    )
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    record = TaskRecord(
+        task_key=make_discover_reference_documents_task_key(Path("."), check_urls=True),
+        spec=DiscoverReferenceDocumentsTaskSpec(root=Path("."), check_urls=True),
+    )
+
+    result = DiscoverReferenceDocumentsTaskHandler().handle(record, config, task_repository)
+
+    checked_urls = [
+        task.spec.url
+        for task in result.new_records
+        if isinstance(task.spec, CheckReferenceUrlTaskSpec)
+    ]
+    assert checked_urls == []
+
+
+def test_merge_reference_indexes_handler_reuses_yaml_metadata_for_skipped_urls(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    config.output_dir.mkdir(parents=True)
+    (config.input_dir / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (config.output_dir / "references.index.yaml").write_text(
+        "version: 1\n"
+        "urls:\n"
+        "  - url: https://example.org/bob\n"
+        "    skip_recheck: true\n"
+        "    unused: false\n"
+        "    doi: 10.1000/bob\n"
+        "    last_checked_at: 2026-05-31T10:00:00Z\n"
+        "    http_status_code: 200\n"
+        "    reason_phrase: OK\n"
+        "    content_type: text/html\n"
+        "    filename: bob\n",
+        encoding="utf-8",
+    )
+
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    alpha_task_key = make_index_markdown_references_task_key(Path("alpha.md"), "sha256:alpha")
+    task_repository.save(
+        TaskRecord(
+            task_key=alpha_task_key,
+            spec=IndexMarkdownReferencesTaskSpec(
+                relative_path=Path("alpha.md"),
+                source_digest="sha256:alpha",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(message="Markdown reference report written."),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_reference_indexes_task_key(
+            Path("."),
+            [Path("alpha.md")],
+            checked_urls=["https://example.org/bob"],
+        ),
+        spec=MergeReferenceIndexesTaskSpec(
+            root=Path("."),
+            document_relative_paths=[Path("alpha.md")],
+            reference_task_keys=[alpha_task_key],
+            url_check_task_keys=[],
+        ),
+        child_task_keys=[alpha_task_key],
+    )
+
+    result = MergeReferenceIndexesTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/bob\n\n"
+        "- Status: 200 OK\n"
+        "- Last checked: 2026-05-31T10:00:00Z\n"
+        "- DOI: [10.1000/bob](https://doi.org/10.1000/bob)\n"
+        "- Content-Type: text/html\n"
+        "- Filename: bob\n\n"
+        "- alpha.md [Sources] Bob\n"
+    )
 
 
 def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Path) -> None:

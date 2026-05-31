@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+import do_my_work.application.task_handlers as task_handlers_module
 import do_my_work.application.workflow_engine as workflow_engine_module
 from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.application.task_keys import make_translate_fragment_task_key
@@ -347,6 +348,11 @@ def test_workflow_engine_reference_index_succeeds_when_url_check_reports_request
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(CheckReferenceUrlTaskHandler, "_get_http_client", lambda self: http_client)
     monkeypatch.setattr(CheckReferenceUrlTaskHandler, "close", lambda self: None)
+    monkeypatch.setattr(
+        task_handlers_module,
+        "_build_checked_at_timestamp",
+        lambda: "2026-05-31T10:00:00Z",
+    )
 
     config = WorkspaceConfig(
         input_dir=input_dir,
@@ -370,6 +376,7 @@ def test_workflow_engine_reference_index_succeeds_when_url_check_reports_request
         "## URL Cross Reference\n\n"
         "### https://example.org/broken\n\n"
         "- Status: request_error\n"
+        "- Last checked: 2026-05-31T10:00:00Z\n"
         "- Filename: broken\n\n"
         "- note.md [Sources] Bob\n"
     )

@@ -17,6 +17,7 @@ from do_my_work.domain.models import (
 from do_my_work.infrastructure.markdown_reference_report import (
     build_reference_report_relative_path,
     build_root_reference_index_path,
+    build_root_reference_index_yaml_path,
 )
 
 
@@ -260,7 +261,8 @@ class TaskRevalidator:
                 }
             )
         destination_path = config.output_dir / build_root_reference_index_path()
-        if record.status == TaskStatus.SUCCEEDED and destination_path.exists():
+        sidecar_path = config.output_dir / build_root_reference_index_yaml_path()
+        if record.status == TaskStatus.SUCCEEDED and destination_path.exists() and sidecar_path.exists():
             return record
 
         return record.model_copy(

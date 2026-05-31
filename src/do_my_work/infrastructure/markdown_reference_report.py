@@ -5,7 +5,11 @@ import frontmatter
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
-from do_my_work.domain.models import MarkdownReference, ReferenceUrlCheckResult
+from do_my_work.domain.models import (
+    MarkdownReference,
+    ReferenceUrlIndexEntry,
+    ReferenceUrlOccurrence,
+)
 
 
 def extract_markdown_references(source_file: Path) -> list[MarkdownReference]:
@@ -49,10 +53,10 @@ def render_markdown_reference_report(source_file: Path, source_root: Path) -> st
 def render_tree_markdown_reference_report(
     source_root: Path,
     relative_paths: list[Path],
-    url_check_results: dict[str, tuple[ReferenceUrlCheckResult | None, str | None, int | None]] | None = None,
+    url_index_entries: dict[str, ReferenceUrlIndexEntry] | None = None,
 ) -> str:
     report_lines = ["# Markdown Reference Tree Index", ""]
-    references_by_url: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
+    references_by_url: dict[str, list[ReferenceUrlOccurrence]] = defaultdict(list)
 
     for relative_path in relative_paths:
         source_file = source_root / relative_path
@@ -69,17 +73,17 @@ def render_tree_markdown_reference_report(
             if not is_public_reference_url(reference.url):
                 continue
             references_by_url[reference.url].append(
-                (
-                    relative_path.as_posix(),
-                    _format_heading_path(reference.heading_path),
-                    reference.label,
+                ReferenceUrlOccurrence(
+                    document_path=relative_path.as_posix(),
+                    heading_path=list(reference.heading_path),
+                    label=reference.label,
                 )
             )
 
     if references_by_url:
         report_lines.append("## URL Cross Reference")
         report_lines.append("")
-        report_lines.extend(_render_url_cross_reference_lines(references_by_url, url_check_results))
+        report_lines.extend(_render_url_cross_reference_lines(references_by_url, url_index_entries))
         report_lines.append("")
 
     return "\n".join(report_lines)
@@ -87,6 +91,10 @@ def render_tree_markdown_reference_report(
 
 def build_root_reference_index_path() -> Path:
     return Path("references.index.md")
+
+
+def build_root_reference_index_yaml_path() -> Path:
+    return Path("references.index.yaml")
 
 
 def is_public_reference_url(url: str) -> bool:
@@ -101,20 +109,30 @@ def _render_reference_lines(references: list[MarkdownReference]) -> list[str]:
 
 
 def _render_url_cross_reference_lines(
-    references_by_url: dict[str, list[tuple[str, str, str]]],
-    url_check_results: dict[str, tuple[ReferenceUrlCheckResult | None, str | None, int | None]] | None = None,
+    references_by_url: dict[str, list[ReferenceUrlOccurrence]],
+    url_index_entries: dict[str, ReferenceUrlIndexEntry] | None = None,
 ) -> list[str]:
     lines: list[str] = []
 
     for url in sorted(references_by_url):
         lines.append(f"### {url}")
         lines.append("")
-        if url_check_results and url in url_check_results:
-            result, error_category, http_status_code = url_check_results[url]
-            lines.extend(_render_url_check_lines(result, error_category, http_status_code))
-            lines.append("")
-        for relative_path, heading_path, label in sorted(references_by_url[url]):
-            lines.append(f"- {relative_path} [{heading_path}] {label}")
+        if url_index_entries and url in url_index_entries:
+            metadata_lines = _render_url_check_lines(url_index_entries[url])
+            if metadata_lines:
+                lines.extend(metadata_lines)
+                lines.append("")
+        for occurrence in sorted(
+            references_by_url[url],
+            key=lambda item: (
+                item.document_path,
+                _format_heading_path(item.heading_path),
+                item.label,
+            ),
+        ):
+            lines.append(
+                f"- {occurrence.document_path} [{_format_heading_path(occurrence.heading_path)}] {occurrence.label}"
+            )
         lines.append("")
 
     if lines:
@@ -123,30 +141,37 @@ def _render_url_cross_reference_lines(
     return lines
 
 
-def _render_url_check_lines(
-    result: ReferenceUrlCheckResult | None,
-    error_category: str | None,
-    http_status_code: int | None,
-) -> list[str]:
+def _render_url_check_lines(entry: ReferenceUrlIndexEntry) -> list[str]:
     lines: list[str] = []
 
-    if http_status_code is not None:
-        reason_phrase = None if result is None else result.reason_phrase
-        if reason_phrase:
-            lines.append(f"- Status: {http_status_code} {reason_phrase}")
+    if entry.http_status_code is not None:
+        if entry.reason_phrase:
+            lines.append(f"- Status: {entry.http_status_code} {entry.reason_phrase}")
         else:
-            lines.append(f"- Status: {http_status_code}")
-    elif error_category is not None:
-        lines.append(f"- Status: {error_category}")
+            lines.append(f"- Status: {entry.http_status_code}")
+    elif entry.error_category is not None:
+        lines.append(f"- Status: {entry.error_category}")
 
-    if result is not None and result.content_type:
-        lines.append(f"- Content-Type: {result.content_type}")
-    if result is not None and result.filename:
-        lines.append(f"- Filename: {result.filename}")
-    if result is not None and result.final_url and result.final_url != result.url:
-        lines.append(f"- Final URL: {result.final_url}")
+    if entry.last_checked_at:
+        lines.append(f"- Last checked: {entry.last_checked_at}")
+    if entry.doi.strip():
+        normalized_doi = entry.doi.strip()
+        lines.append(f"- DOI: [{normalized_doi}]({_build_doi_link(normalized_doi)})")
+    if entry.content_type:
+        lines.append(f"- Content-Type: {entry.content_type}")
+    if entry.filename:
+        lines.append(f"- Filename: {entry.filename}")
+    if entry.final_url and entry.final_url != entry.url:
+        lines.append(f"- Final URL: {entry.final_url}")
 
     return lines
+
+
+def _build_doi_link(doi: str) -> str:
+    normalized = doi.strip()
+    if normalized.lower().startswith("https://doi.org/"):
+        return normalized
+    return f"https://doi.org/{normalized}"
 
 
 def build_reference_report_relative_path(relative_path: Path) -> Path:

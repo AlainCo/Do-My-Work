@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 import shutil
@@ -29,7 +30,10 @@ from do_my_work.domain.models import (
     IndexMarkdownReferencesTaskSpec,
     LocalWorkflowConfig,
     MarkdownFragment,
+    ReferenceIndexSidecar,
     ReferenceUrlCheckResult,
+    ReferenceUrlIndexEntry,
+    ReferenceUrlOccurrence,
     MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     TaskOutcome,
@@ -53,12 +57,17 @@ from do_my_work.infrastructure.markdown_fragment_report import (
 from do_my_work.infrastructure.markdown_reference_report import (
     build_reference_report_relative_path,
     build_root_reference_index_path,
+    build_root_reference_index_yaml_path,
     extract_markdown_references,
     is_public_reference_url,
     render_markdown_reference_report,
     render_tree_markdown_reference_report,
 )
 from do_my_work.infrastructure.ollama_client import OllamaChatClient
+from do_my_work.infrastructure.reference_index_sidecar import (
+    load_reference_index_sidecar,
+    write_reference_index_sidecar,
+)
 
 
 @dataclass(slots=True)
@@ -147,8 +156,12 @@ class DiscoverReferenceDocumentsTaskHandler:
                 )
 
         url_check_task_keys: list[str] = []
+        reusable_url_entries = _load_reference_index_entries(config.output_dir)
         if spec.check_urls:
             for url in sorted(discovered_urls):
+                reusable_entry = reusable_url_entries.get(url)
+                if reusable_entry is not None and reusable_entry.skip_recheck:
+                    continue
                 task_key = make_check_reference_url_task_key(url, spec.url_check_run_token)
                 url_check_task_keys.append(task_key)
                 child_task_keys.append(task_key)
@@ -535,6 +548,7 @@ class CheckReferenceUrlTaskHandler:
                 response.raise_for_status()
                 result = ReferenceUrlCheckResult(
                     url=spec.url,
+                    checked_at=_build_checked_at_timestamp(),
                     final_url=str(response.url),
                     content_type=response.headers.get("content-type"),
                     filename=_resolve_reference_url_filename(spec.url, response),
@@ -563,6 +577,7 @@ class CheckReferenceUrlTaskHandler:
                             error_category="timeout",
                             result=ReferenceUrlCheckResult(
                                 url=spec.url,
+                                checked_at=_build_checked_at_timestamp(),
                                 filename=_resolve_reference_url_filename(spec.url, None),
                             ),
                         ),
@@ -582,6 +597,7 @@ class CheckReferenceUrlTaskHandler:
                             http_status_code=response.status_code,
                             result=ReferenceUrlCheckResult(
                                 url=spec.url,
+                                checked_at=_build_checked_at_timestamp(),
                                 final_url=str(response.url),
                                 content_type=response.headers.get("content-type"),
                                 filename=_resolve_reference_url_filename(spec.url, response),
@@ -602,6 +618,7 @@ class CheckReferenceUrlTaskHandler:
                             error_category="request_error",
                             result=ReferenceUrlCheckResult(
                                 url=spec.url,
+                                checked_at=_build_checked_at_timestamp(),
                                 filename=_resolve_reference_url_filename(spec.url, None),
                             ),
                         ),
@@ -768,13 +785,22 @@ class MergeReferenceIndexesTaskHandler:
                 http_status_code,
             )
 
+        sidecar_path = config.output_dir / build_root_reference_index_yaml_path()
+        merged_sidecar = _merge_reference_index_sidecar(
+            load_reference_index_sidecar(sidecar_path),
+            _build_reference_url_occurrences(config.input_dir, spec.document_relative_paths),
+            url_check_results,
+        )
+        write_reference_index_sidecar(sidecar_path, merged_sidecar)
+        url_index_entries = {entry.url: entry for entry in merged_sidecar.urls if not entry.unused}
+
         destination_path = config.output_dir / build_root_reference_index_path()
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         destination_path.write_text(
             render_tree_markdown_reference_report(
                 config.input_dir,
                 spec.document_relative_paths,
-                url_check_results=url_check_results or None,
+                url_index_entries=url_index_entries or None,
             ),
             encoding="utf-8",
         )
@@ -1164,6 +1190,71 @@ class MergeTranslatedFragmentsTaskHandler:
 def _build_source_digest(path: Path) -> str:
     digest = sha256(path.read_bytes()).hexdigest()
     return f"sha256:{digest}"
+
+
+def _build_checked_at_timestamp() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _load_reference_index_entries(output_dir: Path) -> dict[str, ReferenceUrlIndexEntry]:
+    sidecar = load_reference_index_sidecar(output_dir / build_root_reference_index_yaml_path())
+    return {entry.url: entry for entry in sidecar.urls}
+
+
+def _build_reference_url_occurrences(
+    source_root: Path,
+    relative_paths: list[Path],
+) -> dict[str, list[ReferenceUrlOccurrence]]:
+    references_by_url: dict[str, list[ReferenceUrlOccurrence]] = {}
+
+    for relative_path in relative_paths:
+        references = extract_markdown_references(source_root / relative_path)
+        for reference in references:
+            if not is_public_reference_url(reference.url):
+                continue
+            references_by_url.setdefault(reference.url, []).append(
+                ReferenceUrlOccurrence(
+                    document_path=relative_path.as_posix(),
+                    heading_path=list(reference.heading_path),
+                    label=reference.label,
+                )
+            )
+
+    return references_by_url
+
+
+def _merge_reference_index_sidecar(
+    existing_sidecar: ReferenceIndexSidecar,
+    reference_occurrences: dict[str, list[ReferenceUrlOccurrence]],
+    url_check_results: dict[str, tuple[ReferenceUrlCheckResult | None, str | None, int | None]],
+) -> ReferenceIndexSidecar:
+    existing_entries = {entry.url: entry for entry in existing_sidecar.urls}
+    merged_entries: list[ReferenceUrlIndexEntry] = []
+
+    for url in sorted(set(existing_entries) | set(reference_occurrences)):
+        existing_entry = existing_entries.get(url)
+        occurrences = reference_occurrences.get(url, [])
+        updated_entry = ReferenceUrlIndexEntry(url=url)
+        if existing_entry is not None:
+            updated_entry = existing_entry.model_copy(deep=True)
+
+        updated_entry.references = list(occurrences)
+        updated_entry.unused = not bool(occurrences)
+
+        if url in url_check_results:
+            result, error_category, http_status_code = url_check_results[url]
+            updated_entry.error_category = error_category
+            updated_entry.http_status_code = http_status_code
+            if result is not None:
+                updated_entry.last_checked_at = result.checked_at
+                updated_entry.final_url = result.final_url
+                updated_entry.content_type = result.content_type
+                updated_entry.filename = result.filename
+                updated_entry.reason_phrase = result.reason_phrase
+
+        merged_entries.append(updated_entry)
+
+    return ReferenceIndexSidecar(version=1, urls=merged_entries)
 
 
 def _build_fragment_digest(fragment: MarkdownFragment) -> str:

@@ -56,7 +56,7 @@ do-my-work --help
 do-my-work reference-index-tree --config config/workspace.yaml
 ```
 
-This produces one `.references.md` file per selected source document and one root-level `references.index.md` summary.
+This produces one `.references.md` file per selected source document, one root-level `references.index.md` summary, and one root-level `references.index.yaml` sidecar for persistent URL metadata.
 
 3. Translate the selected documents.
 
@@ -166,6 +166,7 @@ Generated files:
 
 - one `.references.md` file next to each selected source document in the target tree
 - one root-level `references.index.md` synthesis
+- one root-level `references.index.yaml` sidecar storing per-URL metadata and manual review fields
 
 Main options:
 
@@ -183,6 +184,9 @@ Notes:
 - generated reference reports are not re-indexed as new inputs when `--report-to-input` is used
 - local `do-my-work.yaml` files can exclude files through `reference_index` rules
 - when `--check-urls` is enabled, the root `references.index.md` report adds the HTTP status, content type, and a probable filename for each checked URL
+- `references.index.yaml` keeps the URL metadata across runs, including `skip_recheck`, `last_checked_at`, `doi`, and `unused`
+- when a URL entry has `skip_recheck: true`, later `--check-urls` runs reuse the stored metadata instead of launching a new HTTP check for that URL
+- when `doi` is set in `references.index.yaml`, the Markdown report shows it as a clickable DOI link
 - proxy configuration follows the usual environment variables such as `http_proxy` and `https_proxy`
 - HTTPS certificate validation is currently disabled for URL checks so the feature still works on machines without a configured trust store
 - URL check errors such as TLS failures, timeouts, or HTTP error codes are reported in the cross-reference as normal results and do not make the workflow fail

@@ -4,6 +4,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
+import do_my_work.application.task_handlers as task_handlers_module
 from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.cli import app
 from do_my_work.domain.models import RunRequest, WorkflowRunSummary
@@ -177,6 +178,11 @@ def test_reference_index_tree_command_checks_urls_when_requested(
     http_client = httpx.Client(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(CheckReferenceUrlTaskHandler, "_get_http_client", lambda self: http_client)
     monkeypatch.setattr(CheckReferenceUrlTaskHandler, "close", lambda self: None)
+    monkeypatch.setattr(
+        task_handlers_module,
+        "_build_checked_at_timestamp",
+        lambda: "2026-05-31T10:00:00Z",
+    )
 
     result = runner.invoke(
         app,
@@ -202,6 +208,7 @@ def test_reference_index_tree_command_checks_urls_when_requested(
         "## URL Cross Reference\n\n"
         "### https://example.org/files/report.pdf\n\n"
         "- Status: 200 OK\n"
+        "- Last checked: 2026-05-31T10:00:00Z\n"
         "- Content-Type: application/pdf\n"
         "- Filename: report.pdf\n\n"
         "- note.md [Sources] Bob\n"

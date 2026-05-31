@@ -12,7 +12,10 @@ from do_my_work.application.task_handlers import (
     _resolve_document_workflow_settings,
 )
 from do_my_work.domain.models import LocalWorkflowConfig, WorkspaceConfig
-from do_my_work.infrastructure.markdown_reference_report import build_root_reference_index_path
+from do_my_work.infrastructure.markdown_reference_report import (
+    build_root_reference_index_path,
+    build_root_reference_index_yaml_path,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +238,8 @@ def _should_check_output_file(relative_output_path: Path, config: WorkspaceConfi
     if relative_output_path == build_spurious_file_report_path():
         return False
     if relative_output_path == build_root_reference_index_path():
+        return False
+    if relative_output_path == build_root_reference_index_yaml_path():
         return False
     if relative_output_path.name.endswith(".references.md"):
         return False

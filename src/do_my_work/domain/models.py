@@ -176,10 +176,43 @@ class ReferenceUrlCheckResult(BaseModel):
 
     kind: Literal["reference_url_check"] = "reference_url_check"
     url: str
+    checked_at: str | None = None
     final_url: str | None = None
     content_type: str | None = None
     filename: str | None = None
     reason_phrase: str | None = None
+
+
+class ReferenceUrlOccurrence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_path: str
+    heading_path: list[str] = Field(default_factory=list)
+    label: str
+
+
+class ReferenceUrlIndexEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    skip_recheck: bool = False
+    unused: bool = False
+    doi: str = ""
+    last_checked_at: str | None = None
+    error_category: Literal["timeout", "http_status", "request_error"] | None = None
+    http_status_code: int | None = None
+    final_url: str | None = None
+    content_type: str | None = None
+    filename: str | None = None
+    reason_phrase: str | None = None
+    references: list[ReferenceUrlOccurrence] = Field(default_factory=list)
+
+
+class ReferenceIndexSidecar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: int = 1
+    urls: list[ReferenceUrlIndexEntry] = Field(default_factory=list)
 
 
 class TaskStatus(str, Enum):

@@ -58,6 +58,7 @@ Use the following markers when they help clarify priority or outcome:
   - the same report now also lists expected translated documents and copied resources that are missing from the output
 - [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
 - [DONE] `reference-index-tree --check-urls` now checks each unique referenced URL and enriches the root URL cross-reference with HTTP status, content type, and a probable filename. HTML title extraction remains a later slice.
+- [DONE] `reference-index-tree` now also writes `references.index.yaml`, preserves manual URL metadata (`skip_recheck`, `doi`), reuses stored metadata when `skip_recheck: true`, carries `last_checked_at` into the Markdown report, and keeps unused URL entries marked as `unused` instead of deleting them.
 - [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 
 ## managing LLM calls
@@ -79,12 +80,6 @@ Use the following markers when they help clarify priority or outcome:
 - [LATER]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
 - [LATER] [TODISCUSS] why not scrap PDF pages
   - feasibility is to be discussed
-- [SOON] the reference report task should generate, beside the report, a yaml report with all the cross reference, and also read it, to decide not to retest an URL when the user said he is confident
-  - the idea is to generate a yaml file , say reference.index.yaml, that contains all information about the URL, like in the report, and also a flag to say "don't recheck i'm confident in it", initially false, but that the user may set to true
-  - there should also be a date of last check, in yaml and markdown report, because it may be done long ago
-  - there should be a doi field, initially empty, but that the user may fill. if set, in the md report, a markdown link should be shown so the user can now use it 
-  - when relaunching the report generation, the yaml file is reloaded, and if the url is marked as not to be rechecked, the old fields will be reused (including the old date of last check)
-  - if an url is no more used in the index, we keept it anyway, but ther will be a flag "unused" so nobody panics. if later this link is reused, the data will be there.
 
 ## file selection
 

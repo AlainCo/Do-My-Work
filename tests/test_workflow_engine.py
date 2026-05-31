@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.application.task_keys import make_translate_fragment_task_key
 from do_my_work.application.workflow_engine import WorkflowEngine
 from do_my_work.domain.models import TaskRecord, TaskStatus, TranslateFragmentTaskSpec, WorkspaceConfig
@@ -323,6 +324,54 @@ def test_workflow_engine_applies_local_folder_exclusion_to_reference_index(
     assert run_request.status == "succeeded"
     assert (output_dir / "docs" / "keep.references.md").exists()
     assert not (output_dir / "docs" / "drafts" / "skip.references.md").exists()
+
+
+def test_workflow_engine_reference_index_succeeds_when_url_check_reports_request_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/broken).\n",
+        encoding="utf-8",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("certificate verify failed", request=request)
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(CheckReferenceUrlTaskHandler, "_get_http_client", lambda self: http_client)
+    monkeypatch.setattr(CheckReferenceUrlTaskHandler, "close", lambda self: None)
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    run_result = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+        check_urls=True,
+    )
+
+    assert run_result.status == "succeeded"
+    assert run_result.summary.failed_task_count == 0
+    assert (output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## note.md\n\n"
+        "- [Bob](https://example.org/broken) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/broken\n\n"
+        "- Status: request_error\n"
+        "- Filename: broken\n\n"
+        "- note.md [Sources] Bob\n"
+    )
 
 
 def test_workflow_engine_copies_selected_resources_and_applies_local_exclusion(

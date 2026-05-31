@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import httpx
 import pytest
 from typer.testing import CliRunner
 
+from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.cli import app
 from do_my_work.domain.models import RunRequest, WorkflowRunSummary
 from do_my_work.infrastructure.json_workflow_store import JsonRunRepository
@@ -146,6 +148,102 @@ def test_reference_index_tree_command_writes_reports_in_input_when_requested(tmp
     )
     assert not (output_dir / "note.references.md").exists()
     assert not (output_dir / "references.index.md").exists()
+
+
+def test_reference_index_tree_command_checks_urls_when_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/files/report.pdf).\n",
+        encoding="utf-8",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/pdf",
+                "content-disposition": 'attachment; filename="report.pdf"',
+            },
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(CheckReferenceUrlTaskHandler, "_get_http_client", lambda self: http_client)
+    monkeypatch.setattr(CheckReferenceUrlTaskHandler, "close", lambda self: None)
+
+    result = runner.invoke(
+        app,
+        [
+            "reference-index-tree",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--data-dir",
+            str(data_dir),
+            "--check-urls",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Tasks executed: 4" in result.stdout
+    assert "Tasks created: 3" in result.stdout
+    assert (output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## note.md\n\n"
+        "- [Bob](https://example.org/files/report.pdf) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/files/report.pdf\n\n"
+        "- Status: 200 OK\n"
+        "- Content-Type: application/pdf\n"
+        "- Filename: report.pdf\n\n"
+        "- note.md [Sources] Bob\n"
+    )
+
+
+def test_reference_index_tree_command_excludes_relative_links_from_url_cross_reference(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Local](./appendix.md).\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "reference-index-tree",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert (output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## note.md\n\n"
+        "- [Local](./appendix.md) [Sources]\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/bob\n\n"
+        "- note.md [Sources] Bob\n"
+    )
 
 
 def test_copy_resource_tree_command_copies_selected_files(tmp_path: Path) -> None:

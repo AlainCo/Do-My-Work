@@ -1,4 +1,5 @@
 from do_my_work.domain.models import (
+    CheckReferenceUrlTaskSpec,
     CopyResourceFileTaskSpec,
     DiscoverCopyResourcesTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
@@ -46,6 +47,9 @@ class TaskRevalidator:
 
         if isinstance(spec, CopyResourceFileTaskSpec):
             return self._revalidate_copy_resource_file(record, config)
+
+        if isinstance(spec, CheckReferenceUrlTaskSpec):
+            return self._revalidate_check_reference_url(record)
 
         if isinstance(spec, TranslateFragmentTaskSpec):
             return self._revalidate_translate_fragment(record)
@@ -114,6 +118,19 @@ class TaskRevalidator:
             }
         )
 
+    def _revalidate_check_reference_url(self, record: TaskRecord) -> TaskRecord:
+        if record.status != TaskStatus.FAILED:
+            return record
+
+        return record.model_copy(
+            update={
+                "status": TaskStatus.PENDING,
+                "outcome": TaskOutcome(
+                    message="Retrying previously failed URL check.",
+                ),
+            }
+        )
+
     def _revalidate_discover_reference_documents(
         self,
         record: TaskRecord,
@@ -123,6 +140,11 @@ class TaskRevalidator:
             return record
 
         child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        document_task_count = sum(
+            1
+            for child in child_records
+            if child is not None and isinstance(child.spec, IndexMarkdownReferencesTaskSpec)
+        )
         if all(
             child is not None and child.status == TaskStatus.SUCCEEDED
             for child in child_records
@@ -138,7 +160,7 @@ class TaskRevalidator:
                 "status": TaskStatus.WAITING,
                 "outcome": TaskOutcome(
                     message=(
-                        f"{max(len(record.child_task_keys) - 1, 0)} documents discovered."
+                        f"{document_task_count} documents discovered."
                     ),
                     created_task_keys=created_task_keys,
                 ),
@@ -223,6 +245,20 @@ class TaskRevalidator:
                 }
             )
 
+
+        url_check_records = [task_index.get(task_key) for task_key in record.spec.url_check_task_keys]
+        if not all(
+            child is not None and child.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}
+            for child in url_check_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.WAITING,
+                    "outcome": TaskOutcome(
+                        message="Waiting for URL check results.",
+                    ),
+                }
+            )
         destination_path = config.output_dir / build_root_reference_index_path()
         if record.status == TaskStatus.SUCCEEDED and destination_path.exists():
             return record

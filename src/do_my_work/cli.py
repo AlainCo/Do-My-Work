@@ -193,6 +193,10 @@ def reference_index_tree(
         bool,
         typer.Option("--report-to-input", help="Write generated reports into the input tree instead of the output tree."),
     ] = False,
+    check_urls: Annotated[
+        bool,
+        typer.Option("--check-urls", help="Check referenced URLs over HTTP and add their status to the root URL cross reference."),
+    ] = False,
 ) -> None:
     """Index Markdown references from the requested input subtree."""
     configure_logging()
@@ -204,7 +208,11 @@ def reference_index_tree(
     typer.echo(f"Input directory: {workspace_config.input_dir}")
     typer.echo(f"Output directory: {workspace_config.output_dir}")
     typer.echo(f"Data directory: {workspace_config.data_dir}")
-    run_result = BatchRunner().run_reference_index_tree(workspace_config, root=root)
+    run_result = BatchRunner().run_reference_index_tree(
+        workspace_config,
+        root=root,
+        check_urls=check_urls,
+    )
     _echo_run_summary(run_result)
 
 

@@ -2,10 +2,12 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 import shutil
+from urllib.parse import unquote, urlsplit
 
 import httpx
 
 from do_my_work.application.task_keys import (
+    make_check_reference_url_task_key,
     make_copy_resource_file_task_key,
     make_discover_copy_resources_task_key,
     make_discover_translate_document_fragments_task_key,
@@ -18,6 +20,7 @@ from do_my_work.application.task_keys import (
     make_translator_profile_digest,
 )
 from do_my_work.domain.models import (
+    CheckReferenceUrlTaskSpec,
     CopyResourceFileTaskSpec,
     DiscoverCopyResourcesTaskSpec,
     DiscoverReferenceDocumentsTaskSpec,
@@ -26,6 +29,7 @@ from do_my_work.domain.models import (
     IndexMarkdownReferencesTaskSpec,
     LocalWorkflowConfig,
     MarkdownFragment,
+    ReferenceUrlCheckResult,
     MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
     TaskOutcome,
@@ -49,6 +53,8 @@ from do_my_work.infrastructure.markdown_fragment_report import (
 from do_my_work.infrastructure.markdown_reference_report import (
     build_reference_report_relative_path,
     build_root_reference_index_path,
+    extract_markdown_references,
+    is_public_reference_url,
     render_markdown_reference_report,
     render_tree_markdown_reference_report,
 )
@@ -109,6 +115,7 @@ class DiscoverReferenceDocumentsTaskHandler:
         discovered_records: list[TaskRecord] = []
         document_relative_paths: list[Path] = []
         child_task_keys: list[str] = []
+        discovered_urls: set[str] = set()
 
         for document in sorted(
             _iter_markdown_documents(root_path, config, workflow_kind="reference_index_tree"),
@@ -121,6 +128,13 @@ class DiscoverReferenceDocumentsTaskHandler:
             task_key = make_index_markdown_references_task_key(relative_path, source_digest)
             child_task_keys.append(task_key)
 
+            if spec.check_urls:
+                discovered_urls.update(
+                    reference.url
+                    for reference in extract_markdown_references(source_path)
+                    if is_public_reference_url(reference.url)
+                )
+
             if task_repository.get(task_key) is None:
                 discovered_records.append(
                     TaskRecord(
@@ -132,7 +146,26 @@ class DiscoverReferenceDocumentsTaskHandler:
                     )
                 )
 
-        merge_task_key = make_merge_reference_indexes_task_key(spec.root, document_relative_paths)
+        url_check_task_keys: list[str] = []
+        if spec.check_urls:
+            for url in sorted(discovered_urls):
+                task_key = make_check_reference_url_task_key(url)
+                url_check_task_keys.append(task_key)
+                child_task_keys.append(task_key)
+
+                if task_repository.get(task_key) is None:
+                    discovered_records.append(
+                        TaskRecord(
+                            task_key=task_key,
+                            spec=CheckReferenceUrlTaskSpec(url=url),
+                        )
+                    )
+
+        merge_task_key = make_merge_reference_indexes_task_key(
+            spec.root,
+            document_relative_paths,
+            checked_urls=sorted(discovered_urls) if spec.check_urls else None,
+        )
         child_task_keys.append(merge_task_key)
         if task_repository.get(merge_task_key) is None:
             discovered_records.append(
@@ -148,6 +181,7 @@ class DiscoverReferenceDocumentsTaskHandler:
                             )
                             for relative_path in document_relative_paths
                         ],
+                        url_check_task_keys=url_check_task_keys,
                     ),
                     child_task_keys=[
                         make_index_markdown_references_task_key(
@@ -155,7 +189,8 @@ class DiscoverReferenceDocumentsTaskHandler:
                             _build_source_digest(config.input_dir / relative_path),
                         )
                         for relative_path in document_relative_paths
-                    ],
+                    ]
+                    + url_check_task_keys,
                 )
             )
 
@@ -460,6 +495,116 @@ class IndexMarkdownReferencesTaskHandler:
         )
 
 
+class CheckReferenceUrlTaskHandler:
+    def __init__(self, http_client: httpx.Client | None = None) -> None:
+        self._http_client = http_client
+        self._owned_http_client: httpx.Client | None = None
+
+    def close(self) -> None:
+        if self._owned_http_client is not None:
+            self._owned_http_client.close()
+            self._owned_http_client = None
+
+    def _get_http_client(self) -> httpx.Client:
+        if self._http_client is not None:
+            return self._http_client
+        if self._owned_http_client is None:
+            self._owned_http_client = httpx.Client(verify=False)
+        return self._owned_http_client
+
+    def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
+        del config
+        spec = record.spec
+        if not isinstance(spec, CheckReferenceUrlTaskSpec):
+            raise TypeError("URL checker requires a CheckReferenceUrlTaskSpec")
+
+        client = self._get_http_client()
+        try:
+            with client.stream(
+                "GET",
+                spec.url,
+                follow_redirects=True,
+                timeout=20.0,
+                headers={"Accept": "*/*", "Range": "bytes=0-0"},
+            ) as response:
+                response.raise_for_status()
+                result = ReferenceUrlCheckResult(
+                    url=spec.url,
+                    final_url=str(response.url),
+                    content_type=response.headers.get("content-type"),
+                    filename=_resolve_reference_url_filename(spec.url, response),
+                    reason_phrase=response.reason_phrase or None,
+                )
+                return TaskHandlerResult(
+                    updated_record=record.model_copy(
+                        update={
+                            "status": TaskStatus.SUCCEEDED,
+                            "outcome": TaskOutcome(
+                                message="URL checked.",
+                                http_status_code=response.status_code,
+                                result=result,
+                            ),
+                        }
+                    )
+                )
+        except httpx.TimeoutException as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.SUCCEEDED,
+                        "outcome": TaskOutcome(
+                            message="URL check recorded a timeout.",
+                            error=str(exc),
+                            error_category="timeout",
+                            result=ReferenceUrlCheckResult(
+                                url=spec.url,
+                                filename=_resolve_reference_url_filename(spec.url, None),
+                            ),
+                        ),
+                    }
+                )
+            )
+        except httpx.HTTPStatusError as exc:
+            response = exc.response
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.SUCCEEDED,
+                        "outcome": TaskOutcome(
+                            message="URL check recorded an HTTP error status.",
+                            error=response.reason_phrase or str(exc),
+                            error_category="http_status",
+                            http_status_code=response.status_code,
+                            result=ReferenceUrlCheckResult(
+                                url=spec.url,
+                                final_url=str(response.url),
+                                content_type=response.headers.get("content-type"),
+                                filename=_resolve_reference_url_filename(spec.url, response),
+                                reason_phrase=response.reason_phrase or None,
+                            ),
+                        ),
+                    }
+                )
+            )
+        except httpx.RequestError as exc:
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.SUCCEEDED,
+                        "outcome": TaskOutcome(
+                            message="URL check recorded a request error.",
+                            error=str(exc),
+                            error_category="request_error",
+                            result=ReferenceUrlCheckResult(
+                                url=spec.url,
+                                filename=_resolve_reference_url_filename(spec.url, None),
+                            ),
+                        ),
+                    }
+                )
+            )
+
+
 class CopyResourceFileTaskHandler:
     def handle(self, record: TaskRecord, config: WorkspaceConfig) -> TaskHandlerResult:
         spec = record.spec
@@ -559,12 +704,72 @@ class MergeReferenceIndexesTaskHandler:
                 )
             )
 
+        url_check_records = [task_repository.get(task_key) for task_key in spec.url_check_task_keys]
+        if any(url_check_record is None for url_check_record in url_check_records):
+            missing_task_keys = [
+                task_key
+                for task_key, url_check_record in zip(
+                    spec.url_check_task_keys,
+                    url_check_records,
+                    strict=False,
+                )
+                if url_check_record is None
+            ]
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.FAILED,
+                        "outcome": TaskOutcome(
+                            message="URL check task record is missing.",
+                            error=", ".join(missing_task_keys),
+                        ),
+                    }
+                )
+            )
+
+        if not all(
+            url_check_record is not None
+            and url_check_record.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}
+            for url_check_record in url_check_records
+        ):
+            return TaskHandlerResult(
+                updated_record=record.model_copy(
+                    update={
+                        "status": TaskStatus.WAITING,
+                        "outcome": TaskOutcome(
+                            message="Waiting for URL check results.",
+                        ),
+                    }
+                )
+            )
+
+        url_check_results: dict[str, tuple[ReferenceUrlCheckResult | None, str | None, int | None]] = {}
+        for url_check_record in url_check_records:
+            if url_check_record is None:
+                continue
+            if not isinstance(url_check_record.spec, CheckReferenceUrlTaskSpec):
+                continue
+            result = None
+            error_category = None
+            http_status_code = None
+            if url_check_record.outcome is not None:
+                if isinstance(url_check_record.outcome.result, ReferenceUrlCheckResult):
+                    result = url_check_record.outcome.result
+                error_category = url_check_record.outcome.error_category
+                http_status_code = url_check_record.outcome.http_status_code
+            url_check_results[url_check_record.spec.url] = (
+                result,
+                error_category,
+                http_status_code,
+            )
+
         destination_path = config.output_dir / build_root_reference_index_path()
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         destination_path.write_text(
             render_tree_markdown_reference_report(
                 config.input_dir,
                 spec.document_relative_paths,
+                url_check_results=url_check_results or None,
             ),
             encoding="utf-8",
         )
@@ -1395,6 +1600,48 @@ def _is_copy_resource_allowed(
             if _path_matches_rule(relative_to_directory, rule.match) and rule.exclude:
                 return False
     return True
+
+
+def _resolve_reference_url_filename(url: str, response: httpx.Response | None) -> str | None:
+    if response is not None:
+        content_disposition = response.headers.get("content-disposition")
+        filename = _parse_content_disposition_filename(content_disposition)
+        if filename:
+            return filename
+
+        final_name = _basename_from_url(str(response.url))
+        if final_name:
+            return final_name
+
+    return _basename_from_url(url)
+
+
+def _parse_content_disposition_filename(header_value: str | None) -> str | None:
+    if not header_value:
+        return None
+
+    for part in header_value.split(";"):
+        candidate = part.strip()
+        if candidate.lower().startswith("filename*="):
+            _, value = candidate.split("=", 1)
+            value = value.strip().strip('"')
+            if "''" in value:
+                _, encoded_value = value.split("''", 1)
+                return unquote(encoded_value)
+            return unquote(value)
+        if candidate.lower().startswith("filename="):
+            _, value = candidate.split("=", 1)
+            return value.strip().strip('"') or None
+
+    return None
+
+
+def _basename_from_url(url: str) -> str | None:
+    path = urlsplit(url).path
+    if not path:
+        return None
+    basename = PurePosixPath(unquote(path)).name
+    return basename or None
 
 
 def _is_selected_path(relative_path: Path, selection) -> bool:

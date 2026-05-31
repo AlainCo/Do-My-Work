@@ -7,10 +7,13 @@ from do_my_work.domain.models import TranslatorProfileConfig
 def make_discover_reference_documents_task_key(
     root: Path,
     local_policy_digest: str | None = None,
+    check_urls: bool = False,
 ) -> str:
     parts = [root.as_posix()]
     if local_policy_digest:
         parts.append(local_policy_digest)
+    if check_urls:
+        parts.append("check_urls")
     return _make_task_key("discover_reference_documents", *parts)
 
 
@@ -103,16 +106,24 @@ def make_index_markdown_references_task_key(relative_path: Path, source_digest: 
     return _make_task_key("index_markdown_references", relative_path.as_posix(), source_digest)
 
 
+def make_check_reference_url_task_key(url: str) -> str:
+    return _make_task_key("check_reference_url", url)
+
+
 def make_copy_resource_file_task_key(relative_path: Path, source_digest: str) -> str:
     return _make_task_key("copy_resource_file", relative_path.as_posix(), source_digest)
 
 
-def make_merge_reference_indexes_task_key(root: Path, relative_paths: list[Path]) -> str:
-    return _make_task_key(
-        "merge_reference_indexes",
-        root.as_posix(),
-        *(relative_path.as_posix() for relative_path in relative_paths),
-    )
+def make_merge_reference_indexes_task_key(
+    root: Path,
+    relative_paths: list[Path],
+    checked_urls: list[str] | None = None,
+) -> str:
+    parts = [root.as_posix(), *(relative_path.as_posix() for relative_path in relative_paths)]
+    if checked_urls:
+        parts.append("check_urls")
+        parts.extend(checked_urls)
+    return _make_task_key("merge_reference_indexes", *parts)
 
 
 def make_translator_profile_digest(profile: TranslatorProfileConfig) -> str:

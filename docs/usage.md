@@ -175,12 +175,18 @@ Main options:
 - `--data-dir`: override the workflow state directory
 - `--root`: restrict indexing to a subtree
 - `--report-to-input`: write the generated reports into `input_dir` instead of `output_dir`
+- `--check-urls`: perform an HTTP check for each unique referenced URL and add status information to the root URL cross reference
 
 Notes:
 
 - this command indexes selected Markdown source documents
 - generated reference reports are not re-indexed as new inputs when `--report-to-input` is used
 - local `do-my-work.yaml` files can exclude files through `reference_index` rules
+- when `--check-urls` is enabled, the root `references.index.md` report adds the HTTP status, content type, and a probable filename for each checked URL
+- proxy configuration follows the usual environment variables such as `http_proxy` and `https_proxy`
+- HTTPS certificate validation is currently disabled for URL checks so the feature still works on machines without a configured trust store
+- URL check errors such as TLS failures, timeouts, or HTTP error codes are reported in the cross-reference as normal results and do not make the workflow fail
+- URL checks are intentionally simple in this first slice: they do not yet extract HTML titles or page previews
 
 ### `copy-resource-tree`
 

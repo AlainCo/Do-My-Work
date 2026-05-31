@@ -171,6 +171,17 @@ class MarkdownReference(BaseModel):
     url: str
 
 
+class ReferenceUrlCheckResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["reference_url_check"] = "reference_url_check"
+    url: str
+    final_url: str | None = None
+    content_type: str | None = None
+    filename: str | None = None
+    reason_phrase: str | None = None
+
+
 class TaskStatus(str, Enum):
     PENDING = "pending"
     WAITING = "waiting"
@@ -184,6 +195,7 @@ class DiscoverReferenceDocumentsTaskSpec(BaseModel):
 
     kind: Literal["discover_reference_documents"] = "discover_reference_documents"
     root: Path = Field(default=Path("."))
+    check_urls: bool = False
 
 
 class DiscoverCopyResourcesTaskSpec(BaseModel):
@@ -212,6 +224,13 @@ class IndexMarkdownReferencesTaskSpec(BaseModel):
     source_digest: str
 
 
+class CheckReferenceUrlTaskSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["check_reference_url"] = "check_reference_url"
+    url: str
+
+
 class CopyResourceFileTaskSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -227,6 +246,7 @@ class MergeReferenceIndexesTaskSpec(BaseModel):
     root: Path = Field(default=Path("."))
     document_relative_paths: list[Path] = Field(default_factory=list)
     reference_task_keys: list[str] = Field(default_factory=list)
+    url_check_task_keys: list[str] = Field(default_factory=list)
 
 
 class DiscoverTranslateDocumentFragmentsTaskSpec(BaseModel):
@@ -285,6 +305,7 @@ TaskSpec = Annotated[
     | DiscoverTranslateDocumentsTaskSpec
     | CopyResourceFileTaskSpec
     | IndexMarkdownReferencesTaskSpec
+    | CheckReferenceUrlTaskSpec
     | MergeReferenceIndexesTaskSpec
     | DiscoverTranslateDocumentFragmentsTaskSpec
     | TranslateFragmentTaskSpec
@@ -309,7 +330,7 @@ class TaskOutcome(BaseModel):
     error: str | None = None
     error_category: Literal["timeout", "http_status", "request_error"] | None = None
     http_status_code: int | None = None
-    result: TranslatedFragmentResult | None = None
+    result: TranslatedFragmentResult | ReferenceUrlCheckResult | None = None
 
 
 class TaskRecord(BaseModel):

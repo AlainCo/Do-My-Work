@@ -105,6 +105,8 @@ Generate Markdown reference indexes with one `.references.md` file per input fil
 do-my-work reference-index-tree --input-dir work/input --output-dir work/output --data-dir work/data
 ```
 
+Add `--check-urls` when you also want the root URL cross reference to include HTTP status and content metadata for each unique referenced URL.
+
 Translate Markdown documents through fragment tasks with the `technical` translator profile from the YAML config:
 
 ```powershell

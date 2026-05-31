@@ -20,15 +20,22 @@ class BatchRunner:
         self,
         config: WorkspaceConfig,
         root: Path = Path("."),
+        check_urls: bool = False,
     ) -> WorkflowRunResult:
         self._logger.info(
-            "Running Markdown reference index workflow with root=%s input=%s output=%s data=%s",
+            "Running Markdown reference index workflow with root=%s check_urls=%s input=%s output=%s data=%s",
             root,
+            check_urls,
             config.input_dir,
             config.output_dir,
             config.data_dir,
         )
-        return WorkflowEngine().run(config, root=root, request_kind="reference_index_tree")
+        return WorkflowEngine().run(
+            config,
+            root=root,
+            request_kind="reference_index_tree",
+            check_urls=check_urls,
+        )
 
     def run_copy_resource_tree(
         self,

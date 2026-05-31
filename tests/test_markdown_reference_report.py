@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from do_my_work.domain.models import ReferenceUrlCheckResult
 from do_my_work.infrastructure.markdown_reference_report import (
     build_root_reference_index_path,
     extract_markdown_references,
@@ -115,6 +116,70 @@ def test_render_tree_markdown_reference_report_skips_documents_without_reference
     assert report == (
         "# Markdown Reference Tree Index\n\n"
         "## alpha.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/bob\n\n"
+        "- alpha.md [Sources] Bob\n"
+    )
+
+
+def test_render_tree_markdown_reference_report_includes_url_check_metadata(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/files/report.pdf).\n",
+        encoding="utf-8",
+    )
+
+    report = render_tree_markdown_reference_report(
+        source_root=tmp_path,
+        relative_paths=[Path("alpha.md")],
+        url_check_results={
+            "https://example.org/files/report.pdf": (
+                ReferenceUrlCheckResult(
+                    url="https://example.org/files/report.pdf",
+                    final_url="https://cdn.example.org/report.pdf",
+                    content_type="application/pdf",
+                    filename="report.pdf",
+                    reason_phrase="OK",
+                ),
+                None,
+                200,
+            )
+        },
+    )
+
+    assert report == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/files/report.pdf) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/files/report.pdf\n\n"
+        "- Status: 200 OK\n"
+        "- Content-Type: application/pdf\n"
+        "- Filename: report.pdf\n"
+        "- Final URL: https://cdn.example.org/report.pdf\n\n"
+        "- alpha.md [Sources] Bob\n"
+    )
+
+
+def test_render_tree_markdown_reference_report_excludes_relative_links_from_cross_reference(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "alpha.md").write_text(
+        "# Sources\n\nSee [Local](./appendix.md).\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    report = render_tree_markdown_reference_report(
+        source_root=tmp_path,
+        relative_paths=[Path("alpha.md")],
+    )
+
+    assert report == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Local](./appendix.md) [Sources]\n"
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## URL Cross Reference\n\n"
         "### https://example.org/bob\n\n"

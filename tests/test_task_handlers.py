@@ -1,8 +1,11 @@
 from pathlib import Path
 
 import httpx
+import pytest
 
 from do_my_work.application.task_handlers import (
+    CheckReferenceUrlTaskHandler,
+    DiscoverReferenceDocumentsTaskHandler,
     DiscoverTranslateDocumentFragmentsTaskHandler,
     IndexMarkdownReferencesTaskHandler,
     MergeReferenceIndexesTaskHandler,
@@ -10,16 +13,21 @@ from do_my_work.application.task_handlers import (
     TranslateFragmentTaskHandler,
 )
 from do_my_work.application.task_keys import (
+    make_check_reference_url_task_key,
+    make_discover_reference_documents_task_key,
     make_index_markdown_references_task_key,
     make_merge_reference_indexes_task_key,
     make_merge_translated_fragments_task_key,
 )
 from do_my_work.domain.models import (
+    CheckReferenceUrlTaskSpec,
+    DiscoverReferenceDocumentsTaskSpec,
     DiscoverTranslateDocumentFragmentsTaskSpec,
     IndexMarkdownReferencesTaskSpec,
     LlmConfig,
     MergeReferenceIndexesTaskSpec,
     MergeTranslatedFragmentsTaskSpec,
+    ReferenceUrlCheckResult,
     TaskOutcome,
     TaskRecord,
     TaskStatus,
@@ -133,6 +141,193 @@ def test_merge_reference_indexes_handler_writes_root_reference_index(tmp_path: P
         "### https://example.org/bob\n\n"
         "- alpha.md [Sources] Bob\n"
     )
+
+
+def test_check_reference_url_handler_records_http_metadata() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url == httpx.URL("https://example.org/files/report.pdf")
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/pdf",
+                "content-disposition": 'attachment; filename="report.pdf"',
+            },
+            request=request,
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/files/report.pdf"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/files/report.pdf"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.http_status_code == 200
+    assert result.updated_record.outcome.result == ReferenceUrlCheckResult(
+        url="https://example.org/files/report.pdf",
+        final_url="https://example.org/files/report.pdf",
+        content_type="application/pdf",
+        filename="report.pdf",
+        reason_phrase="OK",
+    )
+
+
+def test_check_reference_url_handler_records_request_errors_without_failing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("certificate verify failed", request=request)
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    record = TaskRecord(
+        task_key=make_check_reference_url_task_key("https://example.org/broken"),
+        spec=CheckReferenceUrlTaskSpec(url="https://example.org/broken"),
+    )
+
+    result = CheckReferenceUrlTaskHandler(http_client=http_client).handle(
+        record,
+        WorkspaceConfig(),
+    )
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert result.updated_record.outcome is not None
+    assert result.updated_record.outcome.message == "URL check recorded a request error."
+    assert result.updated_record.outcome.error_category == "request_error"
+    assert result.updated_record.outcome.error == "certificate verify failed"
+
+
+def test_check_reference_url_handler_creates_lax_tls_client_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_kwargs: dict[str, object] = {}
+
+    class FakeClient:
+        def close(self) -> None:
+            return None
+
+    def fake_client(**kwargs):
+        captured_kwargs.update(kwargs)
+        return FakeClient()
+
+    monkeypatch.setattr(httpx, "Client", fake_client)
+
+    handler = CheckReferenceUrlTaskHandler()
+
+    client = handler._get_http_client()
+
+    assert isinstance(client, FakeClient)
+    assert captured_kwargs == {"verify": False}
+
+
+def test_merge_reference_indexes_handler_includes_http_error_url_checks_in_root_report(
+    tmp_path: Path,
+) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    alpha_task_key = make_index_markdown_references_task_key(Path("alpha.md"), "sha256:alpha")
+    url_task_key = make_check_reference_url_task_key("https://example.org/bob")
+    task_repository.save(
+        TaskRecord(
+            task_key=alpha_task_key,
+            spec=IndexMarkdownReferencesTaskSpec(
+                relative_path=Path("alpha.md"),
+                source_digest="sha256:alpha",
+            ),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(message="Markdown reference report written."),
+        )
+    )
+    task_repository.save(
+        TaskRecord(
+            task_key=url_task_key,
+            spec=CheckReferenceUrlTaskSpec(url="https://example.org/bob"),
+            status=TaskStatus.SUCCEEDED,
+            outcome=TaskOutcome(
+                message="URL check recorded an HTTP error status.",
+                error="Forbidden",
+                error_category="http_status",
+                http_status_code=403,
+                result=ReferenceUrlCheckResult(
+                    url="https://example.org/bob",
+                    final_url="https://example.org/bob",
+                    content_type="text/html",
+                    filename="bob",
+                    reason_phrase="Forbidden",
+                ),
+            ),
+        )
+    )
+
+    record = TaskRecord(
+        task_key=make_merge_reference_indexes_task_key(
+            Path("."),
+            [Path("alpha.md")],
+            checked_urls=["https://example.org/bob"],
+        ),
+        spec=MergeReferenceIndexesTaskSpec(
+            root=Path("."),
+            document_relative_paths=[Path("alpha.md")],
+            reference_task_keys=[alpha_task_key],
+            url_check_task_keys=[url_task_key],
+        ),
+        child_task_keys=[alpha_task_key, url_task_key],
+    )
+
+    result = MergeReferenceIndexesTaskHandler().handle(record, config, task_repository)
+
+    assert result.updated_record.status == TaskStatus.SUCCEEDED
+    assert (config.output_dir / "references.index.md").read_text(encoding="utf-8") == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/bob\n\n"
+        "- Status: 403 Forbidden\n"
+        "- Content-Type: text/html\n"
+        "- Filename: bob\n\n"
+        "- alpha.md [Sources] Bob\n"
+    )
+
+
+def test_discover_reference_documents_ignores_relative_links_for_url_checks(tmp_path: Path) -> None:
+    config = WorkspaceConfig(
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        data_dir=tmp_path / "data",
+    )
+    config.input_dir.mkdir(parents=True)
+    (config.input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Local](./appendix.md).\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    task_repository = JsonTaskRepository(config.data_dir / "tasks")
+    record = TaskRecord(
+        task_key=make_discover_reference_documents_task_key(Path("."), check_urls=True),
+        spec=DiscoverReferenceDocumentsTaskSpec(root=Path("."), check_urls=True),
+    )
+
+    result = DiscoverReferenceDocumentsTaskHandler().handle(record, config, task_repository)
+
+    checked_urls = sorted(
+        task.spec.url
+        for task in result.new_records
+        if isinstance(task.spec, CheckReferenceUrlTaskSpec)
+    )
+    assert checked_urls == ["https://example.org/bob"]
 
 
 def test_translate_fragment_handler_calls_llm_with_markdown_snippet(tmp_path: Path) -> None:

@@ -71,14 +71,13 @@ Use the following markers when they help clarify priority or outcome:
   - [ABANDONED] if control becomes necessary, add an option like `--preview-urls-lines=NNN`
 - [DONE] `translate-document-tree --with-review` now generates a side-by-side HTML review document per translated file, aligned by translation chunk rather than trying to force this into Markdown
 - [DONE] translation review files can be generated on a later run with `--with-review` without redoing costly translation calls; changing `translation_review.translated_first` also re-renders the review without retranslating
+- [DONE] local `do-my-work.yaml` translation rules can now override `translated_document_header` and `translated_document_footer` per file or subtree, so rare files such as translated `README.md` can carry specific automatic-translation notes or a different wrapper syntax for Markdown, text, or HTML outputs
 
 ## managing LLM calls
 
 ## task scheduling
 
 ## translation
-
-- [DONE] local `do-my-work.yaml` translation rules can now override `translated_document_header` and `translated_document_footer` per file or subtree, so rare files such as translated `README.md` can carry specific automatic-translation notes or a different wrapper syntax for Markdown, text, or HTML outputs
 
 ## references and bibliography
 

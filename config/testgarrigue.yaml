@@ -4,11 +4,7 @@ data_dir: work/GNWT-Garrigue-X-en/work/data
 file_selection:
   default_action: exclude
   rules:
-    - match: "**/architecture.md"
-      action: include
-    - match: "nouvelles/*.md"
-      action: include
-    - match: "nouvelles/note-*.md"
+    - match: "**/*.md"
       action: include
 llm:
   translator:
@@ -76,7 +72,7 @@ llm:
       url: http://127.0.0.1:11434
       model: ministral-3:3b
       temperature: 0.2
-      timeout_seconds: 400.0
+      timeout_seconds: 600.0
       max_retries: 2
       max_pre_context_bytes: 2400
       max_post_context_bytes: 2400
@@ -130,5 +126,5 @@ llm:
         ===BEGIN FOLLOWING CONTEXT===
         ${post_context}
         ===END FOLLOWING CONTEXT===
-      translated_document_header: "<!-- Translated automatically ; profile: technical -->"
-      translated_document_footer: "<!-- End automatic translation ; profile: technical -->"             
+      translated_document_header: "<!-- Translated automatically ; profile: romantic -->"
+      translated_document_footer: "<!-- End automatic translation ; profile: romantic -->"             

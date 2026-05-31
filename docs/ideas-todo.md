@@ -39,25 +39,21 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] workflow run summaries now expose aggregated LLM timing stats (`attempt_count`, average, variance) for the current run.
 - [DONE] local `do-my-work.yaml` config files under the source tree now support V1 business overrides: per-folder `exclude` rules for translation/reference workflows and per-folder translation `profile` overrides.
 - [DONE] local `do-my-work.yaml` translation rules now support folder-scoped `hints`, exposed to prompts as `${translation_hints}`, and hints changes participate in translation task identity.
-
-## Project management
-
-- we should regularly sort similar points together, or even merge them.
-
-## managing LLM calls
-
 - [DONE] timeout of LLM call should be configurable via workspace.yaml
 - [DONE]  Timeout exception in LLM call does break the system, it should be trapped
 - [DONE] In case of LLM technical exception (timeout) a way to retry should exist... maybe few retries (configurable in yaml), and anyway, if the command is relaunched, past failed job should be just forgotten, thus retried.
 - [DONE] the time of LLM call should be displayed
 - [DONE] average and variance of translation call time are now computed for the current run summary from the LLM call attempts made during that run.
 - [DONE] I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after...
+- [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
+
+## managing LLM calls
 
 ## task scheduling
 
 ## translation improvement
 
-- [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
+
 
 - [LATER] [TODISCUSS] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
@@ -67,7 +63,29 @@ Use the following markers when they help clarify priority or outcome:
 
 ## file selection
 
-- [DONE] its should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
+- [DONE] it should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
   - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
 - [ABANDONED] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
 - [LATER] local `do-my-work.yaml` can later grow beyond `profile` and `hints` with glossary-like guidance, corrections, warnings, and other folder-specific business parameters.
+- [SOON] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
+
+## files copy
+- [SOON] we should add a command to copy some files, text or binary, like url, images, source code. say "copy-resource-tree". 
+  - best would be to use the same yaml selection configuration as file_selection, but with another name like resource_selection. default would be to copy nothing.
+
+    ```yaml
+    resource_selection:
+      default_action: exclude
+      rules:
+        - match: "**/*.jpeg"
+          action: include
+    ```
+
+  - it should also be configurable in do-my-work.yaml from the input folders like that:
+
+    ```yaml
+      resource_copy:
+        rules:
+          - match: "work/**/*.jpeg"
+            exclude: true
+    ```

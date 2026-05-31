@@ -48,6 +48,8 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] average and variance of translation call time are now computed for the current run summary from the LLM call attempts made during that run.
 - [DONE] I noticed some calls take more than 300 seconds, error 500 server side (probably because connection is reset by client), but the retry works and it's faster after...
 - [DONE] why not configure a size in bytes of pre_context and post_context. the idea is to add preceding and following fragments to a pre and post context, until it is longer than the configured limit. then this context may be put in the task then in the prompt, to helm making better translation
+- [DONE] it should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
+  - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
 
 ## managing LLM calls
 
@@ -55,18 +57,14 @@ Use the following markers when they help clarify priority or outcome:
 
 ## translation improvement
 
-
-
 - [LATER] [TODISCUSS] generating a document that propose original and translated fragment, fragment by fragment, would be very useful to check the translation. Markdown seems unable to do that, maybe HTML with tables but first the markdown should be converted to HTML fragment. is there better solution ?
 
 ## references and bibliography
 
-- [LATER] generating a single index of URL, each only one, but followed with list of the labels and the context (file, headers). It should help to test each link manually, and then see where to correct it.
+- [SOON] [TODISCUSS] generating a single index of URL, each only one, but followed with list of the labels and the context (file, headers). It should help to test each link manually, and then see where to correct it.
 
 ## file selection
 
-- [DONE] it should be possible to tell files, file pattern or folder to include or to exclude. it should be configured in the workspace yaml. for translation of references scan.
-  - implemented as flat workspace-level rules with `default_action`, `match`, and `action`, using a simple `last matching rule wins` behavior
 - [ABANDONED] it should be possible to ask for some file, filepatterns, folders, to be mapped to a translation profile name. why not use the include/exclude mechanism in translation profiles too ?
 - [LATER] local `do-my-work.yaml` can later grow beyond `profile` and `hints` with glossary-like guidance, corrections, warnings, and other folder-specific business parameters.
 - [SOON] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.

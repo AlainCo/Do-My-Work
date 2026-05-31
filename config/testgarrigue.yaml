@@ -6,6 +6,10 @@ file_selection:
   rules:
     - match: "**/*.md"
       action: include
+    - match: "**/*.references.md"
+      action: exclude
+    - match: "**/*.index.md"
+      action: exclude      
 resource_selection:
   default_action: exclude
   rules:

@@ -92,3 +92,31 @@ def test_render_tree_markdown_reference_report_outputs_root_index(tmp_path: Path
         "- nested/beta.md [Further Reading] Shared reference\n"
     )
     assert build_root_reference_index_path() == Path("references.index.md")
+
+
+def test_render_tree_markdown_reference_report_skips_documents_without_references(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "nested").mkdir(parents=True)
+    (tmp_path / "alpha.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "nested" / "empty.md").write_text(
+        "# Empty\n\nNo link here.\n",
+        encoding="utf-8",
+    )
+
+    report = render_tree_markdown_reference_report(
+        source_root=tmp_path,
+        relative_paths=[Path("alpha.md"), Path("nested/empty.md")],
+    )
+
+    assert report == (
+        "# Markdown Reference Tree Index\n\n"
+        "## alpha.md\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/bob\n\n"
+        "- alpha.md [Sources] Bob\n"
+    )

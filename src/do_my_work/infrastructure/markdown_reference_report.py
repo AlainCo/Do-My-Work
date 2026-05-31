@@ -53,6 +53,9 @@ def render_tree_markdown_reference_report(source_root: Path, relative_paths: lis
     for relative_path in relative_paths:
         source_file = source_root / relative_path
         references = extract_markdown_references(source_file)
+        if not references:
+            continue
+
         report_lines.append(f"## {relative_path.as_posix()}")
         report_lines.append("")
         report_lines.extend(_render_reference_lines(references))

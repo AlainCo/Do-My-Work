@@ -77,13 +77,16 @@ Use the following markers when they help clarify priority or outcome:
     - the HTTP return code
     - if the code is a 2xx, the content-type
     - if the content-type is HTML, maybe try to get the HEAD/TITLE of the HTML page
-- [LATER] [TODISCUSS] let's be crazy, why not scrap HTML pages
-  - include some lines in a MarkDown Fenced Code Blocks
+  - URL downloading is a slow process that may fail, and could be retries, so it should be managed like fragment translation, as subtask
+- [LATER] [TODISCUSS] why not scrap HTML pages
+  - beside the HEAD/TITLE, include some lines in a MarkDown Fenced Code Blocks
+    - get the to H1/2/3 ? what is common for this functionality ?
+    - use a dedicated scraping tool ?
   - it should be activated with an option like --preview-urls
-  - the length of preview may be defined with --preview-urls-lines=NNN with a default value of say 20
-- [LATER] [TODISCUSS] let's be crazy, why not scrap PDF pages
+  - the length of preview may be defined with --preview-urls-lines=NNN  with a default value of say 20
+- [LATER]  why not search for doi in the scrapped text and list those found, and create links to them so the user can test them manually and replace his reference with the doi ?
+- [LATER] [TODISCUSS] why not scrap PDF pages
   - feasibility is to be discussed
-
 
 ## file selection
 

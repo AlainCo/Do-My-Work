@@ -366,6 +366,7 @@ The most important workspace-level configuration areas are:
 - `llm.translator`: translator profiles used by `translate-document-tree`
 
 For a simple explanation of what Ollama does in this repository, how to use the local mock instead of the real runtime, and how to launch Ollama in trace mode, see `docs/ollama.md`.
+If you want to run a local GGUF model through `llama.cpp`, see `docs/llama-cpp.md`.
 
 Local `do-my-work.yaml` files refine behavior inside subtrees.
 Depending on the workflow, they can exclude files, override translator profiles, add translation hints, or exclude paths from copy and spurious detection.

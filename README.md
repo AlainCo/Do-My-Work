@@ -22,6 +22,7 @@ The current workflow surface is designed for documentation-heavy repositories wh
 - `docs/markdown-fragment-slice.md`: design note for the first Markdown parsing and fragment reporting slice
 - `docs/reference-index-slice.md`: design note for the Markdown reference indexing slice
 - `docs/ollama.md`: simple guide for the real Ollama runtime, the local mock server, and trace mode scripts
+- `docs/llama-cpp.md`: short guide for running a local `llama.cpp` server with a GGUF model through the OpenAI-compatible profile mode
 - `docs/packaging.md`: internal packaging notes for the current `one-folder` distribution target
 - `docs/collaboration.md`: working method, documentation split, and local environment notes
 
@@ -84,6 +85,8 @@ On Linux or Git Bash:
 ```
 
 For a simple explanation of what Ollama does in this repository, how to install the real runtime, and how to use the mock and trace scripts, see `docs/ollama.md`.
+If you prefer a local `llama.cpp` runtime with a GGUF model, see `docs/llama-cpp.md`.
+That note now documents both launch variants: `scripts/run-llamacpp.bat` on Windows and `scripts/run-llamacpp.sh` on Linux or Git Bash.
 
 Inspect the CLI surface:
 

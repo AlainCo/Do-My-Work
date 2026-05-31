@@ -44,15 +44,15 @@ llm:
   translator:
     technical:
       api: openai
-      url: http://127.0.0.1:11434/v1
-      model: ollama-mock
-      timeout_seconds: 5.0
+      url: http://127.0.0.1:8000/v1
+      model: Ministral-3-3B-Instruct-2512-Q4_K_M
+      timeout_seconds: 600.0
       max_retries: 2
       temperature: 0.0
-      max_pre_context_bytes: 2400
-      max_post_context_bytes: 2400
-      max_input_fragment_bytes: 2400
-      max_total_text_bytes: 6000
+      max_pre_context_bytes: 1200
+      max_post_context_bytes: 1200
+      max_input_fragment_bytes: 1200
+      max_total_text_bytes: 3000
       system_prompt: |
         You are a professional translator from french to english.
       user_prompt: |

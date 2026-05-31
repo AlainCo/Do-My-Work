@@ -38,6 +38,8 @@ spurious_detection:
   rules:
     - match: "manual/**/*"
       action: exclude
+    - match: "**/*.review.html"
+      action: exclude
     - match: "**/*.index.md"
       action: exclude
     - match: "**/*.references.md"

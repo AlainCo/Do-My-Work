@@ -79,6 +79,8 @@ Use the shared workspace config:
 do-my-work translate-document-tree --config config/workspace.yaml
 ```
 
+Add `--with-review` when you also want a side-by-side HTML review document for each translated output.
+
 Generate reference reports:
 
 ```powershell
@@ -112,6 +114,8 @@ Translate Markdown documents through fragment tasks with the `technical` transla
 ```powershell
 do-my-work translate-document-tree --config config/workspace.yaml
 ```
+
+Add `--with-review` to also generate a `*.review.html` file next to each translated document.
 
 Copy selected resources such as images, `.url` files, or source files from the input tree to the output tree:
 
@@ -155,6 +159,8 @@ Use a shared workspace-level YAML file such as `config/workspace.yaml`, then add
 How do I understand missing or stale generated files?
 
 Run `do-my-work spurious-file-report --config config/workspace.yaml` and inspect the generated `spurious-files.md` report.
+
+If you generate translation review files with `--with-review`, exclude `**/*.review.html` through `spurious_detection.rules` when you do not want them reported as extra output files.
 
 ## Run the tests
 

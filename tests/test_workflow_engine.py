@@ -198,7 +198,12 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
         "## nested/other.md\n\n"
         "- [Alice](https://example.org/alice) [Further Reading]\n\n"
         "## note.md\n\n"
-        "- [Bob](https://example.org/bob) [Sources]\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/alice\n\n"
+        "- nested/other.md [Further Reading] Alice\n\n"
+        "### https://example.org/bob\n\n"
+        "- note.md [Sources] Bob\n"
     )
 
     persisted_tasks = [

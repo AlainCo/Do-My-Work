@@ -61,7 +61,7 @@ Use the following markers when they help clarify priority or outcome:
 
 ## references and bibliography
 
-- [SOON] [TODISCUSS] generating a single index of URL, each only one, but followed with list of the labels and the context (file, headers). It should help to test each link manually, and then see where to correct it.
+- [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
 
 ## file selection
 

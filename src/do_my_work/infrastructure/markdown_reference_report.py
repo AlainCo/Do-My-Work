@@ -1,4 +1,5 @@
 from pathlib import Path
+from collections import defaultdict
 
 import frontmatter
 from markdown_it import MarkdownIt
@@ -47,12 +48,29 @@ def render_markdown_reference_report(source_file: Path, source_root: Path) -> st
 
 def render_tree_markdown_reference_report(source_root: Path, relative_paths: list[Path]) -> str:
     report_lines = ["# Markdown Reference Tree Index", ""]
+    references_by_url: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
 
     for relative_path in relative_paths:
         source_file = source_root / relative_path
+        references = extract_markdown_references(source_file)
         report_lines.append(f"## {relative_path.as_posix()}")
         report_lines.append("")
-        report_lines.extend(_render_reference_lines(extract_markdown_references(source_file)))
+        report_lines.extend(_render_reference_lines(references))
+        report_lines.append("")
+
+        for reference in references:
+            references_by_url[reference.url].append(
+                (
+                    relative_path.as_posix(),
+                    _format_heading_path(reference.heading_path),
+                    reference.label,
+                )
+            )
+
+    if references_by_url:
+        report_lines.append("## URL Cross Reference")
+        report_lines.append("")
+        report_lines.extend(_render_url_cross_reference_lines(references_by_url))
         report_lines.append("")
 
     return "\n".join(report_lines)
@@ -67,6 +85,24 @@ def _render_reference_lines(references: list[MarkdownReference]) -> list[str]:
         f"- [{reference.label}]({reference.url}) [{_format_heading_path(reference.heading_path)}]"
         for reference in references
     ]
+
+
+def _render_url_cross_reference_lines(
+    references_by_url: dict[str, list[tuple[str, str, str]]],
+) -> list[str]:
+    lines: list[str] = []
+
+    for url in sorted(references_by_url):
+        lines.append(f"### {url}")
+        lines.append("")
+        for relative_path, heading_path, label in sorted(references_by_url[url]):
+            lines.append(f"- {relative_path} [{heading_path}] {label}")
+        lines.append("")
+
+    if lines:
+        lines.pop()
+
+    return lines
 
 
 def build_reference_report_relative_path(relative_path: Path) -> Path:

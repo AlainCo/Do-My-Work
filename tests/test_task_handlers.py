@@ -126,7 +126,12 @@ def test_merge_reference_indexes_handler_writes_root_reference_index(tmp_path: P
         "## alpha.md\n\n"
         "- [Bob](https://example.org/bob) [Sources]\n\n"
         "## nested/beta.md\n\n"
-        "- [Alice](https://example.org/alice) [Further Reading]\n"
+        "- [Alice](https://example.org/alice) [Further Reading]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/alice\n\n"
+        "- nested/beta.md [Further Reading] Alice\n\n"
+        "### https://example.org/bob\n\n"
+        "- alpha.md [Sources] Bob\n"
     )
 
 

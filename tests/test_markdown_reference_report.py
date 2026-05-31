@@ -61,11 +61,11 @@ def test_render_markdown_reference_report_outputs_markdown_index(tmp_path: Path)
 def test_render_tree_markdown_reference_report_outputs_root_index(tmp_path: Path) -> None:
     (tmp_path / "nested").mkdir(parents=True)
     (tmp_path / "alpha.md").write_text(
-        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n\n## More\n\nSee [Shared](https://example.org/shared).\n",
         encoding="utf-8",
     )
     (tmp_path / "nested" / "beta.md").write_text(
-        "# Further Reading\n\nSee [Alice](https://example.org/alice).\n",
+        "# Further Reading\n\nSee [Alice](https://example.org/alice).\n\nSee [Shared reference](https://example.org/shared).\n",
         encoding="utf-8",
     )
 
@@ -77,8 +77,18 @@ def test_render_tree_markdown_reference_report_outputs_root_index(tmp_path: Path
     assert report == (
         "# Markdown Reference Tree Index\n\n"
         "## alpha.md\n\n"
-        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "- [Bob](https://example.org/bob) [Sources]\n"
+        "- [Shared](https://example.org/shared) [Sources / More]\n\n"
         "## nested/beta.md\n\n"
         "- [Alice](https://example.org/alice) [Further Reading]\n"
+        "- [Shared reference](https://example.org/shared) [Further Reading]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/alice\n\n"
+        "- nested/beta.md [Further Reading] Alice\n\n"
+        "### https://example.org/bob\n\n"
+        "- alpha.md [Sources] Bob\n\n"
+        "### https://example.org/shared\n\n"
+        "- alpha.md [Sources / More] Shared\n"
+        "- nested/beta.md [Further Reading] Shared reference\n"
     )
     assert build_root_reference_index_path() == Path("references.index.md")

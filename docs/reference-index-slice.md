@@ -26,7 +26,7 @@ The workflow currently:
 2. parses inline Markdown links from each document
 3. keeps the parent heading path for each extracted link
 4. writes one `.references.md` report per source document
-5. writes one root-level `references.index.md` report that groups citations by source file
+5. writes one root-level `references.index.md` report that first groups citations by source file and then adds a cross-reference grouped by URL
 
 Example output shape:
 
@@ -37,6 +37,16 @@ Example output shape:
 
 - [Bob](https://example.org/bob) [Sources]
 - [Alice](https://example.org/alice) [Sources / Further Reading]
+
+## URL Cross Reference
+
+### https://example.org/alice
+
+- notes/example.md [Sources / Further Reading] Alice
+
+### https://example.org/bob
+
+- notes/example.md [Sources] Bob
 ```
 
 Per-document reports are still written alongside that root synthesis:
@@ -55,7 +65,7 @@ Source: notes/example.md
 For this first slice, the workflow does not yet:
 
 - validate URLs over HTTP
-- deduplicate repeated links
+- deduplicate repeated occurrences inside the URL cross-reference; each occurrence is kept because the context matters
 - parse non-inline reference-style definitions
 
 Those can come later once the current report is stable and genuinely useful.

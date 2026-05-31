@@ -94,7 +94,12 @@ def test_reference_index_tree_command_generates_markdown_reference_report(tmp_pa
         "## nested/other.md\n\n"
         "- [Alice](https://example.org/alice) [Further Reading]\n\n"
         "## note.md\n\n"
-        "- [Bob](https://example.org/bob) [Sources]\n"
+        "- [Bob](https://example.org/bob) [Sources]\n\n"
+        "## URL Cross Reference\n\n"
+        "### https://example.org/alice\n\n"
+        "- nested/other.md [Further Reading] Alice\n\n"
+        "### https://example.org/bob\n\n"
+        "- note.md [Sources] Bob\n"
     )
 
 

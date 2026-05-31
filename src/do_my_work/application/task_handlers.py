@@ -5,7 +5,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import textwrap
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 import httpx
 from trafilatura import bare_extraction, extract
@@ -554,6 +554,7 @@ class CheckReferenceUrlTaskHandler:
                     url=spec.url,
                     checked_at=_build_checked_at_timestamp(),
                     doi=_extract_doi_from_reference_urls(spec.url, str(response.url)),
+                    redirect_location=_extract_redirect_location(response),
                     final_url=str(response.url),
                     content_type=response.headers.get("content-type"),
                     filename=_resolve_reference_url_filename(spec.url, response),
@@ -607,6 +608,7 @@ class CheckReferenceUrlTaskHandler:
                                 url=spec.url,
                                 checked_at=_build_checked_at_timestamp(),
                                 doi=_extract_doi_from_reference_urls(spec.url, str(response.url)),
+                                redirect_location=_extract_redirect_location(response),
                                 final_url=str(response.url),
                                 content_type=response.headers.get("content-type"),
                                 filename=_resolve_reference_url_filename(spec.url, response),
@@ -1259,6 +1261,7 @@ def _merge_reference_index_sidecar(
                 if result.doi.strip() and not updated_entry.doi.strip():
                     updated_entry.doi = result.doi.strip()
                 updated_entry.last_checked_at = result.checked_at
+                updated_entry.redirect_location = result.redirect_location
                 updated_entry.final_url = result.final_url
                 updated_entry.content_type = result.content_type
                 updated_entry.filename = result.filename
@@ -1367,6 +1370,30 @@ def _extract_html_title_fallback(html: str) -> str | None:
         return None
     normalized = " ".join(match.group(1).split()).strip()
     return normalized or None
+
+
+def _extract_redirect_location(response: httpx.Response) -> str | None:
+    response_with_location: httpx.Response | None = None
+    if 300 <= response.status_code < 400 and response.headers.get("location"):
+        response_with_location = response
+    elif response.history:
+        for previous_response in reversed(response.history):
+            if previous_response.headers.get("location"):
+                response_with_location = previous_response
+                break
+
+    if response_with_location is None:
+        return None
+
+    location = response_with_location.headers.get("location")
+    if location is None:
+        return None
+
+    normalized = location.strip()
+    if not normalized:
+        return None
+
+    return urljoin(str(response_with_location.url), normalized)
 
 
 _DOI_URL_PATTERN = re.compile(

@@ -178,6 +178,7 @@ class ReferenceUrlCheckResult(BaseModel):
     url: str
     checked_at: str | None = None
     doi: str = ""
+    redirect_location: str | None = None
     final_url: str | None = None
     content_type: str | None = None
     filename: str | None = None
@@ -204,6 +205,7 @@ class ReferenceUrlIndexEntry(BaseModel):
     last_checked_at: str | None = None
     error_category: Literal["timeout", "http_status", "request_error"] | None = None
     http_status_code: int | None = None
+    redirect_location: str | None = None
     final_url: str | None = None
     content_type: str | None = None
     filename: str | None = None

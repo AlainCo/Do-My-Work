@@ -165,6 +165,8 @@ def _render_url_check_lines(entry: ReferenceUrlIndexEntry) -> list[str]:
         lines.append(f"- Content-Type: {entry.content_type}")
     if entry.filename:
         lines.append(f"- Filename: {entry.filename}")
+    if entry.redirect_location:
+        lines.append(f"- Redirect location: {entry.redirect_location}")
     if entry.final_url and entry.final_url != entry.url:
         lines.append(f"- Final URL: {entry.final_url}")
     if entry.html_excerpt:

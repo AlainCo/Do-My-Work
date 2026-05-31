@@ -147,6 +147,7 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
                 doi="10.1000/report",
                 http_status_code=200,
                 reason_phrase="OK",
+                redirect_location="https://example.org/files/report.pdf?download=1",
                 final_url="https://cdn.example.org/report.pdf",
                 content_type="application/pdf",
                 filename="report.pdf",
@@ -165,6 +166,7 @@ def test_render_tree_markdown_reference_report_includes_url_check_metadata(
         "- DOI: [10.1000/report](https://doi.org/10.1000/report)\n"
         "- Content-Type: application/pdf\n"
         "- Filename: report.pdf\n"
+        "- Redirect location: https://example.org/files/report.pdf?download=1\n"
         "- Final URL: https://cdn.example.org/report.pdf\n\n"
         "References:\n"
         "- alpha.md [Sources] Bob\n"

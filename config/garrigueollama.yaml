@@ -93,6 +93,7 @@ llm:
       translated_document_footer: "> ✨ Translated automatically with **Do-My-Work** — a tool designed to make projects speak globally."
       translated_document_header: "> ✨ Translated automatically with **Do-My-Work** — profile: technical."         
     romantic:
+      api: ollama
       url: http://127.0.0.1:11434
       model: ministral-3:3b
       temperature: 0.2

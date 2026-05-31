@@ -59,7 +59,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] `references.index.md` now ends with a URL cross-reference section: each URL appears once and is followed by the document path, heading hierarchy, and label text for each occurrence. It helps manual link review and correction.
 - [DONE] `reference-index-tree --check-urls` now checks each unique referenced URL and enriches the root URL cross-reference with HTTP status, content type, and a probable filename. HTML title extraction remains a later slice.
 - [DONE] `reference-index-tree` now also writes `references.index.yaml`, preserves manual URL metadata (`skip_recheck`, `doi`), reuses stored metadata when `skip_recheck: true`, carries `last_checked_at` into the Markdown report, and keeps unused URL entries marked as `unused` instead of deleting them.
-- [DONE] HTML URL checks now extract a bounded `title` and a short plain-text preview excerpt, persist them in `references.index.yaml`, and render them in `references.index.md`.
+- [DONE] HTML URL checks now extract a bounded `title` and a short plain-text preview excerpt, persist them in `references.index.yaml`, and render them in `references.index.md`. The current implementation prefers the raw HTML `title` and uses `trafilatura` for the preview text.
 - [DONE] we should check that it is possible to translate text files that are not "*.md", that file selections allows that.
 
 ## managing LLM calls

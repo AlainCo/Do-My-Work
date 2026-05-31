@@ -191,7 +191,7 @@ Notes:
 - proxy configuration follows the usual environment variables such as `http_proxy` and `https_proxy`
 - HTTPS certificate validation is currently disabled for URL checks so the feature still works on machines without a configured trust store
 - URL check errors such as TLS failures, timeouts, or HTTP error codes are reported in the cross-reference as normal results and do not make the workflow fail
-- URL checks are intentionally simple in this slice: HTML extraction is bounded and plain, and does not yet try to identify the main article body or structured headings
+- URL checks are intentionally simple in this slice: HTML extraction is bounded, prefers the raw HTML `title`, and uses `trafilatura` for a short plain-text preview without attempting full structured scraping
 
 ### `copy-resource-tree`
 

@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from hashlib import sha256
-from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import textwrap
 from urllib.parse import unquote, urlsplit
 
 import httpx
+from trafilatura import bare_extraction, extract
 
 from do_my_work.application.task_keys import (
     make_check_reference_url_task_key,
@@ -1264,55 +1265,10 @@ def _merge_reference_index_sidecar(
     return ReferenceIndexSidecar(version=1, urls=merged_entries)
 
 
-_HTML_PREVIEW_BYTE_LIMIT = 16 * 1024
+_HTML_PREVIEW_BYTE_LIMIT = 64 * 1024
 _HTML_PREVIEW_TEXT_WIDTH = 100
 _HTML_PREVIEW_MAX_LINES = 3
 _HTML_PREVIEW_MAX_TEXT_CHARS = 600
-
-
-class _HtmlPreviewParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self._in_title = False
-        self._ignored_tag_depth = 0
-        self._title_parts: list[str] = []
-        self._text_parts: list[str] = []
-
-    @property
-    def title(self) -> str:
-        return " ".join(part for part in self._title_parts if part).strip()
-
-    @property
-    def text(self) -> str:
-        return " ".join(part for part in self._text_parts if part).strip()
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        del attrs
-        normalized_tag = tag.lower()
-        if normalized_tag == "title":
-            self._in_title = True
-            return
-        if normalized_tag in {"script", "style", "noscript"}:
-            self._ignored_tag_depth += 1
-
-    def handle_endtag(self, tag: str) -> None:
-        normalized_tag = tag.lower()
-        if normalized_tag == "title":
-            self._in_title = False
-            return
-        if normalized_tag in {"script", "style", "noscript"} and self._ignored_tag_depth > 0:
-            self._ignored_tag_depth -= 1
-
-    def handle_data(self, data: str) -> None:
-        normalized = " ".join(data.split())
-        if not normalized:
-            return
-        if self._in_title:
-            self._title_parts.append(normalized)
-            return
-        if self._ignored_tag_depth > 0:
-            return
-        self._text_parts.append(normalized)
 
 
 def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | None]:
@@ -1326,12 +1282,8 @@ def _extract_html_preview(response: httpx.Response) -> tuple[str | None, str | N
 
     encoding = response.encoding or "utf-8"
     html = payload.decode(encoding, errors="ignore")
-    parser = _HtmlPreviewParser()
-    parser.feed(html)
-    parser.close()
-
-    title = parser.title or None
-    excerpt = _format_html_excerpt(parser.text)
+    title = _extract_html_title(html, str(response.url))
+    excerpt = _extract_html_excerpt(html, str(response.url))
     return title, excerpt
 
 
@@ -1361,6 +1313,54 @@ def _format_html_excerpt(text: str) -> str | None:
     if not wrapped:
         return None
     return "\n".join(wrapped[:_HTML_PREVIEW_MAX_LINES])
+
+
+def _extract_html_excerpt(html: str, url: str) -> str | None:
+    extracted_text = extract(
+        html,
+        url=url,
+        output_format="txt",
+        include_comments=False,
+        include_tables=False,
+        fast=True,
+    )
+    if extracted_text is None:
+        return None
+    return _format_html_excerpt(extracted_text)
+
+
+def _extract_html_title(html: str, url: str) -> str | None:
+    fallback_title = _extract_html_title_fallback(html)
+    extraction = bare_extraction(
+        html,
+        url=url,
+        output_format="python",
+        include_comments=False,
+        include_tables=False,
+        with_metadata=True,
+    )
+    if fallback_title:
+        return fallback_title
+
+    if extraction is not None and hasattr(extraction, "as_dict"):
+        extraction = extraction.as_dict()
+
+    if isinstance(extraction, dict):
+        extracted_title = extraction.get("title")
+        if isinstance(extracted_title, str):
+            normalized = " ".join(extracted_title.split()).strip()
+            if normalized:
+                return normalized
+
+    return None
+
+
+def _extract_html_title_fallback(html: str) -> str | None:
+    match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
+    if match is None:
+        return None
+    normalized = " ".join(match.group(1).split()).strip()
+    return normalized or None
 
 
 def _build_fragment_digest(fragment: MarkdownFragment) -> str:

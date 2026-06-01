@@ -20,8 +20,8 @@ rem set MODEL=Ministral-3-14B-Instruct-2512-Q5_K_M.gguf
 
 set APPOPTS=--model "%LLAMA_HOME%\model\%MODEL%" --ctx-size %CTXSIZE% 
 set TRACEOPTS=
-rem set TRACEOPTS=%TRACEOPTS% --verbose 
-set TRACEOPTS=%TRACEOPTS% --metrics
+rem set TRACEOPTS=%TRACEOPTS% --verbose --metrics 
+set TRACEOPTS=%TRACEOPTS% --log-verbosity 4
 set NETOPTS=--host 127.0.0.1 --port %PORT%
 set PERFOPTS=--threads %LLAMA_NBCORE%  --batch-size 512 --ubatch-size 512  --mlock
 

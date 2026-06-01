@@ -38,7 +38,7 @@ llm:
       url: http://127.0.0.1:8000/v1
       model: Ministral-3-3B-Instruct-2512-Q4_K_M
       temperature: 0.0
-      timeout_seconds: 400.0
+      timeout_seconds: 600.0
       max_retries: 2
       max_pre_context_bytes: 2400
       max_post_context_bytes: 2400

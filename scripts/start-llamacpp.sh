@@ -1,12 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
-LLAMA_HOME_DIR="${LLAMA_HOME:-}"
+llama_home="${LLAMA_HOME:-}"
+llama_nbcore="${LLAMA_NBCORE:-}"
 
-if [ -n "${LLAMA_HOME_DIR}" ] && [ -d "${LLAMA_HOME_DIR}" ]; then
-  echo "Using llama server from LLAMA_HOME: ${LLAMA_HOME_DIR}"
+
+if [ -n "${llama_home}" ] && [ -d "${llama_home}" ]; then
+  echo "Using llama server from LLAMA_HOME: ${llama_home}"
 else
   echo "LLAMA_HOME is not set or does not point to a valid directory. Please set LLAMA_HOME to the path of your llama server installation."
+  exit 1
+fi
+
+if [ -n "${llama_nbcore}" ] && [ "${llama_nbcore}" -ge 1 ]; then
+  echo "Using llama server from LLAMA_NBCORE: ${LLAMA_NBCORE}"
+else
+  echo "LLAMA_NBCORE is not set or is not positive. Please set LLAMA_NBCORE to the number of cores to use ."
   exit 1
 fi
 
@@ -15,7 +24,7 @@ CTX_SIZE="8192"
 MODEL="Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
 
 APP_OPTS=(
-  -m "${LLAMA_HOME_DIR}/model/${MODEL}"
+  -m "${llama_home}/model/${MODEL}"
   --ctx-size "${CTX_SIZE}"
 )
 
@@ -29,13 +38,13 @@ NET_OPTS=(
 )
 
 PERF_OPTS=(
-  -t 12
+  -t "${llama_nbcore}"
   --batch-size 512
   --ubatch-size 512
   --mlock
 )
 
-exec "${LLAMA_HOME_DIR}/llama-server" \
+exec "${llama_home}/llama-server" \
   "${APP_OPTS[@]}" \
   "${NET_OPTS[@]}" \
   "${PERF_OPTS[@]}" \

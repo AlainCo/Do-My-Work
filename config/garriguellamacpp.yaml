@@ -37,11 +37,11 @@ llm:
       model: Ministral-3-3B-Instruct-2512-Q4_K_M
       temperature: 0.0
       timeout_seconds: 600.0
-      max_retries: 2
-      max_pre_context_bytes: 2400
-      max_post_context_bytes: 2400
-      max_input_fragment_bytes: 2400
-      max_total_text_bytes: 6000
+      max_retries: 3
+      max_pre_context_bytes: 500
+      max_post_context_bytes: 500
+      max_input_fragment_bytes: 1000
+      max_total_text_bytes: 2000
       system_prompt: |
         **RÔLE** : Tu es un traducteur automatique **strict** français → anglais. **Ne fais que traduire**.
 
@@ -98,11 +98,11 @@ llm:
       model: Ministral-3-3B-Instruct-2512-Q4_K_M
       temperature: 0.2
       timeout_seconds: 600.0
-      max_retries: 2
-      max_pre_context_bytes: 2400
-      max_post_context_bytes: 2400
-      max_input_fragment_bytes: 2400
-      max_total_text_bytes: 6000
+      max_retries: 3
+      max_pre_context_bytes: 500
+      max_post_context_bytes: 500
+      max_input_fragment_bytes: 1000
+      max_total_text_bytes: 2000
       system_prompt: |
         **RÔLE** : Tu es un traducteur automatique **strict** français → anglais. **Ne fais que traduire**.
 

@@ -66,7 +66,7 @@ This repository now contains a working example script at scripts/start-llamacpp.
 
 It also now contains a Linux or Git Bash variant at scripts/start-llamacpp.sh.
 
-Both require an environment variable LLAMA_HOME pointing to the folder where llama-server binary exist, and assume there is a folder "model" with your model GGUF image.
+Both require an environment variable LLAMA_HOME pointing to the folder where llama-server binary exist, assume there is a folder "model" with your model GGUF image, and require an environment variable LLAMA_NBCORE containing the number of real core of your processor.
 
 Windows example:
 

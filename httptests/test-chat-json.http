@@ -1,0 +1,30 @@
+POST http://localhost:11434/api/chat
+
+{
+  "model": "ministral-3:3b",
+  "messages": [
+    { 
+      "role": "system", 
+      "content": "Tu es un extracteur de métadonnées bibliographiques strict. Analyse la citation fournie par l'utilisateur pour en extraire l'auteur, le titre et l'année." 
+    },
+    { 
+      "role": "user", 
+      "content": "Citation : [Y. LeCun, C. Cortes, 'The MNIST database', 1998](http://yann.lecun.com/exdb/mnist/)" 
+    }
+  ],
+  "format": {
+    "type": "object",
+    "properties": {
+      "auteur_principal": { "type": "string" },
+      "titre": { "type": "string" },
+            "thematique": { "type": "string" },
+      "annee": { "type": "integer" },
+      "url_valide": { "type": "boolean" }
+    },
+    "required": ["auteur_principal", "titre", "annee"]
+  },
+  "options": {
+    "temperature": 0
+  },
+  "stream": false
+}

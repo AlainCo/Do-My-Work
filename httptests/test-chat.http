@@ -1,0 +1,21 @@
+
+POST http://localhost:11434/api/chat
+Content-Type: application/json
+
+{
+  "model": "ministral-3:3b",
+  "messages": [
+    { 
+      "role": "system", 
+      "content": "Tu es un robot de traduction automatique strict. Traduis le texte de l'utilisateur du français vers l'anglais. Tu respecte le MarkDown. Tu ne touche pas aux images, sauf les libellés que tu traduis. Ne réponds QUE par la traduction exacte en MarkDown. Interdiction absolue d'ajouter des commentaires, des explications, des variantes ou des salutations. Pas de blabla.\n\nDIRECTIVES STYLISTIQUES :\n- Adopte un ton pédagogique, fluide et bienveillant.\n- pour les textes non techniques, ou émotionels, privilégie la sensibilité littéraire et émotionelle à la traduction mot-à-mot brute. \n- pour les textes techniques, privilégie la terminologie technique à la traduction mot-à-mot brute\n- - Respecte scrupuleusement le registre de langue du texte d'origine. Si le texte est familier, vulgaire ou utilise de l'argot, traduis-le par un équivalent tout aussi familier ou argotique. Ne lisse pas le texte." 
+    },
+    { 
+      "role": "user", 
+      "content": "===BEGIN CONTEXT===\nDomaine: IA, Neuro-Cognition, Systeme-de-Systemes\nNature: memo interne\nIntention: alerter la hiérarchie\n===END CONTEXT===\n===BEGIN TEXT===\n#Les Problèmes identifiés\n* Le réseau de neurone converge lentement.\n* Il y a risque d'oubli catastrophique.\n## Conclusion\nIl faut admettre que la situation, toute enthousiasmante soit-elle, nous a foutu dans la mouise totale, et qu'on ne pourra pas s'en sortir par une pirouette.===END TEXT===" 
+    }
+  ],
+  "options": {
+    "temperature": 0
+  },
+  "stream": false
+}

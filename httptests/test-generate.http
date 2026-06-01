@@ -1,0 +1,7 @@
+POST http://localhost:11434/api/generate
+
+{
+  "model": "ministral-3:3b",
+  "prompt": "Traduis en anglais : Un test rapide de l'API.",
+  "stream": false
+}

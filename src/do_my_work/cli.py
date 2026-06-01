@@ -357,6 +357,13 @@ def translate_document_tree(
             help="Also generate a side-by-side HTML review document for each translated document.",
         ),
     ] = False,
+    trace_llm: Annotated[
+        bool,
+        typer.Option(
+            "--trace-llm",
+            help="Trace REST calls to LLM."
+        ),
+    ] = False,
 ) -> None:
     """Translate Markdown documents through fragment tasks using a named LLM profile."""
     _run_handled_command(
@@ -368,6 +375,7 @@ def translate_document_tree(
             root,
             translator_profile,
             with_review,
+            trace_llm,
         )
     )
 
@@ -380,8 +388,9 @@ def _translate_document_tree_impl(
     root: Path,
     translator_profile: str,
     with_review: bool,
+    trace_llm: bool,
 ) -> None:
-    configure_logging()
+    configure_logging(trace_llm)
     workspace_config = _resolve_workspace_config(config, input_dir, output_dir, data_dir)
     _require_existing_input_root(workspace_config, root)
     _require_translator_profile(workspace_config, translator_profile)
@@ -392,7 +401,7 @@ def _translate_document_tree_impl(
         workspace_config,
         root=root,
         translator_profile=translator_profile,
-        with_review=with_review,
+        with_review=with_review
     )
     _echo_run_summary(run_result)
     _ensure_successful_run(run_result)

@@ -54,11 +54,75 @@ class UnsupportedLlmProviderError(ValueError):
 
 
 class AbstractLlmClient(ABC):
+    
+    trace: bool = True
+    
     def __init__(self, http_client: httpx.Client | None = None) -> None:
         self._http_client = http_client or httpx.Client()
         self._owns_http_client = http_client is None
         self._logger = logging.getLogger(__name__)
         self._elapsed_attempt_seconds: list[float] = []
+        
+        # checking if client is already tagged first
+        already_tagged = getattr(http_client, "_llm_logger_attached", False)
+        
+        if http_client is None:
+            # case 1 instance creation attach instance methods
+            self._http_client = httpx.Client(event_hooks={
+                "request": [self._log_request_instance],
+                "response": [self._log_response_instance]
+            })
+            self._owns_http_client = True
+        else:
+            # case 2, already created
+            self._http_client = http_client
+            self._owns_http_client = False
+            
+            # add static hook only if not already tagged
+            if not already_tagged:
+                self._http_client.event_hooks.setdefault("request", []).append(self._log_request_shared)
+                self._http_client.event_hooks.setdefault("response", []).append(self._log_response_shared)
+
+        # tagging the client whatever happened
+        setattr(self._http_client, "_llm_logger_attached", True)
+
+    # --- 1. hook for single instance (instance methods) ---
+    def _log_request_instance(self, request: httpx.Request) -> None:
+        self._execute_request_logging(self._logger, request)
+
+    def _log_response_instance(self, response: httpx.Response) -> None:
+        self._execute_response_logging(self._logger, response)
+
+    # --- 2. Hooks for shared instances (static methods) ---
+    @staticmethod
+    def _log_request_shared(request: httpx.Request) -> None:
+        logger = logging.getLogger(__name__)
+        AbstractLlmClient._execute_request_logging(logger, request)
+
+    @staticmethod
+    def _log_response_shared(response: httpx.Response) -> None:
+        logger = logging.getLogger(__name__)
+        AbstractLlmClient._execute_response_logging(logger, response)
+
+    # --- 3. shared logic---
+    @staticmethod
+    def _execute_request_logging(logger: logging.Logger, request: httpx.Request) -> None:
+        if AbstractLlmClient.trace:
+            try:
+                body = request.read().decode("utf-8", errors="replace")
+                logger.info(f"\n=== >>> Request sent ({request.method} {request.url}) ===\n{body}\n")
+            except Exception as e:
+                logger.error(f"Unable to log request : {e}")
+
+    @staticmethod
+    def _execute_response_logging(logger: logging.Logger, response: httpx.Response) -> None:
+        if AbstractLlmClient.trace:
+            try:
+                response.read()
+                logger.info(f"\n=== <<< Response received ({response.status_code}) ===\n{response.text}\n")
+            except Exception as e:
+                logger.error(f"Unable to log response : {e}")
+    # --- end loggers tricks
 
     def close(self) -> None:
         if self._owns_http_client:

@@ -14,7 +14,9 @@ if "%LLAMA_NBCORE%"=="" (
 
 set PORT=8000
 set CTXSIZE=8192
-set MODEL=Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+rem set MODEL=Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+set MODEL=Ministral-3-8B-Instruct-2512-Q5_K_M.gguf
+rem set MODEL=Ministral-3-14B-Instruct-2512-Q5_K_M.gguf
 
 set APPOPTS=--model "%LLAMA_HOME%\model\%MODEL%" --ctx-size %CTXSIZE% 
 set TRACEOPTS=

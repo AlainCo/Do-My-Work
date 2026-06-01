@@ -91,3 +91,15 @@ Use the following markers when they help clarify priority or outcome:
 
 - [DONE] document the current `one-folder` packaging path with output kept under `./dist/`, so another developer machine can validate the bundle and report bugs
 - [TODISCUSS] [SOON] after `one-folder` validation, is a true `one-file` executable worth the added startup cost and packaging friction ?
+
+## command line, User interface and configuration
+
+- [SOON] suppress useless options --translator-profile and clean useless code
+- [TODISCUSS] [SOON] allow template variable in workspace yaml, so one can use environment variables
+  - [SOON] one side effect is we need to allow empty values in workspace config, in some optional yaml fields like user/password or model, treating that as null/absent
+- [LATER] why not propose a simple GUI/TEXTUI to launch commands, with chosen options
+
+## documentation
+
+- [TODISCUSS] [SOON] why not use the scripts (.bat .sh)  as doc as code for tooling, and reduce documentation and especially sample code which are redundant with the scripts. anyway we can keep general présentation and key points, but citing the scripts.
+- [TODISCUSS] make full scripts and howto to translate, copy, check references, check spurious files, launching and using a fair model (ministral-3:8b), between my sibling projects  ../GNWT-garrigue-X (in french language) to ../GNWT-garrigue-X-en... maybe even add wget to download the models and the installations binaries... the target is beginners. it should be done first for windows... contributors may extend it for Linux or even Docker.

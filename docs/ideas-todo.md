@@ -80,6 +80,8 @@ Use the following markers when they help clarify priority or outcome:
 
 ## translation
 
+- [SOON] for the fragment translation, it would be nice to show a sort of percentage done, estimated time remaining, using the average time
+
 ## references and bibliography
 
 ## file selection

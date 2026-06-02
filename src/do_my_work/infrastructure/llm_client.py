@@ -6,16 +6,20 @@ import logging
 from statistics import pvariance
 from string import Template
 import threading
-from time import perf_counter
+from time import perf_counter, time
 from typing import Mapping
 
 import httpx
 
 from do_my_work.domain.models import TranslatorProfileConfig, WorkspaceConfig
 
-def progress_dots(stop_event, interval=10):
+def progress_dots(stop_event, interval=1):
+    start = time()
     while not stop_event.wait(interval):
-        print(".", end="", flush=True)
+        elapsed = int(time() - start)
+        text = f"Waiting... {elapsed}s"
+        print(f"\r{text:<30}", end="", flush=True)
+    print("\r" + " " * 30 + "\r", end="", flush=True)
 
 class TranslatorProfileNotFoundError(KeyError):
     pass
@@ -213,7 +217,7 @@ class OllamaLlmClient(AbstractLlmClient):
         for attempt_index in range(max_attempt_count):
             started_at = perf_counter()
             stop_event = threading.Event()
-            t = threading.Thread(target=progress_dots, args=(stop_event), daemon=True)
+            t = threading.Thread(target=progress_dots, args=(stop_event,), daemon=True)
             try:
                 t.start()
                 print(f"OllamaLlmClient call in progress: profile={rendered_request.profile_name} attempt={attempt_index + 1} : ",end="\n", flush=True)
@@ -319,7 +323,7 @@ class OpenAiLlmClient(AbstractLlmClient):
         for attempt_index in range(max_attempt_count):
             started_at = perf_counter()
             stop_event = threading.Event()
-            t = threading.Thread(target=progress_dots, args=(stop_event), daemon=True)
+            t = threading.Thread(target=progress_dots, args=(stop_event,), daemon=True)
             try:
                 t.start()
                 print(f"OpenAiLlmClient call in progress: profile={rendered_request.profile_name} attempt={attempt_index + 1} : ",end="\n", flush=True)

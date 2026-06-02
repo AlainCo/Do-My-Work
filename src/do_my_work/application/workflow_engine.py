@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Literal
-from do_my_work.application.shutdown_manager import ShutdownManager
+from do_my_work.infrastructure.shutdown_manager import ShutdownManager
 
 from do_my_work.application.task_handlers import (
     CheckReferenceUrlTaskHandler,

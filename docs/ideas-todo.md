@@ -72,6 +72,7 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] `translate-document-tree --with-review` now generates a side-by-side HTML review document per translated file, aligned by translation chunk rather than trying to force this into Markdown
 - [DONE] translation review files can be generated on a later run with `--with-review` without redoing costly translation calls; changing `translation_review.translated_first` also re-renders the review without retranslating
 - [DONE] local `do-my-work.yaml` translation rules can now override `translated_document_header` and `translated_document_footer` per file or subtree, so rare files such as translated `README.md` can carry specific automatic-translation notes or a different wrapper syntax for Markdown, text, or HTML outputs
+- [DONE] activate trace of request and response with an option like --trace-llm or a parameter in the workspace
 
 ## managing LLM calls
 
@@ -95,11 +96,12 @@ Use the following markers when they help clarify priority or outcome:
 ## command line, User interface and configuration
 
 - [SOON] suppress useless options --translator-profile and clean useless code
+- [SOON] allow a translator profile to use another profile as a base, or even multiple in a given order, and only overload few fields
 - [TODISCUSS] [SOON] allow template variable in workspace yaml, so one can use environment variables
   - [SOON] one side effect is we need to allow empty values in workspace config, in some optional yaml fields like user/password or model, treating that as null/absent
 - [LATER] why not propose a simple GUI/TEXTUI to launch commands, with chosen options
 - [SOON] allow clean interrupt with ctrl-C
-- [URGENT] activate trace of request and response with an option like --trace-request or a parameter in the workspace
+
 
 ## documentation
 

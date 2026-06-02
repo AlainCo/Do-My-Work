@@ -72,13 +72,15 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] `translate-document-tree --with-review` now generates a side-by-side HTML review document per translated file, aligned by translation chunk rather than trying to force this into Markdown
 - [DONE] translation review files can be generated on a later run with `--with-review` without redoing costly translation calls; changing `translation_review.translated_first` also re-renders the review without retranslating
 - [DONE] local `do-my-work.yaml` translation rules can now override `translated_document_header` and `translated_document_footer` per file or subtree, so rare files such as translated `README.md` can carry specific automatic-translation notes or a different wrapper syntax for Markdown, text, or HTML outputs
-- [DONE] activate trace of request and response with an option like --trace-llm or a parameter in the workspace
+
 
 ## managing LLM calls
 
 ## task scheduling
 
 ## translation
+
+- [SOON] for the fragment translation, it would be nice to show a sort of percentage done, estimated time remaining, using the average time
 
 ## references and bibliography
 
@@ -107,3 +109,5 @@ Use the following markers when they help clarify priority or outcome:
 
 - [TODISCUSS] [SOON] why not use the scripts (.bat .sh)  as doc as code for tooling, and reduce documentation and especially sample code which are redundant with the scripts. anyway we can keep general présentation and key points, but citing the scripts.
 - [TODISCUSS] make full scripts and howto to translate, copy, check references, check spurious files, launching and using a fair model (ministral-3:8b), between my sibling projects  ../GNWT-garrigue-X (in french language) to ../GNWT-garrigue-X-en... maybe even add wget to download the models and the installations binaries... the target is beginners. it should be done first for windows... contributors may extend it for Linux or even Docker.
+- [URGENT] review documentation of options, and review code quality, and tests, as I have added few points
+  - [DONE] activate trace of request and response with an option like --trace-llm or a parameter in the workspace

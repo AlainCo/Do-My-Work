@@ -1,5 +1,11 @@
 # List of LLM model used, tested, considered
 
+## Usage
+
+For Llama.cpp you need GGUF files, and you acna download them with a browser from [Hugginface](https://huggingface.co).
+
+For Ollama, it can download them from it's registry.
+
 ## Tested
 
 ### Small

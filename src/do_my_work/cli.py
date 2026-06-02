@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 from typing import Annotated
 from typing import Literal
@@ -90,7 +91,7 @@ def _echo_run_summary(run_result) -> None:
         "LLM call timings: "
         f"attempts={run_result.summary.llm_call_attempt_count} "
         f"avg_seconds={run_result.summary.llm_call_average_seconds:.3f} "
-        f"variance_seconds={run_result.summary.llm_call_variance_seconds:.3f}"
+        f"std_dev_seconds={math.sqrt(run_result.summary.llm_call_variance_seconds):.3f}"
     )
 
 

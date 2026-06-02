@@ -5,13 +5,20 @@ from dataclasses import dataclass
 import logging
 from statistics import pvariance
 from string import Template
-from time import perf_counter
+import threading
+from time import perf_counter, time
 from typing import Mapping
 
 import httpx
 
 from do_my_work.domain.models import TranslatorProfileConfig, WorkspaceConfig
 
+def progress_dots(stop_event, timeout,interval=1):
+    start = time()
+    while not stop_event.wait(interval):
+        elapsed = int(time() - start)
+        text = f"Waiting... {elapsed}/{timeout}s"
+        print(f"\r{text:<40}\r", end="", flush=True)
 
 class TranslatorProfileNotFoundError(KeyError):
     pass
@@ -208,7 +215,11 @@ class OllamaLlmClient(AbstractLlmClient):
         max_attempt_count = rendered_request.profile.max_retries + 1
         for attempt_index in range(max_attempt_count):
             started_at = perf_counter()
+            stop_event = threading.Event()
+            t = threading.Thread(target=progress_dots, args=(stop_event, rendered_request.profile.timeout_seconds,), daemon=True)
             try:
+                t.start()
+                print(f"OllamaLlmClient call in progress: profile={rendered_request.profile_name} attempt={attempt_index + 1} : ",end="\n", flush=True)
                 response = self._http_client.post(
                     _build_chat_url(rendered_request.profile.url),
                     headers=_build_headers(rendered_request.profile),
@@ -277,7 +288,10 @@ class OllamaLlmClient(AbstractLlmClient):
                 )
                 if not will_retry:
                     raise
-
+            finally:
+                stop_event.set()
+                t.join()
+                print()  # newline when done
         raise AssertionError("Retry loop exited without response or exception.")
 
 
@@ -307,7 +321,11 @@ class OpenAiLlmClient(AbstractLlmClient):
         max_attempt_count = rendered_request.profile.max_retries + 1
         for attempt_index in range(max_attempt_count):
             started_at = perf_counter()
+            stop_event = threading.Event()
+            t = threading.Thread(target=progress_dots, args=(stop_event,rendered_request.profile.timeout_seconds,), daemon=True)
             try:
+                t.start()
+                print(f"OpenAiLlmClient call in progress: profile={rendered_request.profile_name} attempt={attempt_index + 1} : ",end="\n", flush=True)
                 response = self._http_client.post(
                     _build_openai_chat_url(rendered_request.profile.url),
                     headers=_build_headers(rendered_request.profile),
@@ -375,7 +393,10 @@ class OpenAiLlmClient(AbstractLlmClient):
                 )
                 if not will_retry:
                     raise
-
+            finally:
+                stop_event.set()
+                t.join()
+                print()  # newline when done
         raise AssertionError("Retry loop exited without response or exception.")
 
 

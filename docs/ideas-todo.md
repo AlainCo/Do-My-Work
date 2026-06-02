@@ -102,8 +102,8 @@ Use the following markers when they help clarify priority or outcome:
 - [TODISCUSS] [SOON] allow template variable in workspace yaml, so one can use environment variables
   - [SOON] one side effect is we need to allow empty values in workspace config, in some optional yaml fields like user/password or model, treating that as null/absent
 - [LATER] why not propose a simple GUI/TEXTUI to launch commands, with chosen options
-- [SOON] allow clean interrupt with ctrl-C
-
+- [DONE] allow clean interrupt with ctrl-C
+- [DONE] show standard deviation of LLM calls instead of variance.
 
 ## documentation
 

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Literal
+from do_my_work.application.shutdown_manager import ShutdownManager
 
 from do_my_work.application.task_handlers import (
     CheckReferenceUrlTaskHandler,
@@ -126,7 +127,8 @@ class WorkflowEngine:
 
         llm_timing_summary = None
         try:
-            while True:
+            shutdown_manager = ShutdownManager()
+            while not shutdown_manager.stop_requested:
                 task_records = self._revalidate_task_records(
                     task_repository.list_all(),
                     config,

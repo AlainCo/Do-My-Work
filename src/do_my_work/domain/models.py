@@ -446,6 +446,7 @@ class WorkflowRunResult(BaseModel):
 
     run_request: RunRequest
     summary: WorkflowRunSummary
+    root_status: TaskStatus | None = None
     root_message: str | None = None
     root_error: str | None = None
 
@@ -456,3 +457,11 @@ class WorkflowRunResult(BaseModel):
     @property
     def status(self) -> str:
         return self.run_request.status
+
+    @property
+    def is_partial_failure(self) -> bool:
+        return (
+            self.root_status == TaskStatus.SUCCEEDED
+            and self.summary.failed_task_count > 0
+            and self.run_request.status != "succeeded"
+        )

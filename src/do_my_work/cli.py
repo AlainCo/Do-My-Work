@@ -8,7 +8,7 @@ import yaml
 from pydantic import ValidationError
 
 from do_my_work.application.batch_runner import BatchRunner
-from do_my_work.domain.models import RunRequest, WorkspaceConfig, WorkflowRunSummary
+from do_my_work.domain.models import RunRequest, TaskStatus, WorkspaceConfig, WorkflowRunSummary
 from do_my_work.infrastructure.config_loader import ConfigLoadError, load_workspace_config
 from do_my_work.infrastructure.json_workflow_store import JsonRunRepository
 from do_my_work.shared.logging_config import configure_logging
@@ -97,10 +97,17 @@ def _echo_run_summary(run_result) -> None:
 
 def _ensure_successful_run(run_result) -> None:
     if run_result.status != "succeeded":
+        if run_result.root_status == TaskStatus.SUCCEEDED and run_result.summary.failed_task_count > 0:
+            failed_task_label = "task" if run_result.summary.failed_task_count == 1 else "tasks"
+            _fail_command(
+                f"Workflow completed, but {run_result.summary.failed_task_count} {failed_task_label} failed.",
+                exit_code=1,
+            )
+
         failure_message = run_result.root_message or "Workflow failed. See summary above."
         if run_result.root_error:
             failure_message = f"{failure_message} {run_result.root_error}"
-        _fail_command(failure_message, exit_code=1)
+        _fail_command(failure_message, exit_code=2)
 
 
 def _format_delta(old_value: int | float, new_value: int | float, precision: int = 0) -> str:

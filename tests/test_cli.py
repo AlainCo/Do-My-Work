@@ -5,9 +5,10 @@ import pytest
 from typer.testing import CliRunner
 
 import do_my_work.application.task_handlers as task_handlers_module
+from do_my_work.application.batch_runner import BatchRunner
 from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.cli import app
-from do_my_work.domain.models import RunRequest, WorkflowRunSummary
+from do_my_work.domain.models import RunRequest, TaskStatus, WorkflowRunResult, WorkflowRunSummary
 from do_my_work.infrastructure.json_workflow_store import JsonRunRepository
 
 runner = CliRunner()
@@ -352,12 +353,69 @@ def test_translate_document_tree_command_exits_nonzero_when_local_profile_overri
     )
 
     output = result.stdout + result.stderr
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Workflow run completed:" in output
     assert "failed=1" in output
     assert "Error: Translator profile does not exist." in output
     assert "missing-profile for docs/note.md" in output
     assert "Traceback" not in output
+
+
+def test_reference_index_tree_command_uses_partial_failure_exit_code_for_failed_child_tasks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    def fake_run_reference_index_tree(self, config, root=Path("."), check_urls=False):
+        del self, config, root, check_urls
+        return WorkflowRunResult(
+            run_request=RunRequest(
+                run_id="20260603T160000Z",
+                request_kind="reference_index_tree",
+                root=Path("."),
+                status="failed",
+                root_task_key="task:discover_reference_documents:partial",
+            ),
+            summary=WorkflowRunSummary(
+                executed_task_count=4,
+                created_task_count=3,
+                succeeded_task_count=3,
+                failed_task_count=1,
+            ),
+            root_status=TaskStatus.SUCCEEDED,
+            root_message="1 documents discovered and indexed.",
+        )
+
+    monkeypatch.setattr(BatchRunner, "run_reference_index_tree", fake_run_reference_index_tree)
+
+    result = runner.invoke(
+        app,
+        [
+            "reference-index-tree",
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--data-dir",
+            str(data_dir),
+            "--check-urls",
+        ],
+    )
+
+    output = result.stdout + result.stderr
+    assert result.exit_code == 1
+    assert "Workflow run completed: 20260603T160000Z" in output
+    assert "Error: Workflow completed, but 1 task failed." in output
+    assert "Error: 1 documents discovered and indexed." not in output
 
 
 def test_clean_tasks_command_removes_persisted_task_files(tmp_path: Path) -> None:

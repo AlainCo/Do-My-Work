@@ -336,6 +336,7 @@ class WorkflowEngine:
         return WorkflowRunResult(
             run_request=completed_run,
             summary=summary,
+            root_status=None if root_record is None else root_record.status,
             root_message=None if root_record is None or root_record.outcome is None else root_record.outcome.message,
             root_error=None if root_record is None or root_record.outcome is None else root_record.outcome.error,
         )

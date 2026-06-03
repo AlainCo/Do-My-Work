@@ -231,6 +231,49 @@ def test_workflow_engine_runs_reference_index_flow(tmp_path: Path) -> None:
     assert persisted_run["summary"]["llm_call_attempt_count"] == 0
 
 
+def test_workflow_engine_removes_reference_outputs_when_source_document_disappears(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    source_path = input_dir / "note.md"
+    source_path.write_text(
+        "# Sources\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert first_run.status == "succeeded"
+    assert (output_dir / "note.references.md").exists()
+    assert "note.md" in (output_dir / "references.index.md").read_text(encoding="utf-8")
+
+    source_path.unlink()
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert second_run.status == "succeeded"
+    assert not (output_dir / "note.references.md").exists()
+    assert "note.md" not in (output_dir / "references.index.md").read_text(encoding="utf-8")
+
+
 def test_workflow_engine_applies_workspace_file_selection_to_reference_index(
     tmp_path: Path,
 ) -> None:
@@ -508,6 +551,48 @@ def test_workflow_engine_copies_selected_resources_and_applies_local_exclusion(
         "copy_resource_file",
         "discover_copy_resources",
     ]
+
+
+def test_workflow_engine_removes_copied_resource_when_source_disappears(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    (input_dir / "assets").mkdir(parents=True)
+    source_path = input_dir / "assets" / "logo.jpeg"
+    source_path.write_bytes(b"jpeg-bytes")
+
+    from do_my_work.domain.models import FileSelectionConfig, FileSelectionRule
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        resource_selection=FileSelectionConfig(
+            default_action="exclude",
+            rules=[FileSelectionRule(match="assets/**/*.jpeg", action="include")],
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="copy_resource_tree",
+    )
+
+    assert first_run.status == "succeeded"
+    assert (output_dir / "assets" / "logo.jpeg").exists()
+
+    source_path.unlink()
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="copy_resource_tree",
+    )
+
+    assert second_run.status == "succeeded"
+    assert not (output_dir / "assets" / "logo.jpeg").exists()
 
 
 def test_workflow_engine_applies_local_translation_profile_and_exclusion(

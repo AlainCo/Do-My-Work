@@ -62,10 +62,10 @@ class TaskRevalidator:
             return self._revalidate_merge_translated_fragments(record, config, task_index)
 
         if isinstance(spec, DiscoverReferenceDocumentsTaskSpec):
-            return self._revalidate_discover_reference_documents(record, task_index)
+            return self._revalidate_discover_reference_documents(record, config, task_index)
 
         if isinstance(spec, DiscoverCopyResourcesTaskSpec):
-            return self._revalidate_discover_copy_resources(record, task_index)
+            return self._revalidate_discover_copy_resources(record, config, task_index)
 
         if isinstance(spec, DiscoverTranslateDocumentFragmentsTaskSpec):
             return self._revalidate_discover_translate_document_fragments(record, task_index)
@@ -135,12 +135,28 @@ class TaskRevalidator:
     def _revalidate_discover_reference_documents(
         self,
         record: TaskRecord,
+        config: WorkspaceConfig,
         task_index: dict[str, TaskRecord],
     ) -> TaskRecord:
         if record.status != TaskStatus.SUCCEEDED:
             return record
 
         child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        if any(
+            child is not None
+            and isinstance(child.spec, IndexMarkdownReferencesTaskSpec)
+            and not (config.input_dir / child.spec.relative_path).exists()
+            for child in child_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.PENDING,
+                    "outcome": TaskOutcome(
+                        message="Rescanning source documents after source changes.",
+                    ),
+                }
+            )
+
         document_task_count = sum(
             1
             for child in child_records
@@ -171,12 +187,28 @@ class TaskRevalidator:
     def _revalidate_discover_copy_resources(
         self,
         record: TaskRecord,
+        config: WorkspaceConfig,
         task_index: dict[str, TaskRecord],
     ) -> TaskRecord:
         if record.status not in {TaskStatus.SUCCEEDED, TaskStatus.WAITING, TaskStatus.FAILED}:
             return record
 
         child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        if record.status == TaskStatus.SUCCEEDED and any(
+            child is not None
+            and isinstance(child.spec, CopyResourceFileTaskSpec)
+            and not (config.input_dir / child.spec.relative_path).exists()
+            for child in child_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.PENDING,
+                    "outcome": TaskOutcome(
+                        message="Rescanning source resources after source changes.",
+                    ),
+                }
+            )
+
         failed_children = [
             child
             for child in child_records

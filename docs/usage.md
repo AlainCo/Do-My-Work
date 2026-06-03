@@ -163,6 +163,10 @@ Translator provider configuration:
 - bases are applied from left to right, then the current profile overrides the merged result: `name1 < name2 < current profile`
 - a base template may stay intentionally incomplete in the YAML as long as some concrete child profile completes it; only fully resolved profiles are available for actual translation runs
 - use `null` on an optional field such as `credential`, `translated_document_header`, or `translated_document_footer` when the child profile must explicitly clear an inherited value
+- workspace YAML also supports `${env:NAME}` when the whole scalar value should come from an environment variable
+- `${env:NAME}` is resolved while loading the YAML, before profile inheritance and before any later prompt templating
+- the `${env:NAME}` form is only supported for a full scalar value, not inside a longer string; prompt placeholders such as `${input_fragment}`, `${pre_context}`, `${post_context}`, and `${translation_hints}` remain unchanged for the LLM request renderer
+- when `${env:NAME}` is used for an optional field, a missing or empty environment variable becomes `null`; for required fields and `base` items, a missing or empty environment variable makes the configuration invalid
 - internally, the translation HTTP adapters now live behind one provider-neutral LLM client layer rather than an Ollama-only module name
 
 Example profiles:
@@ -170,25 +174,54 @@ Example profiles:
 ```yaml
 llm:
   translator:
-    basetechnical:
+    basebackend-ollama:
+      api: ollama
+      url: http://127.0.0.1:11434
+      model: mock-ollama
+    basebackend-openai:
+      api: openai
+      url: ${env:LLM_URL}
+      credential: ${env:OPENAI_API_KEY}
+      model: ${env:LLM_MODEL}
+    basestyle-generic:
       temperature: 0.0
       system_prompt: You are a professional translator from french to english.
-      user_prompt: ${input_fragment}
-    base-openai-small:
-      api: openai
-      url: https://api.openai.com/v1
-      credential: ${OPENAI_API_KEY}
-      model: gpt-4.1-mini
-    technical-openai:
+      user_prompt: |
+        ===BEGIN PREVIOUS CONTEXT===
+        ${pre_context}
+        ===END PREVIOUS CONTEXT===
+
+        ===BEGIN SOURCE TEXT===
+        ${input_fragment}
+        ===END SOURCE TEXT===
+
+        ===BEGIN FOLLOWING CONTEXT===
+        ${post_context}
+        ===END FOLLOWING CONTEXT===
+    basestyle-technical:
       base:
-        - basetechnical
-        - base-openai-small
-    technical-openai-no-auth:
+        - basestyle-generic
+    standard-local:
       base:
-        - basetechnical
-        - base-openai-small
+        - basebackend-ollama
+        - basestyle-technical
+    standard-remote:
+      base:
+        - ${env:LLM_BASEBACKEND}
+        - ${env:TRANSLATION_BASESTYLE}
+    standard-openai-no-auth:
+      base:
+        - basebackend-openai
+        - basestyle-technical
       credential: null
 ```
+
+In this example:
+
+- `basebackend-*` keeps transport, endpoint, credential, and model settings together
+- `basestyle-*` keeps prompts and translation-style settings together
+- `${env:...}` is only used as a full scalar value, never inside a longer prompt string
+- `standard-remote` lets the environment select both backend and style profile names
 
 ### `reference-index-tree`
 

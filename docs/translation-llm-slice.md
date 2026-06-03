@@ -69,7 +69,7 @@ llm:
     emotional:
       api: openai
       url: https://api.openai.com/v1
-      credential: ${OPENAI_API_KEY}
+      credential: ${env:OPENAI_API_KEY}
       model: gpt-4.1-mini
       timeout_seconds: 180.0
       max_retries: 2
@@ -90,6 +90,11 @@ llm:
         Following context:
         ${post_context}
 ```
+
+Current note:
+
+- `${env:NAME}` is only resolved when it is the whole scalar YAML value
+- prompt placeholders such as `${input_fragment}`, `${pre_context}`, and `${post_context}` are not config-loader variables and remain available for later prompt rendering
 
 The key point is that the profile now declares the provider explicitly through `api`.
 An Ollama profile targets `/api/chat`, while an OpenAI profile targets `/chat/completions` from the configured base URL.

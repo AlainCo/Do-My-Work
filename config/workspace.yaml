@@ -47,6 +47,7 @@ llm:
     basebackend-ollamamock:
       api: ollama
       url: http://127.0.0.1:11434
+      credential: ${env:LLM_API_KEY}
       model: mock-ollama
     basebackend-llamacpp:
       api: openai

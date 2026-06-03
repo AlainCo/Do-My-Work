@@ -101,8 +101,7 @@ Use the following markers when they help clarify priority or outcome:
 
 ## command line, User interface and configuration
 
-- [TODISCUSS] [SOON] allow template variable in workspace yaml, so one can use environment variables
-/password or model, treating that as null/absent
+- [DONE] workspace YAML now supports `${env:NAME}` for full scalar values, resolved at config-load time before translator-profile inheritance; missing or empty values become `null` for optional fields and remain an explicit configuration error for required fields and `base` items
 - [LATER] why not propose a simple GUI/TEXTUI to launch commands, with chosen options
 
 ## documentation

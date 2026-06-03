@@ -56,6 +56,8 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
             request.method,
             request.url,
             body.decode(errors="ignore"))
+        if request.headers.get("Authorization", ""):
+            logger.info("Authorization header: %s", request.headers.get("Authorization"))
         response = await call_next(request)
         return response
 

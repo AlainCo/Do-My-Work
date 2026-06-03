@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import re
 
 import yaml
 from pydantic import ValidationError
@@ -6,6 +8,7 @@ from pydantic import ValidationError
 from do_my_work.domain.models import LocalWorkflowConfig, TranslatorProfileConfig, WorkspaceConfig
 
 LOCAL_WORKFLOW_CONFIG_NAME = "do-my-work.yaml"
+ENV_REFERENCE_PATTERN = re.compile(r"^\$\{env:([^}]+)\}$")
 
 
 class ConfigLoadError(ValueError):
@@ -45,6 +48,14 @@ def _validation_errors_are_only_missing_required_fields(exc: ValidationError) ->
     return all(error.get("type") == "missing" for error in exc.errors())
 
 
+def _can_be_incomplete_template_profile(
+    profile_name: str,
+    raw_profile: dict,
+    referenced_base_profiles: set[str],
+) -> bool:
+    return profile_name in referenced_base_profiles or bool(raw_profile.get("base"))
+
+
 def _load_yaml_file(path: Path) -> dict:
     try:
         with path.open("r", encoding="utf-8") as stream:
@@ -55,6 +66,20 @@ def _load_yaml_file(path: Path) -> dict:
         raise ConfigLoadError(path, _format_yaml_error(path, exc)) from exc
 
 
+def _resolve_env_references(value):
+    if isinstance(value, dict):
+        return {key: _resolve_env_references(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_resolve_env_references(item) for item in value]
+    if isinstance(value, str):
+        match = ENV_REFERENCE_PATTERN.fullmatch(value)
+        if match is None:
+            return value
+        env_value = os.environ.get(match.group(1))
+        return env_value if env_value not in (None, "") else None
+    return value
+
+
 def _resolve_translator_profile_bases(path: Path, data: dict) -> None:
     llm_data = data.get("llm")
     if not isinstance(llm_data, dict):
@@ -63,6 +88,16 @@ def _resolve_translator_profile_bases(path: Path, data: dict) -> None:
     translator_data = llm_data.get("translator")
     if not isinstance(translator_data, dict):
         return
+
+    referenced_base_profiles: set[str] = set()
+    for raw_profile in translator_data.values():
+        if not isinstance(raw_profile, dict):
+            continue
+        raw_bases = raw_profile.get("base", [])
+        if isinstance(raw_bases, list):
+            referenced_base_profiles.update(
+                base_name for base_name in raw_bases if isinstance(base_name, str)
+            )
 
     resolved_profiles: dict[str, dict] = {}
     resolution_stack: list[str] = []
@@ -86,9 +121,20 @@ def _resolve_translator_profile_bases(path: Path, data: dict) -> None:
             )
 
         raw_bases = raw_profile.get("base", [])
-        if not isinstance(raw_bases, list) or not all(
-            isinstance(base_name, str) for base_name in raw_bases
-        ):
+        if not isinstance(raw_bases, list):
+            raise ConfigLoadError(
+                path,
+                f"Invalid configuration in {path}: llm.translator.{profile_name}.base must be a list of profile names.",
+            )
+        for index, base_name in enumerate(raw_bases):
+            if isinstance(base_name, str):
+                continue
+            if base_name is None:
+                raise ConfigLoadError(
+                    path,
+                    "Invalid configuration in "
+                    f"{path}: llm.translator.{profile_name}.base.{index} must resolve to a profile name.",
+                )
             raise ConfigLoadError(
                 path,
                 f"Invalid configuration in {path}: llm.translator.{profile_name}.base must be a list of profile names.",
@@ -119,10 +165,19 @@ def _resolve_translator_profile_bases(path: Path, data: dict) -> None:
     resolved_translator_data: dict[str, dict] = {}
     for profile_name in list(translator_data):
         resolved_profile = resolve_profile(profile_name)
+        raw_profile = translator_data.get(profile_name)
         try:
             TranslatorProfileConfig.model_validate(resolved_profile)
         except ValidationError as exc:
-            if _validation_errors_are_only_missing_required_fields(exc):
+            if (
+                isinstance(raw_profile, dict)
+                and _validation_errors_are_only_missing_required_fields(exc)
+                and _can_be_incomplete_template_profile(
+                    profile_name,
+                    raw_profile,
+                    referenced_base_profiles,
+                )
+            ):
                 continue
             raise ConfigLoadError(
                 path,
@@ -136,7 +191,7 @@ def _resolve_translator_profile_bases(path: Path, data: dict) -> None:
 
 
 def load_workspace_config(path: Path) -> WorkspaceConfig:
-    data = _load_yaml_file(path)
+    data = _resolve_env_references(_load_yaml_file(path))
     _resolve_translator_profile_bases(path, data)
     try:
         return WorkspaceConfig.model_validate(data)
@@ -145,7 +200,7 @@ def load_workspace_config(path: Path) -> WorkspaceConfig:
 
 
 def load_local_workflow_config(path: Path) -> LocalWorkflowConfig:
-    data = _load_yaml_file(path)
+    data = _resolve_env_references(_load_yaml_file(path))
     try:
         return LocalWorkflowConfig.model_validate(data)
     except ValidationError as exc:

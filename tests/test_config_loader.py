@@ -275,6 +275,149 @@ llm:
     assert "basetechnical" not in config.llm.translator
 
 
+def test_load_workspace_config_resolves_env_scalars_and_preserves_prompt_placeholders(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    monkeypatch.setenv("TEST_LLM_URL", "http://env.example:11434")
+    monkeypatch.setenv("TEST_LLM_MODEL", "env-model")
+    monkeypatch.delenv("TEST_LLM_TOKEN", raising=False)
+    config_file.write_text(
+        """
+llm:
+  translator:
+    technical:
+      url: ${env:TEST_LLM_URL}
+      model: ${env:TEST_LLM_MODEL}
+      credential: ${env:TEST_LLM_TOKEN}
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_workspace_config(config_file)
+
+    profile = config.llm.translator["technical"]
+    assert profile.url == "http://env.example:11434"
+    assert profile.model == "env-model"
+    assert profile.credential is None
+    assert profile.user_prompt == "${input_fragment}"
+
+
+def test_load_workspace_config_treats_empty_optional_env_value_as_none(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    monkeypatch.setenv("TEST_LLM_URL", "http://env.example:11434")
+    monkeypatch.setenv("TEST_LLM_MODEL", "env-model")
+    monkeypatch.setenv("TEST_LLM_TOKEN", "")
+    config_file.write_text(
+        """
+llm:
+  translator:
+    technical:
+      url: ${env:TEST_LLM_URL}
+      model: ${env:TEST_LLM_MODEL}
+      credential: ${env:TEST_LLM_TOKEN}
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_workspace_config(config_file)
+
+    assert config.llm.translator["technical"].credential is None
+
+
+def test_load_workspace_config_rejects_missing_required_env_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    monkeypatch.delenv("TEST_LLM_URL", raising=False)
+    monkeypatch.setenv("TEST_LLM_MODEL", "env-model")
+    config_file.write_text(
+        """
+llm:
+  translator:
+    technical:
+      url: ${env:TEST_LLM_URL}
+      model: ${env:TEST_LLM_MODEL}
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigLoadError) as exc_info:
+        load_workspace_config(config_file)
+
+    assert "llm.translator.technical.url" in str(exc_info.value)
+
+
+def test_load_workspace_config_resolves_env_values_in_base_list(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    monkeypatch.setenv("TEST_LLM_BASEBACKEND", "basebackend")
+    monkeypatch.setenv("TEST_TRANSLATION_BASESTYLE", "basestyle")
+    config_file.write_text(
+        """
+llm:
+  translator:
+    basebackend:
+      url: http://mock.example:11434
+      model: mock-llama
+    basestyle:
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+    standard:
+      base:
+        - ${env:TEST_LLM_BASEBACKEND}
+        - ${env:TEST_TRANSLATION_BASESTYLE}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_workspace_config(config_file)
+
+    assert config.llm.translator["standard"].url == "http://mock.example:11434"
+    assert config.llm.translator["standard"].user_prompt == "${input_fragment}"
+
+
+def test_load_workspace_config_rejects_missing_env_value_in_base_list(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    monkeypatch.delenv("TEST_LLM_BASEBACKEND", raising=False)
+    config_file.write_text(
+        """
+llm:
+  translator:
+    standard:
+      base:
+        - ${env:TEST_LLM_BASEBACKEND}
+      url: http://mock.example:11434
+      model: mock-llama
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigLoadError) as exc_info:
+        load_workspace_config(config_file)
+
+    assert "llm.translator.standard.base.0" in str(exc_info.value)
+    assert "must resolve to a profile name" in str(exc_info.value)
+
+
 def test_load_local_workflow_config_reads_translation_header_footer_overrides(
     tmp_path: Path,
  ) -> None:

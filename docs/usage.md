@@ -159,6 +159,10 @@ Translator provider configuration:
 - each profile under `llm.translator` can declare `api: ollama` or `api: openai`
 - `api` defaults to `ollama` when omitted
 - both providers reuse the same prompt templating fields: `system_prompt`, `user_prompt`, `temperature`, `timeout_seconds`, and `max_retries`
+- a profile can inherit from one or more base profiles with `base: [name1, name2]`
+- bases are applied from left to right, then the current profile overrides the merged result: `name1 < name2 < current profile`
+- a base template may stay intentionally incomplete in the YAML as long as some concrete child profile completes it; only fully resolved profiles are available for actual translation runs
+- use `null` on an optional field such as `credential`, `translated_document_header`, or `translated_document_footer` when the child profile must explicitly clear an inherited value
 - internally, the translation HTTP adapters now live behind one provider-neutral LLM client layer rather than an Ollama-only module name
 
 Example profiles:
@@ -166,19 +170,24 @@ Example profiles:
 ```yaml
 llm:
   translator:
-    technical-local:
-      api: ollama
-      url: http://127.0.0.1:11434
-      model: ollama-mock
+    basetechnical:
+      temperature: 0.0
       system_prompt: You are a professional translator from french to english.
       user_prompt: ${input_fragment}
-    technical-openai:
+    base-openai-small:
       api: openai
       url: https://api.openai.com/v1
       credential: ${OPENAI_API_KEY}
       model: gpt-4.1-mini
-      system_prompt: You are a professional translator from french to english.
-      user_prompt: ${input_fragment}
+    technical-openai:
+      base:
+        - basetechnical
+        - base-openai-small
+    technical-openai-no-auth:
+      base:
+        - basetechnical
+        - base-openai-small
+      credential: null
 ```
 
 ### `reference-index-tree`

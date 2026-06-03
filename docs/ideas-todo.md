@@ -72,7 +72,10 @@ Use the following markers when they help clarify priority or outcome:
 - [DONE] `translate-document-tree --with-review` now generates a side-by-side HTML review document per translated file, aligned by translation chunk rather than trying to force this into Markdown
 - [DONE] translation review files can be generated on a later run with `--with-review` without redoing costly translation calls; changing `translation_review.translated_first` also re-renders the review without retranslating
 - [DONE] local `do-my-work.yaml` translation rules can now override `translated_document_header` and `translated_document_footer` per file or subtree, so rare files such as translated `README.md` can carry specific automatic-translation notes or a different wrapper syntax for Markdown, text, or HTML outputs
-
+- [DONE] allow clean interrupt with ctrl-C
+- [DONE] show standard deviation of LLM calls instead of variance.
+- [DONE] allow to ignore folders like .git/
+- [DONE] translator profiles can now inherit from one or more base profiles with `base: [...]`, using the usual override order (`base1 < base2 < current profile`), and `null` can explicitly clear an inherited optional field such as `credential`
 
 ## managing LLM calls
 
@@ -90,6 +93,7 @@ Use the following markers when they help clarify priority or outcome:
 
 ## spurious file
 
+
 ## packaging
 
 - [DONE] document the current `one-folder` packaging path with output kept under `./dist/`, so another developer machine can validate the bundle and report bugs
@@ -97,13 +101,9 @@ Use the following markers when they help clarify priority or outcome:
 
 ## command line, User interface and configuration
 
-- [SOON] suppress useless options --translator-profile and clean useless code
-- [SOON] allow a translator profile to use another profile as a base, or even multiple in a given order, and only overload few fields
 - [TODISCUSS] [SOON] allow template variable in workspace yaml, so one can use environment variables
-  - [SOON] one side effect is we need to allow empty values in workspace config, in some optional yaml fields like user/password or model, treating that as null/absent
+/password or model, treating that as null/absent
 - [LATER] why not propose a simple GUI/TEXTUI to launch commands, with chosen options
-- [DONE] allow clean interrupt with ctrl-C
-- [DONE] show standard deviation of LLM calls instead of variance.
 
 ## documentation
 

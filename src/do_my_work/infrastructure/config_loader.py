@@ -3,7 +3,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from do_my_work.domain.models import LocalWorkflowConfig, WorkspaceConfig
+from do_my_work.domain.models import LocalWorkflowConfig, TranslatorProfileConfig, WorkspaceConfig
 
 LOCAL_WORKFLOW_CONFIG_NAME = "do-my-work.yaml"
 
@@ -32,6 +32,19 @@ def _format_validation_error(exc: ValidationError) -> str:
     return "; ".join(details)
 
 
+def _format_prefixed_validation_error(prefix: str, exc: ValidationError) -> str:
+    details: list[str] = []
+    for error in exc.errors():
+        suffix = ".".join(str(part) for part in error.get("loc", ()))
+        location = f"{prefix}.{suffix}" if suffix else prefix
+        details.append(f"{location}: {error.get('msg', 'Invalid value.')}")
+    return "; ".join(details)
+
+
+def _validation_errors_are_only_missing_required_fields(exc: ValidationError) -> bool:
+    return all(error.get("type") == "missing" for error in exc.errors())
+
+
 def _load_yaml_file(path: Path) -> dict:
     try:
         with path.open("r", encoding="utf-8") as stream:
@@ -42,8 +55,89 @@ def _load_yaml_file(path: Path) -> dict:
         raise ConfigLoadError(path, _format_yaml_error(path, exc)) from exc
 
 
+def _resolve_translator_profile_bases(path: Path, data: dict) -> None:
+    llm_data = data.get("llm")
+    if not isinstance(llm_data, dict):
+        return
+
+    translator_data = llm_data.get("translator")
+    if not isinstance(translator_data, dict):
+        return
+
+    resolved_profiles: dict[str, dict] = {}
+    resolution_stack: list[str] = []
+
+    def resolve_profile(profile_name: str) -> dict:
+        if profile_name in resolved_profiles:
+            return resolved_profiles[profile_name]
+
+        if profile_name in resolution_stack:
+            cycle = " -> ".join([*resolution_stack, profile_name])
+            raise ConfigLoadError(
+                path,
+                f"Translator profile inheritance cycle in {path}: {cycle}",
+            )
+
+        raw_profile = translator_data.get(profile_name)
+        if not isinstance(raw_profile, dict):
+            raise ConfigLoadError(
+                path,
+                f"Invalid configuration in {path}: llm.translator.{profile_name} must be a mapping.",
+            )
+
+        raw_bases = raw_profile.get("base", [])
+        if not isinstance(raw_bases, list) or not all(
+            isinstance(base_name, str) for base_name in raw_bases
+        ):
+            raise ConfigLoadError(
+                path,
+                f"Invalid configuration in {path}: llm.translator.{profile_name}.base must be a list of profile names.",
+            )
+
+        resolution_stack.append(profile_name)
+        try:
+            merged_profile: dict = {}
+            for base_name in raw_bases:
+                if base_name not in translator_data:
+                    raise ConfigLoadError(
+                        path,
+                        "Invalid configuration in "
+                        f"{path}: llm.translator.{profile_name} references unknown base profile '{base_name}'.",
+                    )
+                merged_profile.update(resolve_profile(base_name))
+
+            for field_name, field_value in raw_profile.items():
+                if field_name == "base":
+                    continue
+                merged_profile[field_name] = field_value
+        finally:
+            resolution_stack.pop()
+
+        resolved_profiles[profile_name] = merged_profile
+        return merged_profile
+
+    resolved_translator_data: dict[str, dict] = {}
+    for profile_name in list(translator_data):
+        resolved_profile = resolve_profile(profile_name)
+        try:
+            TranslatorProfileConfig.model_validate(resolved_profile)
+        except ValidationError as exc:
+            if _validation_errors_are_only_missing_required_fields(exc):
+                continue
+            raise ConfigLoadError(
+                path,
+                "Invalid configuration in "
+                f"{path}: {_format_prefixed_validation_error(f'llm.translator.{profile_name}', exc)}",
+            ) from exc
+        resolved_translator_data[profile_name] = resolved_profile
+
+    translator_data.clear()
+    translator_data.update(resolved_translator_data)
+
+
 def load_workspace_config(path: Path) -> WorkspaceConfig:
     data = _load_yaml_file(path)
+    _resolve_translator_profile_bases(path, data)
     try:
         return WorkspaceConfig.model_validate(data)
     except ValidationError as exc:

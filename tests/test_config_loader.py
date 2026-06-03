@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from do_my_work.infrastructure.config_loader import load_local_workflow_config, load_workspace_config
+import pytest
+
+from do_my_work.infrastructure.config_loader import (
+  ConfigLoadError,
+  load_local_workflow_config,
+  load_workspace_config,
+)
 
 
 def test_load_workspace_config_reads_translator_profiles(tmp_path: Path) -> None:
@@ -106,6 +112,167 @@ llm:
     )
     assert config.llm.translator["emotional"].credential == "secret-token"
     assert "${input_fragment}" in config.llm.translator["emotional"].user_prompt
+
+
+def test_load_workspace_config_resolves_translator_profile_bases(tmp_path: Path) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        """
+input_dir: inbound
+output_dir: outbound
+data_dir: state
+llm:
+  translator:
+    basetechnical:
+      temperature: 0.1
+      timeout_seconds: 240
+      max_pre_context_bytes: 120
+      max_post_context_bytes: 240
+      max_total_text_bytes: 480
+      max_input_fragment_bytes: 360
+      system_prompt: You are a technical translator.
+      user_prompt: "Translate: ${input_fragment}"
+    basehuge:
+      api: openai
+      url: http://huge.example:8000/v1
+      model: huge-model
+      credential: huge-token
+      timeout_seconds: 900
+      max_retries: 3
+    technical:
+      base:
+        - basetechnical
+        - basehuge
+      credential: null
+      translated_document_header: <!-- translated -->
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_workspace_config(config_file)
+
+    profile = config.llm.translator["technical"]
+    assert profile.api == "openai"
+    assert profile.url == "http://huge.example:8000/v1"
+    assert profile.model == "huge-model"
+    assert profile.credential is None
+    assert profile.timeout_seconds == 900
+    assert profile.max_retries == 3
+    assert profile.max_pre_context_bytes == 120
+    assert profile.max_post_context_bytes == 240
+    assert profile.max_total_text_bytes == 480
+    assert profile.max_input_fragment_bytes == 360
+    assert profile.temperature == 0.1
+    assert profile.system_prompt == "You are a technical translator."
+    assert profile.user_prompt == "Translate: ${input_fragment}"
+    assert profile.translated_document_header == "<!-- translated -->"
+
+
+def test_load_workspace_config_rejects_unknown_translator_profile_base(tmp_path: Path) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        """
+llm:
+  translator:
+    technical:
+      base:
+        - missing-base
+      url: http://mock.example:11434
+      model: mock-llama
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigLoadError) as exc_info:
+        load_workspace_config(config_file)
+
+    assert "references unknown base profile 'missing-base'" in str(exc_info.value)
+
+
+def test_load_workspace_config_rejects_translator_profile_base_cycles(tmp_path: Path) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        """
+llm:
+  translator:
+    alpha:
+      base:
+        - beta
+      url: http://alpha.example:11434
+      model: alpha-model
+      system_prompt: Alpha system.
+      user_prompt: Alpha prompt.
+    beta:
+      base:
+        - alpha
+      url: http://beta.example:11434
+      model: beta-model
+      system_prompt: Beta system.
+      user_prompt: Beta prompt.
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigLoadError) as exc_info:
+        load_workspace_config(config_file)
+
+    assert "Translator profile inheritance cycle" in str(exc_info.value)
+    assert "alpha -> beta -> alpha" in str(exc_info.value)
+
+
+def test_load_workspace_config_rejects_non_list_translator_profile_base(tmp_path: Path) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        """
+llm:
+  translator:
+    technical:
+      base: basetechnical
+      url: http://mock.example:11434
+      model: mock-llama
+      system_prompt: You are a translator.
+      user_prompt: ${input_fragment}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigLoadError) as exc_info:
+        load_workspace_config(config_file)
+
+    assert "base must be a list of profile names" in str(exc_info.value)
+
+
+def test_load_workspace_config_keeps_unused_partial_base_profiles_out_of_concrete_profiles(
+    tmp_path: Path,
+) -> None:
+    config_file = tmp_path / "workspace.yaml"
+    config_file.write_text(
+        """
+llm:
+  translator:
+    basehuge:
+      api: openai
+      url: http://huge.example:8000/v1
+      model: huge-model
+    basetechnical:
+      system_prompt: Technical system.
+      user_prompt: ${input_fragment}
+    technical:
+      base:
+        - basehuge
+        - basetechnical
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_workspace_config(config_file)
+
+    assert "technical" in config.llm.translator
+    assert config.llm.translator["technical"].model == "huge-model"
+    assert "basehuge" not in config.llm.translator
+    assert "basetechnical" not in config.llm.translator
 
 
 def test_load_local_workflow_config_reads_translation_header_footer_overrides(

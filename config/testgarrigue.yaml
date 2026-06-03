@@ -58,7 +58,7 @@ llm:
     basemodel-huger:
       base:
         - basebackend-llamacpp
-      model: QWEN2.5-32B-Translation.Q4_K_M.gguf
+      model: Mistral-Small-3.2-24B-Instruct-2506-UD-Q6_K_XL
       timeout_seconds: 900
     basemodel-huge:
       base:
@@ -73,12 +73,12 @@ llm:
     basemodel-medium:
       base:
         - basebackend-llamacpp
-      model: Ministral-3-8B-Instruct-2512-Q5_K_M.gguf
+      model: Ministral-3-8B-Instruct-2512-Q5_K_M
       timeout_seconds: 600
     basesmall:
       base:
         - basebackend-llamacpp
-      model: Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+      model: Ministral-3-3B-Instruct-2512-Q4_K_M
       timeout_seconds: 300
     basestyle-generic:
       temperature: 0.0

@@ -55,6 +55,11 @@ llm:
     basebackend-llamacpp:
       api: openai
       url: http://127.0.0.1:8000/v1
+    basemodel-huger:
+      base:
+        - basebackend-llamacpp
+      model: QWEN2.5-32B-Translation.Q4_K_M.gguf
+      timeout_seconds: 900
     basemodel-huge:
       base:
         - basebackend-llamacpp

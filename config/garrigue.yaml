@@ -125,13 +125,13 @@ llm:
         ===BEGIN FOLLOWING CONTEXT===
         ${post_context}
         ===END FOLLOWING CONTEXT===
-      translated_document_footer: "> ✨ Translated automatically with **Do-My-Work** — a tool designed to make projects speak globally."
-      translated_document_header: "> ✨ Translated automatically with **Do-My-Work** — profile: generic."         
+      translated_document_footer: "> ✨ Translated automatically with [**Do-My-Work**](https://github.com/AlainCo/do-my-work) — a tool designed to make projects speak globally."
+      translated_document_header: "> ✨ Translated automatically with [**Do-My-Work**](https://github.com/AlainCo/do-my-work) — profile: generic."         
     basestyle-technical:
       base:
         - basestyle-generic
       temperature: 0.0
-      translated_document_header: "> ✨ Translated automatically with **Do-My-Work** — profile: technical."         
+      translated_document_header: "> ✨ Translated automatically with [**Do-My-Work**](https://github.com/AlainCo/do-my-work) — profile: technical."         
     basestyle-romantic:
       base:
         - basestyle-generic
@@ -168,7 +168,7 @@ llm:
         ---
         SOURCE TEXT: "Le `code_source.py` doit être dans `/src`."
         → OUTPUT: "The `code_source.py` must be in `/src`."
-      translated_document_header: "> ✨ Translated automatically with **Do-My-Work** — profile: romantic."             
+      translated_document_header: "> ✨ Translated automatically with [**Do-My-Work**](https://github.com/AlainCo/do-my-work) — profile: romantic."             
     technical:
       base:
         - basemodel-huge

@@ -30,6 +30,16 @@ class JsonTaskRepository:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
 
+    def delete(self, task_key: str) -> None:
+        for path in (self._build_path(task_key), self._build_legacy_path(task_key)):
+            if not path.exists():
+                continue
+            path.unlink()
+            parent = path.parent
+            while parent != self._directory and parent.exists() and not any(parent.iterdir()):
+                parent.rmdir()
+                parent = parent.parent
+
     def _build_path(self, task_key: str) -> Path:
         return self._directory / _task_kind_directory_name(task_key) / f"{_safe_file_name(task_key)}.json"
 

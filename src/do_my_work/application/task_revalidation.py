@@ -71,7 +71,7 @@ class TaskRevalidator:
             return self._revalidate_discover_translate_document_fragments(record, task_index)
 
         if isinstance(spec, DiscoverTranslateDocumentsTaskSpec):
-            return self._revalidate_discover_translate_documents(record, task_index)
+            return self._revalidate_discover_translate_documents(record, config, task_index)
 
         return record
 
@@ -402,6 +402,7 @@ class TaskRevalidator:
     def _revalidate_discover_translate_documents(
         self,
         record: TaskRecord,
+        config: WorkspaceConfig,
         task_index: dict[str, TaskRecord],
     ) -> TaskRecord:
         if record.status not in {TaskStatus.SUCCEEDED, TaskStatus.WAITING, TaskStatus.FAILED}:
@@ -411,6 +412,21 @@ class TaskRevalidator:
             return record
 
         child_records = [task_index.get(task_key) for task_key in record.child_task_keys]
+        if record.status == TaskStatus.SUCCEEDED and any(
+            child is not None
+            and isinstance(child.spec, DiscoverTranslateDocumentFragmentsTaskSpec)
+            and not (config.input_dir / child.spec.relative_path).exists()
+            for child in child_records
+        ):
+            return record.model_copy(
+                update={
+                    "status": TaskStatus.PENDING,
+                    "outcome": TaskOutcome(
+                        message="Rescanning source documents after source changes.",
+                    ),
+                }
+            )
+
         failed_children = [
             child
             for child in child_records

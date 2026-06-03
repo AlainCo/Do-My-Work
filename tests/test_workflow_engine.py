@@ -1169,6 +1169,83 @@ def test_workflow_engine_retries_failed_translation_tasks_on_next_run(
     assert (output_dir / "note.md").read_text(encoding="utf-8") == "# INTRO\n\nALPHA BETA.\n"
 
 
+def test_workflow_engine_removes_translated_output_when_source_document_disappears(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    source_path = input_dir / "Ideas-Todo.md"
+    source_path.write_text(
+        "# Intro\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
+
+    translate_call_count = {"value": 0}
+
+    def translate_fragment(self, config, profile_name, parameters):
+        del self, config, profile_name
+        translate_call_count["value"] += 1
+        return str(parameters["input_fragment"]).upper()
+
+    monkeypatch.setattr(
+        OllamaLlmClient,
+        "translate_fragment",
+        translate_fragment,
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translatoir from french to english.",
+                    user_prompt=(
+                        "===BEGIN SOURCE TEXT===\n"
+                        "${input_fragment}\n"
+                        "===END SOURCE TEXT===\n"
+                    ),
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "succeeded"
+    assert (output_dir / "Ideas-Todo.md").exists()
+    first_run_translate_call_count = translate_call_count["value"]
+
+    source_path.unlink()
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert second_run.status == "succeeded"
+    assert translate_call_count["value"] == first_run_translate_call_count
+    assert not (output_dir / "Ideas-Todo.md").exists()
+
+
 def test_workflow_engine_rerenders_translated_document_when_header_changes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

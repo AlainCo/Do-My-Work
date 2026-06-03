@@ -229,6 +229,13 @@ class DiscoverReferenceDocumentsTaskHandler:
                 )
             )
 
+        removed_child_task_keys = set(record.child_task_keys) - set(child_task_keys)
+        for removed_task_key in removed_child_task_keys:
+            removed_record = task_repository.get(removed_task_key)
+            if removed_record is None:
+                continue
+            _remove_orphaned_translated_outputs(removed_record, config, task_repository)
+
         child_records = [task_repository.get(task_key) for task_key in child_task_keys]
         child_records.extend(discovered_records)
 
@@ -265,6 +272,36 @@ class DiscoverReferenceDocumentsTaskHandler:
             }
         )
         return TaskHandlerResult(updated_record=updated_record, new_records=discovered_records)
+
+
+def _remove_orphaned_translated_outputs(
+    discover_record: TaskRecord,
+    config: WorkspaceConfig,
+    task_repository: JsonTaskRepository,
+) -> None:
+    merge_task_key = next(reversed(discover_record.child_task_keys), None)
+    if merge_task_key is None:
+        task_repository.delete(discover_record.task_key)
+        return
+
+    merge_record = task_repository.get(merge_task_key)
+    if merge_record is None or not isinstance(merge_record.spec, MergeTranslatedFragmentsTaskSpec):
+        task_repository.delete(discover_record.task_key)
+        return
+
+    destination_path = config.output_dir / merge_record.spec.document_relative_path
+    if destination_path.exists():
+        destination_path.unlink()
+
+    if merge_record.spec.with_review:
+        review_path = config.output_dir / build_translation_review_path(
+            merge_record.spec.document_relative_path
+        )
+        if review_path.exists():
+            review_path.unlink()
+
+    task_repository.delete(merge_record.task_key)
+    task_repository.delete(discover_record.task_key)
 
 
 class DiscoverCopyResourcesTaskHandler:
@@ -469,6 +506,13 @@ class DiscoverTranslateDocumentsTaskHandler:
                         ),
                     )
                 )
+
+        removed_child_task_keys = set(record.child_task_keys) - set(child_task_keys)
+        for removed_task_key in removed_child_task_keys:
+            removed_record = task_repository.get(removed_task_key)
+            if removed_record is None:
+                continue
+            _remove_orphaned_translated_outputs(removed_record, config, task_repository)
 
         child_records = [task_repository.get(task_key) for task_key in child_task_keys]
         child_records.extend(discovered_records)

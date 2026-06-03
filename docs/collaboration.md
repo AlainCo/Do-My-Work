@@ -59,6 +59,7 @@ The following practices are now part of the working agreement for this repositor
 
 Current useful notes for this workstation:
 
+- prefer VS Code tasks for repeated test runs and validation commands on this machine, because they are more reliable than direct PowerShell shell invocations for capturing completion and output consistently
 - prefer `.venv\Scripts\python.exe -m pytest` on Windows to avoid using a different global Python than the project virtual environment
 - PowerShell requires quotes around `".[dev]"` when running `python -m pip install -e "[dev]"` style extras; in this project the safe command is `python -m pip install -e ".[dev]"`
 - `rg` is not currently available in the PowerShell PATH, so workspace search tools are often faster than shell search commands here
@@ -68,7 +69,7 @@ Current useful notes for this workstation:
 
 The default validation sequence for small slices is:
 
-1. run the focused tests for the changed behavior
+1. run the focused tests for the changed behavior, preferably through a VS Code task on this workstation
 2. run the broader `pytest` suite once the slice is stable
 3. run `ruff check .`
 

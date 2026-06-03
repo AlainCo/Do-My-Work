@@ -59,18 +59,22 @@ llm:
       base:
         - basebackend-llamacpp
       model: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M
+      timeout_seconds: 900
     basemodel-large:
       base:
         - basebackend-llamacpp
-      model: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M
+      model: Ministral-3-14B-Instruct-2512-Q4_K_M
+      timeout_seconds: 900
     basemodel-medium:
       base:
         - basebackend-llamacpp
-      model: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M
+      model: Ministral-3-8B-Instruct-2512-Q5_K_M.gguf
+      timeout_seconds: 600
     basesmall:
       base:
         - basebackend-llamacpp
-      model: Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M
+      model: Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
+      timeout_seconds: 300
     basestyle-generic:
       temperature: 0.0
       max_pre_context_bytes: 500

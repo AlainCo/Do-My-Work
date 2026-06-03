@@ -17,6 +17,7 @@ from do_my_work.application.task_handlers import (
     MergeReferenceIndexesTaskHandler,
     MergeTranslatedFragmentsTaskHandler,
     TranslateFragmentTaskHandler,
+    _remove_orphaned_output_artifacts,
 )
 from do_my_work.application.task_keys import (
     make_discover_copy_resources_task_key,
@@ -92,6 +93,37 @@ class WorkflowEngine:
             task_repository.save(root_record)
 
         initial_task_records = task_repository.list_all()
+        superseded_root_records = self._find_superseded_root_records(
+            initial_task_records,
+            root_task_key,
+            request_kind,
+            root,
+            translator_profile,
+            check_urls,
+            with_review,
+        )
+        if root_record.status == TaskStatus.SUCCEEDED and superseded_root_records:
+            self._cleanup_superseded_root_records(
+                superseded_root_records,
+                root_record,
+                config,
+                task_repository,
+                unchanged_task_keys,
+            )
+            superseded_root_records = []
+            initial_task_records = task_repository.list_all()
+
+        if root_record.status == TaskStatus.SUCCEEDED:
+            self._cleanup_unreachable_artifact_tasks(
+                initial_task_records,
+                root_task_key,
+                request_kind,
+                config,
+                task_repository,
+                unchanged_task_keys,
+            )
+            initial_task_records = task_repository.list_all()
+
         initially_succeeded_task_keys = {
             task.task_key for task in initial_task_records if task.status == TaskStatus.SUCCEEDED
         }
@@ -228,6 +260,26 @@ class WorkflowEngine:
                         "Task created: key=%s kind=%s",
                         new_record.task_key,
                         new_record.spec.kind,
+                    )
+
+                if result.updated_record.task_key == root_task_key:
+                    if superseded_root_records:
+                        self._cleanup_superseded_root_records(
+                            superseded_root_records,
+                            result.updated_record,
+                            config,
+                            task_repository,
+                            unchanged_task_keys,
+                        )
+                        superseded_root_records = []
+
+                    self._cleanup_unreachable_artifact_tasks(
+                        task_repository.list_all(),
+                        root_task_key,
+                        request_kind,
+                        config,
+                        task_repository,
+                        unchanged_task_keys,
                     )
         finally:
             llm_timing_summary = translate_fragment_handler.get_llm_timing_summary()
@@ -508,6 +560,157 @@ class WorkflowEngine:
         if root_record is not None and root_record.status == TaskStatus.SUCCEEDED:
             return "succeeded"
         return "failed"
+
+    def _find_superseded_root_records(
+        self,
+        task_records: list[TaskRecord],
+        root_task_key: str,
+        request_kind: Literal[
+            "reference_index_tree",
+            "copy_resource_tree",
+            "translate_document_tree",
+        ],
+        root: Path,
+        translator_profile: str,
+        check_urls: bool,
+        with_review: bool,
+    ) -> list[TaskRecord]:
+        return [
+            record
+            for record in task_records
+            if record.task_key != root_task_key
+            and self._is_matching_root_record(
+                record,
+                request_kind,
+                root,
+                translator_profile,
+                check_urls,
+                with_review,
+            )
+        ]
+
+    def _is_matching_root_record(
+        self,
+        record: TaskRecord,
+        request_kind: Literal[
+            "reference_index_tree",
+            "copy_resource_tree",
+            "translate_document_tree",
+        ],
+        root: Path,
+        translator_profile: str,
+        check_urls: bool,
+        with_review: bool,
+    ) -> bool:
+        spec = record.spec
+        if request_kind == "reference_index_tree":
+            return (
+                isinstance(spec, DiscoverReferenceDocumentsTaskSpec)
+                and spec.root == root
+                and spec.check_urls == check_urls
+            )
+        if request_kind == "copy_resource_tree":
+            return isinstance(spec, DiscoverCopyResourcesTaskSpec) and spec.root == root
+        if request_kind == "translate_document_tree":
+            return (
+                isinstance(spec, DiscoverTranslateDocumentsTaskSpec)
+                and spec.root == root
+                and spec.profile_name == translator_profile
+                and spec.with_review == with_review
+            )
+        return False
+
+    def _cleanup_superseded_root_records(
+        self,
+        superseded_root_records: list[TaskRecord],
+        current_root_record: TaskRecord,
+        config: WorkspaceConfig,
+        task_repository: JsonTaskRepository,
+        unchanged_task_keys: set[str],
+    ) -> None:
+        current_child_task_keys = set(current_root_record.child_task_keys)
+
+        for superseded_root_record in superseded_root_records:
+            removed_child_task_keys = set(superseded_root_record.child_task_keys) - current_child_task_keys
+            for removed_child_task_key in removed_child_task_keys:
+                removed_record = task_repository.get(removed_child_task_key)
+                if removed_record is None:
+                    continue
+                if removed_record.spec.kind == "check_reference_url":
+                    continue
+                _remove_orphaned_output_artifacts(removed_record, config, task_repository)
+                unchanged_task_keys.discard(removed_child_task_key)
+
+            task_repository.delete(superseded_root_record.task_key)
+            unchanged_task_keys.discard(superseded_root_record.task_key)
+
+    def _cleanup_unreachable_artifact_tasks(
+        self,
+        task_records: list[TaskRecord],
+        root_task_key: str,
+        request_kind: Literal[
+            "reference_index_tree",
+            "copy_resource_tree",
+            "translate_document_tree",
+        ],
+        config: WorkspaceConfig,
+        task_repository: JsonTaskRepository,
+        unchanged_task_keys: set[str],
+    ) -> None:
+        task_index = {record.task_key: record for record in task_records}
+        reachable_task_keys = self._collect_reachable_task_keys(root_task_key, task_index)
+
+        for record in task_records:
+            if record.task_key in reachable_task_keys:
+                continue
+            if not self._is_artifact_cleanup_candidate(record, request_kind):
+                continue
+            _remove_orphaned_output_artifacts(record, config, task_repository)
+            unchanged_task_keys.discard(record.task_key)
+
+    def _collect_reachable_task_keys(
+        self,
+        root_task_key: str,
+        task_index: dict[str, TaskRecord],
+    ) -> set[str]:
+        reachable_task_keys: set[str] = set()
+        pending_task_keys = [root_task_key]
+
+        while pending_task_keys:
+            task_key = pending_task_keys.pop()
+            if task_key in reachable_task_keys:
+                continue
+            reachable_task_keys.add(task_key)
+            record = task_index.get(task_key)
+            if record is None:
+                continue
+            pending_task_keys.extend(record.child_task_keys)
+
+        return reachable_task_keys
+
+    def _is_artifact_cleanup_candidate(
+        self,
+        record: TaskRecord,
+        request_kind: Literal[
+            "reference_index_tree",
+            "copy_resource_tree",
+            "translate_document_tree",
+        ],
+    ) -> bool:
+        spec = record.spec
+        if request_kind == "translate_document_tree":
+            return spec.kind in {
+                "discover_translate_document_fragments",
+                "merge_translated_fragments",
+            }
+        if request_kind == "reference_index_tree":
+            return spec.kind in {
+                "index_markdown_references",
+                "merge_reference_indexes",
+            }
+        if request_kind == "copy_resource_tree":
+            return spec.kind == "copy_resource_file"
+        return False
 
 
 def _build_run_id() -> str:

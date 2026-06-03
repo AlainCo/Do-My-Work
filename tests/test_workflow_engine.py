@@ -10,6 +10,7 @@ from do_my_work.application.task_handlers import CheckReferenceUrlTaskHandler
 from do_my_work.application.task_keys import make_translate_fragment_task_key
 from do_my_work.application.workflow_engine import WorkflowEngine
 from do_my_work.domain.models import TaskRecord, TaskStatus, TranslateFragmentTaskSpec, WorkspaceConfig
+from do_my_work.infrastructure.json_workflow_store import JsonTaskRepository
 
 
 def test_workflow_engine_selects_translate_fragment_tasks_grouped_by_document() -> None:
@@ -272,6 +273,66 @@ def test_workflow_engine_removes_reference_outputs_when_source_document_disappea
     assert second_run.status == "succeeded"
     assert not (output_dir / "note.references.md").exists()
     assert "note.md" not in (output_dir / "references.index.md").read_text(encoding="utf-8")
+
+
+def test_workflow_engine_removes_reference_output_when_local_exclusion_is_added(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "keep.md").write_text(
+        "# Keep\n\nSee [Alice](https://example.org/alice).\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text(
+        "# Exclude later\n\nSee [Bob](https://example.org/bob).\n",
+        encoding="utf-8",
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert first_run.status == "succeeded"
+    assert (output_dir / "keep.references.md").exists()
+    assert (output_dir / "docs" / "note.references.md").exists()
+    first_index_text = (output_dir / "references.index.md").read_text(encoding="utf-8")
+    assert "keep.md" in first_index_text
+    assert "docs/note.md" in first_index_text
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "reference_index:\n"
+        "  rules:\n"
+        "    - match: \"docs/**/*.md\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="reference_index_tree",
+    )
+
+    assert second_run.status == "succeeded"
+    assert (output_dir / "keep.references.md").exists()
+    assert not (output_dir / "docs" / "note.references.md").exists()
+    second_index_text = (output_dir / "references.index.md").read_text(encoding="utf-8")
+    assert "keep.md" in second_index_text
+    assert "docs/note.md" not in second_index_text
 
 
 def test_workflow_engine_applies_workspace_file_selection_to_reference_index(
@@ -680,6 +741,302 @@ def test_workflow_engine_applies_local_translation_profile_and_exclusion(
     assert "[literary]" in special_output
     assert "Use a narrative tone." in special_output
     assert not (output_dir / "docs" / "drafts" / "skip.md").exists()
+
+
+def test_workflow_engine_removes_translated_output_when_local_exclusion_is_added(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "keep.md").write_text(
+        "# Keep\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text(
+        "# Exclude later\n\nGamma delta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
+
+    translate_call_count = {"value": 0}
+
+    def translate_fragment(self, config, profile_name, parameters):
+        del self, config, profile_name
+        translate_call_count["value"] += 1
+        return str(parameters["input_fragment"]).upper()
+
+    monkeypatch.setattr(
+        OllamaLlmClient,
+        "translate_fragment",
+        translate_fragment,
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "succeeded"
+    assert (output_dir / "keep.md").exists()
+    assert (output_dir / "docs" / "note.md").exists()
+    first_run_translate_call_count = translate_call_count["value"]
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"docs/**/*.md\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert second_run.status == "succeeded"
+    assert translate_call_count["value"] == first_run_translate_call_count
+    assert (output_dir / "keep.md").exists()
+    assert not (output_dir / "docs" / "note.md").exists()
+
+
+def test_workflow_engine_cleans_legacy_translated_output_when_local_exclusion_already_exists(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "keep.md").write_text(
+        "# Keep\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text(
+        "# Exclude later\n\nGamma delta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
+
+    translate_call_count = {"value": 0}
+
+    def translate_fragment(self, config, profile_name, parameters):
+        del self, config, profile_name
+        translate_call_count["value"] += 1
+        return str(parameters["input_fragment"]).upper()
+
+    monkeypatch.setattr(
+        OllamaLlmClient,
+        "translate_fragment",
+        translate_fragment,
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "succeeded"
+    legacy_records = JsonTaskRepository(data_dir / "tasks").list_all()
+    legacy_output_text = (output_dir / "docs" / "note.md").read_text(encoding="utf-8")
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"docs/**/*.md\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert second_run.status == "succeeded"
+    assert not (output_dir / "docs" / "note.md").exists()
+
+    repository = JsonTaskRepository(data_dir / "tasks")
+    for record in legacy_records:
+        repository.save(record)
+    (output_dir / "docs").mkdir(parents=True, exist_ok=True)
+    (output_dir / "docs" / "note.md").write_text(legacy_output_text, encoding="utf-8")
+
+    translate_call_count_before_third_run = translate_call_count["value"]
+    third_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert third_run.status == "succeeded"
+    assert translate_call_count["value"] == translate_call_count_before_third_run
+    assert (output_dir / "keep.md").exists()
+    assert not (output_dir / "docs" / "note.md").exists()
+
+
+def test_workflow_engine_cleans_orphan_translated_merge_task_when_local_exclusion_already_exists(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = tmp_path / "data"
+
+    input_dir.mkdir(parents=True)
+    (input_dir / "keep.md").write_text(
+        "# Keep\n\nAlpha beta.\n",
+        encoding="utf-8",
+    )
+    (input_dir / "docs").mkdir(parents=True)
+    (input_dir / "docs" / "note.md").write_text(
+        "# Exclude later\n\nGamma delta.\n",
+        encoding="utf-8",
+    )
+
+    from do_my_work.domain.models import LlmConfig, TranslatorProfileConfig
+    from do_my_work.infrastructure.llm_client import OllamaLlmClient
+
+    translate_call_count = {"value": 0}
+
+    def translate_fragment(self, config, profile_name, parameters):
+        del self, config, profile_name
+        translate_call_count["value"] += 1
+        return str(parameters["input_fragment"]).upper()
+
+    monkeypatch.setattr(
+        OllamaLlmClient,
+        "translate_fragment",
+        translate_fragment,
+    )
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        llm=LlmConfig(
+            translator={
+                "technical": TranslatorProfileConfig(
+                    url="http://mock.example:11434",
+                    model="ollama-mock",
+                    temperature=0.0,
+                    system_prompt="You are a professional translator.",
+                    user_prompt="${input_fragment}",
+                )
+            }
+        ),
+    )
+
+    first_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert first_run.status == "succeeded"
+    repository = JsonTaskRepository(data_dir / "tasks")
+    legacy_records = repository.list_all()
+    orphan_records = [
+        record
+        for record in legacy_records
+        if record.spec.kind in {"merge_translated_fragments", "translate_fragment"}
+        and getattr(record.spec, "document_relative_path", None) == Path("docs/note.md")
+    ]
+    legacy_output_text = (output_dir / "docs" / "note.md").read_text(encoding="utf-8")
+
+    (input_dir / "do-my-work.yaml").write_text(
+        "version: 1\n"
+        "translation:\n"
+        "  rules:\n"
+        "    - match: \"docs/**/*.md\"\n"
+        "      exclude: true\n",
+        encoding="utf-8",
+    )
+
+    second_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert second_run.status == "succeeded"
+    assert not (output_dir / "docs" / "note.md").exists()
+
+    for record in orphan_records:
+        repository.save(record)
+    (output_dir / "docs").mkdir(parents=True, exist_ok=True)
+    (output_dir / "docs" / "note.md").write_text(legacy_output_text, encoding="utf-8")
+
+    translate_call_count_before_third_run = translate_call_count["value"]
+    third_run = WorkflowEngine().run(
+        config,
+        root=Path("."),
+        request_kind="translate_document_tree",
+        translator_profile="technical",
+    )
+
+    assert third_run.status == "succeeded"
+    assert translate_call_count["value"] == translate_call_count_before_third_run
+    assert (output_dir / "keep.md").exists()
+    assert not (output_dir / "docs" / "note.md").exists()
 
 
 def test_workflow_engine_root_task_key_changes_when_local_policy_changes(

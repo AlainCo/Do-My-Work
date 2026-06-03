@@ -307,6 +307,21 @@ def _remove_orphaned_output_artifacts(
         task_repository.delete(record.task_key)
         return
 
+    if isinstance(spec, MergeTranslatedFragmentsTaskSpec):
+        destination_path = config.output_dir / spec.document_relative_path
+        if destination_path.exists():
+            destination_path.unlink()
+
+        if spec.with_review:
+            review_path = config.output_dir / build_translation_review_path(
+                spec.document_relative_path
+            )
+            if review_path.exists():
+                review_path.unlink()
+
+        task_repository.delete(record.task_key)
+        return
+
     if isinstance(spec, IndexMarkdownReferencesTaskSpec):
         destination_path = config.output_dir / build_reference_report_relative_path(
             spec.relative_path

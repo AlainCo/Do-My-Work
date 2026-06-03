@@ -165,3 +165,39 @@ def test_spurious_file_report_detects_missing_translated_and_resource_outputs(
     assert result.missing_resource_files == [Path("assets/logo.jpeg")]
     assert result.expected_translated_file_count == 1
     assert result.expected_resource_file_count == 1
+
+
+def test_spurious_file_report_ignores_top_level_git_directory_from_workspace_rules(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = output_dir / "work" / "data"
+
+    input_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text("# Intro\n", encoding="utf-8")
+
+    (output_dir / "note.md").write_text("translated", encoding="utf-8")
+    (output_dir / ".git" / "refs" / "heads").mkdir(parents=True)
+    (output_dir / ".git" / "refs" / "heads" / "master").write_text(
+        "ref: refs/heads/master\n",
+        encoding="utf-8",
+    )
+    data_dir.mkdir(parents=True)
+
+    config = WorkspaceConfig(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        data_dir=data_dir,
+        spurious_detection=FileSelectionConfig(
+            default_action="include",
+            rules=[FileSelectionRule(match=".git/**/*", action="exclude")],
+        ),
+    )
+
+    result = SpuriousFileReporter().build_report(config)
+
+    assert result.checked_file_count == 1
+    assert result.ignored_file_count == 1
+    assert result.spurious_files == []

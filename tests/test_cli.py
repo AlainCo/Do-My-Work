@@ -759,6 +759,75 @@ def test_spurious_file_report_command_writes_report_in_input_when_requested(tmp_
     assert not (output_dir / "spurious-files.md").exists()
 
 
+def test_spurious_file_report_command_ignores_top_level_git_files_from_workspace_rules(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    data_dir = output_dir / "work" / "data"
+    config_file = tmp_path / "workspace.yaml"
+
+    input_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True)
+    (input_dir / "note.md").write_text("# Intro\n", encoding="utf-8")
+
+    (output_dir / "note.md").write_text("translated", encoding="utf-8")
+    (output_dir / ".git" / "refs" / "heads").mkdir(parents=True)
+    (output_dir / ".git" / "refs" / "heads" / "master").write_text(
+        "ref: refs/heads/master\n",
+        encoding="utf-8",
+    )
+    data_dir.mkdir(parents=True)
+
+    config_file.write_text(
+        (
+            f"input_dir: {input_dir.as_posix()}\n"
+            f"output_dir: {output_dir.as_posix()}\n"
+            f"data_dir: {data_dir.as_posix()}\n"
+            "spurious_detection:\n"
+            "  default_action: include\n"
+            "  rules:\n"
+            "    - match: .git/**/*\n"
+            "      action: exclude\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "spurious-file-report",
+            "--config",
+            str(config_file),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Checked output files: 1" in result.stdout
+    assert "Ignored output files: 1" in result.stdout
+    assert "Spurious output files: 0" in result.stdout
+    assert "Missing output files: 0" in result.stdout
+    assert (output_dir / "spurious-files.md").read_text(encoding="utf-8") == (
+        "# Spurious Output File Report\n\n"
+        "Root: .\n\n"
+        "- Expected translated documents: 1\n"
+        "- Expected copied resources: 0\n"
+        "- Checked output files: 1\n"
+        "- Ignored output files: 1\n"
+        "- Spurious output files: 0\n"
+        "- Spurious translated documents: 0\n"
+        "- Spurious copied resources: 0\n"
+        "- Other spurious output files: 0\n"
+        "- Missing output files: 0\n"
+        "- Missing translated documents: 0\n"
+        "- Missing copied resources: 0\n\n"
+        "## Spurious Files\n\n"
+        "None.\n\n"
+        "## Missing Files\n\n"
+        "None.\n"
+    )
+
+
 def test_translate_document_tree_command_translates_markdown_fragments(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

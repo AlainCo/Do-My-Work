@@ -32,13 +32,15 @@ resource_selection:
 spurious_detection:
   default_action: include
   rules:
-    - match: "manual/**/*"
-      action: exclude
     - match: "**/*.review.html"
       action: exclude
     - match: "**/*.index.md"
       action: exclude
     - match: "**/*.references.md"
+      action: exclude
+    - match: ".git/**/*"
+      action: exclude
+    - match: ".gitignore"
       action: exclude
 llm:
   translator:

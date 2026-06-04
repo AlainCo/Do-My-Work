@@ -2,7 +2,7 @@
 
 ## Usage
 
-For Llama.cpp you need GGUF files, and you acna download them with a browser from [Hugginface](https://huggingface.co).
+For Llama.cpp you need GGUF files, and you can download them with a browser from [Huggingface](https://huggingface.co).
 
 For Ollama, it can download them from it's registry.
 
@@ -34,10 +34,11 @@ For Ollama, it can download them from it's registry.
 
 ### Huger
 
-## Not yet tested
-
 - [Mistral-Small-3.2-24B-Instruct-2506-UD-Q6_K_XL](https://huggingface.co/unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF)
-  - to be tested soon
+  - some minutes, sometime 5 minutes
+  - 32Go RAM is seldom enough, but it works
+
+## Not yet tested
 
 - [translategemma-4b-it](https://huggingface.co/google/translategemma-4b-it)
 

@@ -1,58 +1,112 @@
-
+@setlocal
 @echo off
 
+:: set mandatory
+:: LLAMA_ARG_MODEL
+:: LLAMA_HOME where the binary is
+
+:: set optionally
+:: LLAMA_ARG_LOG_FILE
+:: LLAMA_ARG_LOG_VERBOSITY
+:: LLAMA_ARG_CACHE_PROMPT  (default enabled)
+:: LLAMA_ARG_HOST (default localhost)
+:: LLAMA_ARG_ENDPOINT_METRICS
+:: LLAMA_ARG_THREADS with your number of core 
+
+
+:: set to change our default
+:: LLAMA_ARG_PORT (we set 8000 by default)
+:: LLAMA_ARG_CTX_SIZE (we set 4096 by default)
+:: LLAMA_ARG_UBATCH (we set 64 by default)
+:: LLAMA_ARG_BATCH (we set 128 by default)
+:: LLAMA_ARG_MLOCK (we set 1 by default)
+:: LLAMA_ARG_CACHE_RAM (we set 2048 by default)
+:: LLAMA_MODEL_DIR (we set to %LLAMA_HOME%\model by default)
+
+
+
+:: ============= base configurion
+:: tcp port
+if "%LLAMA_ARG_PORT%"=="" (
+    echo LLAMA_ARG_PORT environment variable is not set. Set to 8000.
+    set LLAMA_ARG_PORT=8000
+)
+echo Using llamacpp port: %LLAMA_ARG_PORT%
+:: home dir
 if "%LLAMA_HOME%"=="" (
     echo LLAMA_HOME environment variable is not set. Please set it to the path of your llama server installation.
     exit /b 1
 )
 echo Using llamacpp server from LLAMA_HOME: %LLAMA_HOME%
 
-if "%LLAMA_NBCORE%"=="" (
-    echo LLAMA_NBCORE environment variable is not set. Please set it to the number of real processor cores on your llama server installation.
+:: model home
+if "%LLAMA_MODEL_DIR%"=="" (
+    echo LLAMA_MODEL_DIR environment variable is not set. set to %LLAMA_HOME%\model
+    set LLAMA_MODEL_DIR=%LLAMA_HOME%\model
+)
+echo Changing Working Directory to model directory:  %LLAMA_MODEL_DIR%
+cd /d "%LLAMA_MODEL_DIR%"
+if errorlevel 1 (
+    echo Cannot change current directory to %LLAMA_MODEL_DIR% 
     exit /b 1
 )
 
-echo Using llamacpp core number: %LLAMA_NBCORE%
 
-if "%LLAMA_MODEL%"=="" (
-    echo LLAMA_MODEL environment variable is not set. Please set it to the name of the llama model you want to use.
+:: model
+if "%LLAMA_ARG_MODEL%"=="" (
+    echo LLAMA_ARG_MODEL environment variable is not set. Please set it to the name of the llama model you want to use.
+    exit /b 1
+)
+echo Using llamacpp model: %LLAMA_ARG_MODEL%
+if not exist "%LLAMA_ARG_MODEL%" (
+    echo model %LLAMA_ARG_MODEL% does not exist.
     exit /b 1
 )
 
-echo Using llamacpp model: %LLAMA_MODEL%
 
-if "%LLAMA_PORT%"=="" (
-    echo LLAMA_PORT environment variable is not set. Set to 8000.
-    set LLAMA_PORT=8000
+:: ================== performance configuration
+:: context
+if "%LLAMA_ARG_CTX_SIZE%"=="" (
+    echo LLAMA_ARG_CTX_SIZE environment variable is not set. Set to 4096.
+    set LLAMA_ARG_CTX_SIZE=4096
 )
+echo Using llamacpp context size: %LLAMA_ARG_CTX_SIZE%
 
-echo Using llamacpp port: %LLAMA_PORT%
-
-if "%LLAMA_CONTEXT%"=="" (
-    echo LLAMA_CONTEXT environment variable is not set. Set to 4096.
-    set LLAMA_CONTEXT=4096
+::batch size
+if "%LLAMA_ARG_BATCH%"=="" (
+    echo LLAMA_ARG_BATCH environment variable is not set. Set to 64.
+    set LLAMA_ARG_BATCH=128
 )
+echo Using llamacpp ubatch size: %LLAMA_ARG_BATCH%
 
-echo Using llamacpp context size: %LLAMA_CONTEXT%
+::ubatch size
+if "%LLAMA_ARG_UBATCH%"=="" (
+    echo LLAMA_ARG_UBATCH environment variable is not set. Set to 64.
+    set LLAMA_ARG_UBATCH=64
+)
+echo Using llamacpp ubatch size: %LLAMA_ARG_UBATCH%
+
+::ubatch size
+if "%LLAMA_ARG_MLOCK%"=="" (
+    echo LLAMA_ARG_MLOCK environment variable is not set. Set to 1.
+    set LLAMA_ARG_MLOCK=1
+)
+echo Using llamacpp ubatch size: %LLAMA_ARG_UBATCH%
+
+::ram cache size
+if "%LLAMA_ARG_CACHE_RAM%"=="" (
+    echo LLAMA_ARG_CACHE_RAM environment variable is not set. Set to 1.
+    set LLAMA_ARG_CACHE_RAM=1
+)
+echo Using llamacpp ram cache size: %LLAMA_ARG_CACHE_RAM%
 
 
-
-
-set PORT=8000
-set LLAMA_CONTEXT=4096
-rem set LLAMA_MODEL=Ministral-3-3B-Instruct-2512-Q4_K_M.gguf
-rem set LLAMA_MODEL=Ministral-3-8B-Instruct-2512-Q5_K_M.gguf
-rem set LLAMA_MODEL=Ministral-3-14B-Instruct-2512-Q4_K_M.gguf
-
-set APPOPTS=--model "%LLAMA_HOME%\model\%LLAMA_MODEL%" --ctx-size %LLAMA_CONTEXT% 
-set TRACEOPTS=
-rem set TRACEOPTS=%TRACEOPTS% --verbose --metrics 
-set TRACEOPTS=%TRACEOPTS% --log-verbosity 3
-set NETOPTS=--host 127.0.0.1 --port %LLAMA_PORT%
-set PERFOPTS=--threads %LLAMA_NBCORE%  --batch-size 512 --ubatch-size 512  --mlock
-
+:: ==== run openai REST service
+set LLAMA_
 @echo on
-"%LLAMA_HOME%\llama-server.exe" %APPOPTS% %NETOPTS% %PERFOPTS% %TRACEOPTS%
+"%LLAMA_HOME%\llama-server.exe" 
 @echo off
 echo.
 pause
+@endlocal
+

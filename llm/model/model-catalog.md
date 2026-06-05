@@ -33,10 +33,13 @@ For Ollama, it can download them from it's registry.
   - Test done on a PC with 12th Gen Intel(R) Core(TM) i7-1260, 12 cores, 2.1GHz, 32GB RAM, no GPU
 
 ### Huger
+- [Mistral-Small-3.2-24B-Instruct-2506-UD-Q5_K_XL](https://huggingface.co/unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF)
+  - a bit faster than Q6
+  - ok in 32GB
 
 - [Mistral-Small-3.2-24B-Instruct-2506-UD-Q6_K_XL](https://huggingface.co/unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF)
   - some minutes, sometime 5 minutes
-  - 32Go RAM is seldom enough, but it works
+  - 32Gb RAM is seldom enough, but it works
 
 ## Not yet tested
 

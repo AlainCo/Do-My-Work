@@ -59,7 +59,7 @@ llm:
       base:
         - basebackend-llamacpp
       model: Mistral-Small-3.2-24B-Instruct-2506-UD-Q5_K_XL
-      timeout_seconds: 1800
+      timeout_seconds: 2100
     basemodel-huge:
       base:
         - basebackend-llamacpp
@@ -82,15 +82,16 @@ llm:
       timeout_seconds: 300
     basestyle-generic:
       temperature: 0.0
-      max_pre_context_bytes: 500
-      max_post_context_bytes: 500
+      max_pre_context_bytes: 300
+      max_post_context_bytes: 300
       max_input_fragment_bytes: 1000
-      max_total_text_bytes: 2000
+      max_total_text_bytes: 1500
       system_prompt: |
         **ROLE**: You are a **strict** French → English automatic translator. **Only translate**.
         
         **ABSOLUTE RULES**:
-        1. **Translate ONLY** the content of `SOURCE TEXT`.
+        1. **Translate ONLY** the content of `SOURCE TEXT`. 
+          * **NEVER** output the `SOURCE TEXT` tags themselves.
         2. Use `PREVIOUS CONTEXT` and `FOLLOWING CONTEXT` **only** to resolve ambiguities (e.g., pronouns, technical terms). **Do not translate them or include them** in the output.
         3. **Formatting**:
             * Keep **intact**: linefeed, Markdown, Mermaid, HTML tags, code blocks (\`\`\`).
@@ -100,8 +101,8 @@ llm:
               * eg: [Un navire bleu](vaisseaux/un-navire-bleu.md)  → [A blue ship](vaisseaux/un-cheval-bleu.md)
               * eg: https://un-site-francais.fr/une-page-sur-la-marine.html#chapitre1 → https://un-site-francais.fr/une-page-sur-la-marine.html#chapitre1
         4. **Output**:
-            * **ONLY** the translation in Markdown, **with no additions** (no comments, explanations, variants, or greetings).
-
+            * **ONLY** the translation in Markdown, **with no additions** (no additional tags, comments, explanations, variants, or greetings).
+            
         **STYLE GUIDELINES**:
         * Give **priority** to the guidance in the `TRANSLATION HINTS` section.
         * **Tone**: Educational and fluent **by default**, but **adapt to the original register**:
@@ -141,8 +142,8 @@ llm:
         **ROLE**: You are a **strict** French → English automatic translator. **Only translate**.
         
         **ABSOLUTE RULES**:
-        1. **Translate ONLY** the content of `SOURCE TEXT`.
-        2. Use `PREVIOUS CONTEXT` and `FOLLOWING CONTEXT` **only** to resolve ambiguities (e.g., pronouns, technical terms). **Do not translate them or include them** in the output.
+        1. **Translate ONLY** the content of `SOURCE TEXT`. 
+          * **NEVER** output the `SOURCE TEXT` tags themselves.
         3. **Formatting**:
             * Keep **intact**: linefeed, Markdown, Mermaid, HTML tags, code blocks (\`\`\`).
             * Keep **intact**: tables, and figures (except labels to be translated).
@@ -151,7 +152,7 @@ llm:
               * eg: [Un navire bleu](vaisseaux/un-navire-bleu.md)  → [A blue ship](vaisseaux/un-cheval-bleu.md)
               * eg: https://un-site-francais.fr/une-page-sur-la-marine.html#chapitre1 → https://un-site-francais.fr/une-page-sur-la-marine.html#chapitre1
         4. **Output**:
-            * **ONLY** the translation in Markdown, **with no additions** (no comments, explanations, variants, or greetings).
+            * **ONLY** the translation in Markdown, **with no additions** (no additional tags, comments, explanations, variants, or greetings).
 
         **STYLE GUIDELINES**:
         * Give **priority** to the guidance in the `TRANSLATION HINTS` section.

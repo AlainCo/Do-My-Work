@@ -43,13 +43,15 @@ For Ollama, it can download them from it's registry.
 
 ## Not yet tested
 
+- [Mistral-Nemo-Instruct-2407](https://huggingface.co/bartowski/Mistral-Nemo-Instruct-2407-GGUF)
+
 - [translategemma-4b-it](https://huggingface.co/google/translategemma-4b-it)
 
-- [Riva-Translate-4B-Instruct-v1.1-i1-GGUF](https://huggingface.co/mradermacher/Riva-Translate-4B-Instruct-v1.1-i1-GGUF)
+- [Riva-Translate-4B-Instruct-v1.1-i1](https://huggingface.co/mradermacher/Riva-Translate-4B-Instruct-v1.1-i1-GGUF)
 
-- [GemmaTranslate-v3-12B-GGUF](https://huggingface.co/mradermacher/GemmaTranslate-v3-12B-GGUF)
+- [GemmaTranslate-v3-12B](https://huggingface.co/mradermacher/GemmaTranslate-v3-12B-GGUF)
 
 ## Rejected
 
-- [QWEN2.5-32B-Translation-GGUF](https://huggingface.co/mradermacher/QWEN2.5-32B-Translation-GGUF)
-  - produced some chinese despite french prompt
+- [QWEN2.5-32B-Translation](https://huggingface.co/mradermacher/QWEN2.5-32B-Translation-GGUF)
+  - produced some chinese characters despite french prompt
